@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCR-04: Student Assessment Arena</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        canvas: '#0A1128',
+                        surface: '#1C2541',
+                        borders: '#2A375A',
+                        primary: '#00E5FF',
+                        success: '#00E676',
+                        warning: '#FFD600',
+                        mainText: '#F8F9FA',
+                        mutedText: '#8D99AE'
+                    },
+                    fontFamily: {
+                        ui: ['ui-sans-serif', 'system-ui', 'sans-serif'],
+                        code: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: theme('colors.canvas');
+            color: theme('colors.mainText');
+            font-family: theme('fontFamily.ui');
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: theme('colors.canvas');
+        }
+        ::-webkit-scrollbar-thumb {
+            background: theme('colors.borders');
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: theme('colors.mutedText');
+        }
+    </style>
+</head>
+<body class="bg-canvas text-mainText h-screen w-screen overflow-hidden flex flex-col text-sm">
+
+    <!-- Top Navigation -->
+    <header class="h-14 border-b border-borders bg-surface flex items-center justify-between px-4 shrink-0">
+        <div class="flex items-center gap-6">
+            <div class="text-primary font-bold text-lg tracking-wider" onclick="window.location.href='../scr-02-student-learning-hub/index.html'" style="cursor:pointer">SYNORA</div>
+            
+            <nav class="flex items-center text-mutedText space-x-2">
+                <span>Assessments</span>
+                <span>/</span>
+                <span class="text-mainText font-medium">Module 2 Quiz: Functions</span>
+            </nav>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <!-- Progress Status -->
+            <div class="flex items-center gap-3 bg-canvas px-4 py-1.5 rounded border border-borders">
+                <span class="text-xs text-mutedText">Question 4 of 10</span>
+                <div class="w-24 h-1.5 bg-borders rounded-full overflow-hidden">
+                    <div class="h-full bg-primary w-[40%]"></div>
+                </div>
+            </div>
+
+            <!-- Profile Avatar -->
+            <div class="w-8 h-8 rounded-full bg-primary/20 border border-primary flex items-center justify-center text-primary font-bold ml-2 cursor-pointer">
+                SJ
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 flex overflow-hidden">
+        
+        <!-- Left Pane: Question / Task -->
+        <aside class="w-1/3 min-w-[350px] border-r border-borders bg-canvas flex flex-col shrink-0 overflow-y-auto">
+            
+            <div class="p-6 space-y-6">
+                <!-- Assessment Title & Instructions -->
+                <div class="border-b border-borders pb-4">
+                    <h1 class="text-2xl font-bold mb-2 text-mainText">Practical Coding Task</h1>
+                    <p class="text-mutedText leading-relaxed text-sm">
+                        Read the instructions carefully and implement the required functionality in the editor.
+                    </p>
+                </div>
+
+                <!-- Question / Task Area -->
+                <div class="space-y-4">
+                    <h2 class="text-lg font-bold">Q4: Sum of Even Numbers</h2>
+                    
+                    <div class="bg-surface/50 border border-borders rounded p-4 text-sm leading-relaxed space-y-3">
+                        <p>Write a C function named <code>sum_even</code> that takes an array of integers and its size as arguments, and returns the sum of all <strong>even</strong> numbers in the array.</p>
+                        
+                        <div>
+                            <span class="font-bold text-xs uppercase tracking-wide text-mutedText block mb-1">Example Input</span>
+                            <code class="bg-canvas px-2 py-1 rounded border border-borders text-xs">[1, 2, 3, 4, 5, 6]</code>
+                        </div>
+                        
+                        <div>
+                            <span class="font-bold text-xs uppercase tracking-wide text-mutedText block mb-1">Expected Output</span>
+                            <code class="bg-canvas px-2 py-1 rounded border border-borders text-xs text-success">12</code> <span class="text-xs text-mutedText ml-1">(since 2 + 4 + 6 = 12)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Attempt / Progress Status -->
+                <div class="pt-6">
+                    <div class="bg-surface border border-borders rounded-lg p-4">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-mutedText mb-3">Attempt Status</h3>
+                        <ul class="space-y-2 text-sm">
+                            <li class="flex justify-between items-center">
+                                <span class="text-mutedText">Time Elapsed:</span>
+                                <span class="font-mono text-mainText">14:22</span>
+                            </li>
+                            <li class="flex justify-between items-center">
+                                <span class="text-mutedText">Submissions:</span>
+                                <span><span class="text-mainText">1</span> / 3 allowed</span>
+                            </li>
+                            <li class="flex justify-between items-center mt-2 pt-2 border-t border-borders">
+                                <span class="text-mutedText">Previous Result:</span>
+                                <span class="text-warning text-xs font-bold bg-warning/10 px-2 py-0.5 rounded">Partial Success</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Right Pane: Practical Workspace (Editor & Results) -->
+        <section class="flex-1 flex flex-col bg-surface">
+            
+            <!-- Editor Toolbar -->
+            <div class="h-12 border-b border-borders bg-surface flex items-center justify-between px-4 shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="bg-canvas border border-borders text-mainText text-xs rounded px-3 py-1.5 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                        C (GCC 11)
+                    </div>
+                    <span class="text-xs text-mutedText px-2 border-l border-borders">main.c</span>
+                </div>
+                
+                <div class="flex items-center gap-3">
+                    <button class="px-4 py-1.5 text-xs bg-canvas border border-borders text-mainText hover:bg-surface rounded transition-colors flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        Run Tests
+                    </button>
+                    <button class="px-5 py-1.5 text-xs bg-primary text-canvas font-bold rounded hover:bg-primary/90 transition-colors shadow-[0_0_10px_rgba(0,229,255,0.3)]">
+                        Submit Answer
+                    </button>
+                </div>
+            </div>
+
+            <!-- Code Editor Area -->
+            <div class="flex-1 bg-canvas p-4 font-code text-sm overflow-auto relative flex">
+                <!-- Fake line numbers -->
+                <div class="w-10 border-r border-borders text-mutedText text-right pt-4 shrink-0 select-none bg-surface/30">
+                    <div class="pr-2">1</div>
+                    <div class="pr-2">2</div>
+                    <div class="pr-2">3</div>
+                    <div class="pr-2">4</div>
+                    <div class="pr-2">5</div>
+                    <div class="pr-2">6</div>
+                    <div class="pr-2">7</div>
+                    <div class="pr-2">8</div>
+                    <div class="pr-2">9</div>
+                    <div class="pr-2">10</div>
+                </div>
+                <!-- Fake Code -->
+                <div class="pl-4 pt-4 space-y-1 overflow-auto w-full text-nowrap">
+                    <div><span class="text-mutedText">#include</span> <span class="text-success">&lt;stdio.h&gt;</span></div>
+                    <br>
+                    <div><span class="text-primary">int</span> <span class="text-warning">sum_even</span>(<span class="text-primary">int</span> arr[], <span class="text-primary">int</span> size) {</div>
+                    <div class="pl-4"><span class="text-primary">int</span> sum = <span class="text-[#FFD600]">0</span>;</div>
+                    <div class="pl-4"><span class="text-primary">for</span> (<span class="text-primary">int</span> i = <span class="text-[#FFD600]">0</span>; i &lt; size; i++) {</div>
+                    <div class="pl-8"><span class="text-primary">if</span> (arr[i] % <span class="text-[#FFD600]">2</span> == <span class="text-[#FFD600]">0</span>) {</div>
+                    <div class="pl-12">sum += arr[i];</div>
+                    <div class="pl-8">}</div>
+                    <div class="pl-4">}</div>
+                    <div class="pl-4"><span class="text-primary">return</span> sum;</div>
+                    <div>}</div>
+                </div>
+            </div>
+
+            <!-- Results / Feedback Area -->
+            <div class="h-64 border-t border-borders bg-surface flex flex-col shrink-0">
+                <div class="flex items-center px-4 py-2 border-b border-borders text-xs font-medium text-mutedText bg-surface/80 gap-4">
+                    <span class="hover:text-mainText cursor-pointer">Console</span>
+                    <span class="text-mainText border-b-2 border-primary pb-2 -mb-2">Test Results (2/3 Passed)</span>
+                </div>
+                <div class="flex-1 p-4 overflow-auto bg-canvas/50">
+                    <div class="space-y-3">
+                        
+                        <!-- Test Case 1: Pass -->
+                        <div class="bg-surface border border-borders rounded p-3">
+                            <div class="flex items-center gap-2 mb-2 text-success text-sm font-bold">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                Test Case 1: Standard Array
+                            </div>
+                            <div class="text-xs text-mutedText font-code">Input: [1, 2, 3, 4, 5, 6], Size: 6</div>
+                            <div class="text-xs text-mutedText font-code">Expected: 12 | Actual: 12</div>
+                        </div>
+
+                        <!-- Test Case 2: Pass -->
+                        <div class="bg-surface border border-borders rounded p-3">
+                            <div class="flex items-center gap-2 mb-2 text-success text-sm font-bold">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                                Test Case 2: All Evens
+                            </div>
+                            <div class="text-xs text-mutedText font-code">Input: [2, 4, 6], Size: 3</div>
+                            <div class="text-xs text-mutedText font-code">Expected: 12 | Actual: 12</div>
+                        </div>
+
+                        <!-- Test Case 3: Fail -->
+                        <div class="bg-surface border border-warning/50 rounded p-3">
+                            <div class="flex items-center gap-2 mb-2 text-warning text-sm font-bold">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                Test Case 3: Negative Numbers (Hidden)
+                            </div>
+                            <div class="text-xs text-mutedText font-code">Input: [Hidden]</div>
+                            <div class="text-xs text-mutedText font-code">Feedback: Ensure your logic correctly handles negative integers.</div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+</body>
+</html>
