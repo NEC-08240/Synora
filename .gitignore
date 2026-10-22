@@ -38,3 +38,4 @@ Thumbs.db
 
 # Agent bridge job records and worktrees (local only)
 .agents/pipeline/
+__pycache__/
