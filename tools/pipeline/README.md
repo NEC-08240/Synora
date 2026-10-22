@@ -1,44 +1,48 @@
-# Synora agent bridge (proof of concept)
+# Synora agent bridge
 
-Lets Antigravity hand a documentation task to Claude Code and read back the result.
+Lets Antigravity hand a task to Claude Code, verify it, have it reviewed, and read back the result.
+Design and security model: [docs/architecture/agent-bridge.md](../../docs/architecture/agent-bridge.md).
 
-```text
-Antigravity → MCP (server.py) → bridge.py → Claude Code (claude -p)
-                                   ↓
-                     job record in .agents/pipeline/jobs/
-                                   ↓
-                     Antigravity reads it with get_status / get_result
-```
-
-## Tools
+## Tools (MCP server `synora-bridge`)
 
 | Tool | Purpose |
 |---|---|
-| `submit_task(task, task_type="docs", working_dir=".")` | Starts a job in the background and returns its `job_id`. |
-| `get_status(job_id)` | Returns the job's status and timestamps. |
-| `get_result(job_id)` | Returns the full record: Claude's result, changed files, and diff. |
+| `submit_task(task, task_type="docs", working_dir=".", target_job_id=None)` | Starts a job in the background and returns its `job_id`. |
+| `get_status(job_id)` | Returns status, task type, timestamps, `error`, and `cleanup_error`. |
+| `get_result(job_id)` | Returns the full record: Claude result, changed files, diff, verification, review. |
 
-## Safety rules
-
-- Claude runs in a detached git worktree under `.agents/pipeline/worktrees/`. Nothing is committed, pushed, or merged.
-- Only `docs/agent-bridge/` may change. Any other change marks the job FAILED.
-- Claude has only `Read`, `Write`, `Edit`, `Glob`, `Grep`. No shell, no MCP servers, and no user-level hooks or plugins (`--setting-sources project`).
-- Job IDs must be canonical UUIDs. `working_dir` must be relative and stay inside the worktree.
-- Job records and worktrees are gitignored.
-- The mock path from CIPHER is not included.
+Task types: `docs` (writes under `docs/agent-bridge/`), `code` (writes under `frontend/`, `backend/`, `database/`, `tests/`, and must pass verification), `review` (read-only, needs `target_job_id` of a finished job).
 
 ## Run
 
 ```bash
-python -m tools.pipeline.server          # from the repo root
-python -m unittest tools.pipeline.test_bridge -v
+python -m tools.pipeline.server                      # from the repo root (MCP stdio)
+python -m unittest tools.pipeline.test_bridge -v     # tests (no external services)
 ```
 
 Requires the `mcp` Python package (v2) and the Claude Code CLI on PATH.
 
+Antigravity registration (`~/.gemini/config/mcp_config.json`):
+
+```json
+"synora-bridge": {
+  "command": "C:\\Python314\\python.exe",
+  "args": ["-m", "tools.pipeline.server"],
+  "cwd": "C:\\Users\\Johan Joseph\\Documents\\Synora-worktrees\\agent-bridge-poc"
+}
+```
+
+## Verification
+
+- `code` tasks need verification commands. The server currently configures none, so `code` jobs FAIL with `NOT_CONFIGURED`. This is deliberate until Synora has a test suite.
+- `docs` tasks record `SCOPE_ONLY`: the path check passed, and no test command was run.
+- Commands are configured in code (`Bridge(verify_commands=...)`), never from the task text.
+
 ## Known limits
 
-- Jobs run in background threads. A server restart marks running jobs FAILED.
-- Records are not encrypted. They hold Claude's output, which may contain whatever Claude read.
-- The "bridge checkout unchanged" check only covers the checkout the server runs from.
-- Nothing merges results back. The owner applies changes by hand.
+- Run one server per records directory. On start, every unfinished job is marked FAILED, including jobs owned by another running server. Do not start a second MCP client while jobs are running.
+- Jobs run in background threads. A server restart marks unfinished jobs FAILED, but their worktrees may stay on disk.
+- Review tasks use the reviewed job's base commit. Jobs recorded before base commits were stored fall back to HEAD.
+- Records are plain JSON and may hold Claude's output and task text.
+- The reviewer reads the diff from the prompt, and the diff may contain instructions. The reviewer is read-only, but its verdict is only as good as the model.
+- Nothing merges or commits. The owner applies changes by hand.
