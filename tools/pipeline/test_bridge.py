@@ -18,6 +18,7 @@ from unittest import mock
 from . import bridge as bridge_module
 from . import server as server_module
 from .bridge import IMPLEMENT_TOOLS, REVIEW_TOOLS, Bridge
+from .records import DirectoryOwner
 
 PY = sys.executable
 PASSING_COMMAND = [PY, "-c", "pass"]
@@ -42,7 +43,7 @@ class FakeClaude:
             p.relative_to(cwd).as_posix() for p in Path(cwd).rglob("*")
             if p.is_file() and ".git" not in p.relative_to(cwd).parts
         )
-        self.calls.append({"tools": tools, "permission_mode": permission_mode, "seen_files": seen})
+        self.calls.append({"tools": tools, "permission_mode": permission_mode, "seen_files": seen, "prompt": prompt})
         result = self.text
         if tools == REVIEW_TOOLS:
             if self.review_write:
@@ -72,6 +73,13 @@ class BridgeTest(unittest.TestCase):
 
     def tearDown(self):
         self._tmp.cleanup()
+
+    def _recover(self, bridge):
+        owner = DirectoryOwner(bridge.records_dir).acquire()
+        try:
+            return bridge.recover_abandoned(owner)
+        finally:
+            owner.release()
 
     def _git(self, *args):
         return subprocess.run(["git", *args], cwd=self.repo, capture_output=True, text=True, check=True).stdout
@@ -209,6 +217,18 @@ class BridgeTest(unittest.TestCase):
         self.assertIn("too large to review", review["error"])
         self.assertFalse(target["diff_truncated"])
 
+    def test_oversized_implementation_diff_fails_instead_of_a_partial_review(self):
+        bridge = self._bridge(FakeClaude(write="docs/agent-bridge/x.md"))
+        with mock.patch.object(bridge_module, "MAX_DIFF_CHARS", 5):
+            job_id = bridge.create("Write it.", "docs")["job_id"]
+            bridge.execute(job_id)
+
+        record = bridge.get(job_id)
+        self.assertEqual(record["status"], "FAILED")
+        self.assertIn("too large to review in full", record["error"])
+        self.assertTrue(record["diff_truncated"])
+        self.assertIsNone(record["review"])
+
     def test_review_task_needs_a_finished_target(self):
         bridge = self._bridge(FakeClaude())
         with self.assertRaises(ValueError):
@@ -254,7 +274,7 @@ class BridgeTest(unittest.TestCase):
         try:
             bridge = self._bridge(FakeClaude(write="docs/agent-bridge/test.md"))
             record = self._run(bridge, "Write it.")
-            stored = bridge._record_path(record["job_id"]).read_text(encoding="utf-8")
+            stored = bridge.store._path(record["job_id"]).read_text(encoding="utf-8")
         finally:
             del os.environ["SYNORA_BRIDGE_TEST_SECRET"]
 
@@ -269,14 +289,14 @@ class BridgeTest(unittest.TestCase):
         self.assertEqual(record["cleanup_error"], "")
 
     def test_cleanup_failure_is_recorded_not_ignored(self):
-        real_git = bridge_module._git
+        real_git = Bridge._git
 
-        def failing_remove(args, cwd):
+        def failing_remove(bridge, args, cwd):
             if args[:2] == ["worktree", "remove"]:
                 raise RuntimeError("remove blocked")
-            return real_git(args, cwd)
+            return real_git(bridge, args, cwd)
 
-        with mock.patch.object(bridge_module, "_git", side_effect=failing_remove):
+        with mock.patch.object(Bridge, "_git", new=failing_remove):
             record = self._run(self._bridge(FakeClaude(write="docs/agent-bridge/test.md")), "Write it.")
 
         self.assertEqual(record["status"], "SUCCEEDED")
@@ -292,11 +312,11 @@ class BridgeTest(unittest.TestCase):
         bridge = self._bridge(FakeClaude())
         job_id = bridge.create("Write it.")["job_id"]
         bridge._transition(job_id, "RUNNING")
-        bridge.mark_interrupted()
+        self._recover(bridge)
 
         record = bridge.get(job_id)
         self.assertEqual(record["status"], "FAILED")
-        self.assertIn("Server restarted", record["error"])
+        self.assertIn("Recovered at server start", record["error"])
 
     def test_parallel_jobs_stay_isolated(self):
         bridge = self._bridge(FakeClaude())
@@ -342,7 +362,7 @@ class BridgeTest(unittest.TestCase):
             "diff": legacy_patch, "error": "",
         }
         bridge = self._bridge(FakeClaude())
-        bridge._save(legacy)
+        bridge.store.write_new(legacy)
         self.assertEqual(bridge.get(legacy_id)["status"], "SUCCEEDED")
 
         claude = FakeClaude()
@@ -354,7 +374,7 @@ class BridgeTest(unittest.TestCase):
     def test_status_tool_handles_poc_era_record(self):
         legacy_id = str(uuid.uuid4())
         bridge = self._bridge(FakeClaude())
-        bridge._save({"job_id": legacy_id, "task": "t", "task_type": "docs", "status": "SUCCEEDED"})
+        bridge.store.write_new({"job_id": legacy_id, "task": "t", "task_type": "docs", "status": "SUCCEEDED"})
         original = server_module.bridge
         server_module.bridge = bridge
         try:
@@ -366,14 +386,14 @@ class BridgeTest(unittest.TestCase):
         self.assertIsNone(reply["cleanup_error"])
 
     def test_missing_git_fails_the_job_instead_of_leaving_it_running(self):
-        real_git = bridge_module._git
+        real_git = Bridge._git
 
-        def broken_status(args, cwd):
+        def broken_status(bridge, args, cwd):
             if args[:1] == ["status"]:
                 raise FileNotFoundError("git not found")
-            return real_git(args, cwd)
+            return real_git(bridge, args, cwd)
 
-        with mock.patch.object(bridge_module, "_git", side_effect=broken_status):
+        with mock.patch.object(Bridge, "_git", new=broken_status):
             record = self._run(self._bridge(FakeClaude(write="docs/agent-bridge/x.md")), "Write it.")
 
         self.assertEqual(record["status"], "FAILED")
@@ -394,7 +414,7 @@ class BridgeTest(unittest.TestCase):
         bridge = self._bridge(FakeClaude())
         job_id = bridge.create("Write it.")["job_id"]
         bridge._transition(job_id, "RUNNING")
-        bridge.mark_interrupted()
+        self._recover(bridge)
         bridge._fail(job_id, "late error")
 
         record = bridge.get(job_id)
