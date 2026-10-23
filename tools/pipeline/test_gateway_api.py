@@ -164,10 +164,26 @@ class TestGatewayAPI(unittest.TestCase):
         self.assertEqual(cancel_res.status_code, 200)
         self.assertEqual(cancel_res.json()['status'], 'CANCELLED')
 
+    def test_worker_status_requires_authentication(self):
+        self.assertEqual(self.client.get('/worker/status').status_code, 401)
+        self.assertEqual(self.client.get('/worker/status', headers={'Authorization': 'Bearer not-a-token'}).status_code, 401)
+
     def test_worker_status_endpoint(self):
-        res = self.client.get('/worker/status')
+        token = self._authenticate('alice', self.dev_priv)
+        res = self.client.get('/worker/status', headers={'Authorization': f'Bearer {token}'})
         self.assertEqual(res.status_code, 200)
         self.assertIn('workers', res.json())
+
+    def test_enrolled_worker_is_offline_until_it_heartbeats_and_offline_again_when_stale(self):
+        self.worker_registry.enroll('worker-x', base64.b64encode(ed25519.Ed25519PrivateKey.generate().public_key().public_bytes_raw()).decode())
+        token = self._authenticate('alice', self.dev_priv)
+        fetch = lambda: next(w for w in self.client.get('/worker/status', headers={'Authorization': f'Bearer {token}'}).json()['workers'] if w['worker_id'] == 'worker-x')
+
+        self.assertFalse(fetch()['online'])
+        self.gateway.queue.heartbeat_worker('worker-x')
+        self.assertTrue(fetch()['online'])
+        self.gateway.worker_online_window_seconds = 0.0
+        self.assertFalse(fetch()['online'])
 
 
 if __name__ == '__main__':
