@@ -5,6 +5,8 @@ Configuration (environment or flags):
     SYNORA_DEVELOPER_ID       your developer id
     SYNORA_DEVELOPER_KEY_FILE path to your private key file (from admin_cli keygen)
     SYNORA_CA_CERT            only for a self-signed Gateway: the .crt Johan gave you
+    SYNORA_WORKER_PUBLIC_KEY  Johan's Worker public key (a .pub file or base64), obtained from Johan and not
+                              from the Gateway. Results are only trusted after their signature verifies.
 
     python -m tools.pipeline.teammate_cli smoke
     python -m tools.pipeline.teammate_cli submit "Create docs/agent-bridge/note.md with one sentence."
@@ -24,7 +26,8 @@ import time
 import httpx
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
-from .remote_shim import RemoteGatewayClient
+from .remote_shim import RemoteGatewayClient, default_base_commit, load_worker_public_key
+from .result_envelope import AttestationError
 
 TERMINAL = {"SUCCEEDED", "FAILED", "ESCALATED", "CANCELLED", "EXPIRED"}
 SMOKE_TASK = "Create docs/agent-bridge/connectivity-check.md with one sentence saying the Synora connectivity check ran."
@@ -47,6 +50,16 @@ def _client(args):
     return RemoteGatewayClient(url, developer_id, key, ca_certfile=ca_cert), ca_cert or True
 
 
+def _worker_key(args):
+    spec = args.worker_public_key or os.environ.get("SYNORA_WORKER_PUBLIC_KEY")
+    if not spec:
+        raise SystemExit("Missing configuration: --worker-public-key / SYNORA_WORKER_PUBLIC_KEY (ask Johan for the Worker's public key)")
+    try:
+        return load_worker_public_key(spec)
+    except ValueError as err:
+        raise SystemExit(str(err))
+
+
 def _wait(client, job_id, timeout):
     deadline = time.time() + timeout
     status = {}
@@ -63,7 +76,7 @@ def _step(label, ok, detail=""):
     return ok
 
 
-def smoke(client, verify, branch, timeout):
+def smoke(client, verify, branch, timeout, worker_key, base_commit=None):
     try:
         token = client.authenticate()
     except Exception as err:
@@ -78,7 +91,7 @@ def smoke(client, verify, branch, timeout):
         print("Ask Johan to start the Worker, then run this again.")
         return 3
 
-    submitted = client.submit_task(SMOKE_TASK, task_type="docs", branch=branch)
+    submitted = client.submit_task(SMOKE_TASK, task_type="docs", branch=branch, base_commit=base_commit)
     if not _step("Job accepted by the Gateway", bool(submitted.get("success")), str(submitted.get("job_id") or submitted.get("error"))):
         return 4
     job_id = submitted["job_id"]
@@ -86,26 +99,31 @@ def smoke(client, verify, branch, timeout):
     if not _step("Job finished", final.get("status") in TERMINAL, str(final.get("status"))):
         print(f"The job is still {final.get('status')}. Check later with: status {job_id}")
         return 5
-    result = client.get_result(job_id)
+    try:
+        result = client.get_verified_result(job_id, worker_key)
+    except AttestationError as err:
+        _step("Worker signature on the result verifies", False, str(err))
+        return 7
+    _step("Worker signature on the result verifies", True)
     ok = result.get("status") == "SUCCEEDED"
     _step("Result returned through the Gateway", ok, f"status={result.get('status')} files={result.get('changed_files')}")
-    if not ok:
-        print("error:", result.get("error"))
     return 0 if ok else 6
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    for flag in ("--url", "--developer-id", "--key-file", "--ca-cert"):
+    for flag in ("--url", "--developer-id", "--key-file", "--ca-cert", "--worker-public-key"):
         parser.add_argument(flag)
     sub = parser.add_subparsers(dest="command", required=True)
     s = sub.add_parser("smoke")
     s.add_argument("--branch", default="feature/connectivity-check")
     s.add_argument("--timeout", type=int, default=300)
+    s.add_argument("--base-commit", help="A commit in the Worker repository's history. Default: this checkout's HEAD.")
     s = sub.add_parser("submit")
     s.add_argument("task")
     s.add_argument("--task-type", default="docs", choices=["docs", "code", "review"])
     s.add_argument("--branch", default="feature/task")
+    s.add_argument("--base-commit", help="A commit in the Worker repository's history. Default: this checkout's HEAD.")
     for name in ("status", "result"):
         s = sub.add_parser(name)
         s.add_argument("job_id")
@@ -113,13 +131,17 @@ def main(argv=None):
 
     client, verify = _client(args)
     if args.command == "smoke":
-        return smoke(client, verify, args.branch, args.timeout)
+        return smoke(client, verify, args.branch, args.timeout, _worker_key(args), args.base_commit or default_base_commit())
     if args.command == "submit":
-        print(json.dumps(client.submit_task(args.task, task_type=args.task_type, branch=args.branch), indent=2))
+        print(json.dumps(client.submit_task(args.task, task_type=args.task_type, branch=args.branch, base_commit=args.base_commit), indent=2))
     elif args.command == "status":
         print(json.dumps(client.get_status(args.job_id), indent=2))
     else:
-        print(json.dumps(client.get_result(args.job_id), indent=2))
+        try:
+            print(json.dumps(client.get_verified_result(args.job_id, _worker_key(args)), indent=2))
+        except AttestationError as err:
+            print(f"error: result NOT verified: {err}", file=sys.stderr)
+            return 7
     return 0
 
 

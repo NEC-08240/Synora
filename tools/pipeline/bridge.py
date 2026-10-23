@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 from .executables import CLAUDE_ENV, GIT_ENV, resolve_executable
-from .metadata import MAX_TASK_CHARS, validate_branch, validate_developer_id, validate_repository
+from .metadata import MAX_TASK_CHARS, validate_base_commit, validate_branch, validate_developer_id, validate_repository
 from .records import RecordCorrupt, RecordStore, canonical_job_id
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -379,12 +379,15 @@ class Bridge:
             raise ValueError("target_job_id must be a finished job.")
         return target["job_id"]
 
-    def create(self, task, task_type="docs", working_dir=".", target_job_id=None, developer_id=None, repository=None, branch=None):
+    def create(self, task, task_type="docs", working_dir=".", target_job_id=None, developer_id=None, repository=None, branch=None, base_commit=None):
         task, working_dir = _validate_task(task, task_type, working_dir)
         if developer_id is not None:
             developer_id = validate_developer_id(developer_id)
         repository = validate_repository(repository)
         branch = validate_branch(branch)
+        base_commit = validate_base_commit(base_commit)
+        if base_commit is not None:
+            base_commit = self.resolve_base(base_commit)
         target_job_id = self._validate_target(task_type, target_job_id)
         now = _now()
         record = {
@@ -404,7 +407,7 @@ class Bridge:
             "claude_result": "",
             "changed_files": [],
             "diff": "",
-            "base_commit": None,
+            "base_commit": base_commit,
             "diff_truncated": False,
             "verification": None,
             "review": None,
@@ -496,12 +499,23 @@ class Bridge:
         else:
             self._transition(job_id, STATUS_FAILED, error=message, finished_at=_now())
 
+    def resolve_base(self, requested):
+        """Full SHA of a requested base. It must already be in this checkout's current history, so a job cannot reach other branches."""
+        try:
+            full = self._git(["rev-parse", "--verify", "--quiet", requested + "^{commit}"], self.repo).strip()
+            self._git(["merge-base", "--is-ancestor", full, "HEAD"], self.repo)
+        except (RuntimeError, subprocess.CalledProcessError):
+            raise ValueError("base_commit is not a commit in the Worker repository's current history.") from None
+        return full
+
     def _base_commit(self, record):
         """Review worktrees start from the reviewed job's base, so the stored patch applies cleanly."""
         if record["task_type"] == "review":
             target_base = self.get(record["target_job_id"]).get("base_commit")
             if target_base:
                 return target_base
+        if record.get("base_commit"):
+            return record["base_commit"]
         return self._git(["rev-parse", "HEAD"], self.repo).strip()
 
     def _run_stages(self, record, worktree):

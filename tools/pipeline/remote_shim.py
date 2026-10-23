@@ -3,6 +3,7 @@ import base64
 import contextlib
 import json
 import os
+import subprocess
 import sys
 import time
 from typing import Any, Dict, Optional
@@ -10,6 +11,28 @@ from typing import Any, Dict, Optional
 import httpx
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from mcp.server.mcpserver import MCPServer
+
+from .result_envelope import AttestationError, verify_result_response
+
+def default_base_commit(cwd: Optional[str] = None) -> str:
+    """The commit the caller's own checkout is on. The Worker only accepts a commit in its repository's history."""
+    try:
+        out = subprocess.run(['git', 'rev-parse', 'HEAD'], cwd=cwd, capture_output=True, text=True, check=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        raise ValueError('No base_commit given and this is not a git checkout. Pass base_commit explicitly.') from None
+    return out.stdout.strip()
+
+
+def load_worker_public_key(spec: str) -> ed25519.Ed25519PublicKey:
+    """Load the Worker's public key from a .pub file or a base64 string obtained from Johan, not from the Gateway."""
+    if os.path.isfile(spec):
+        with open(spec, 'r', encoding='utf-8') as handle:
+            spec = handle.read()
+    try:
+        return ed25519.Ed25519PublicKey.from_public_bytes(base64.b64decode(spec.strip(), validate=True))
+    except Exception:
+        raise ValueError('The Worker public key must be a base64 Ed25519 key or a file containing one.') from None
+
 
 STATUS_FIELDS = (
     'job_id',
@@ -91,12 +114,13 @@ class RemoteGatewayClient:
         task: str,
         task_type: str = 'docs',
         branch: str = 'feature/task',
-        base_commit: str = 'abc1234',
+        base_commit: Optional[str] = None,
         diff: str = '',
         is_repair: bool = False,
         local_evidence: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         token = self.ensure_token()
+        base_commit = base_commit or default_base_commit()
         payload = {
             'developer_id': self.developer_id,
             'task': task,
@@ -138,6 +162,13 @@ class RemoteGatewayClient:
             if res.status_code != 200:
                 return {'error': res.json().get('error', res.text)}
             return res.json()
+
+    def get_verified_result(self, job_id: str, worker_public_key: ed25519.Ed25519PublicKey) -> Dict[str, Any]:
+        """Fetch a result and check the Worker's signature on it. Raises AttestationError if it does not verify."""
+        response = self.get_result(job_id)
+        if 'error' in response and 'result' not in response:
+            raise AttestationError(f"No result to verify: {response['error']}")
+        return verify_result_response(response, worker_public_key, expected_job_id=job_id, expected_developer_id=self.developer_id)
 
     def cancel_job(self, job_id: str) -> Dict[str, Any]:
         token = self.ensure_token()
@@ -198,7 +229,7 @@ def submit_task(
     task: str,
     task_type: str = 'docs',
     branch: str = 'feature/task',
-    base_commit: str = 'abc1234',
+    base_commit: str = '',
     diff: str = '',
     is_repair: bool = False,
 ) -> str:
@@ -209,7 +240,7 @@ def submit_task(
             task=task,
             task_type=task_type,
             branch=branch,
-            base_commit=base_commit,
+            base_commit=base_commit or None,
             diff=diff,
             is_repair=is_repair,
         )
@@ -231,11 +262,16 @@ def get_status(job_id: str) -> str:
 
 @mcp.tool()
 def get_result(job_id: str) -> str:
-    """Get the result of a finished job from the remote Synora Gateway."""
+    """Get the result of a finished job from the remote Synora Gateway.
+
+    With SYNORA_WORKER_PUBLIC_KEY set, the Worker's signature is verified and only the verified result is returned.
+    """
     try:
         client = _get_client()
-        res = client.get_result(job_id)
-        return _reply(res)
+        key_spec = os.environ.get('SYNORA_WORKER_PUBLIC_KEY')
+        if key_spec:
+            return _reply(client.get_verified_result(job_id, load_worker_public_key(key_spec)))
+        return _reply(client.get_result(job_id))
     except Exception as err:
         return _reply({'error': str(err)})
 

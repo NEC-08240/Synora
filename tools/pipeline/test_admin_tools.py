@@ -7,6 +7,7 @@ import ssl
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -154,6 +155,45 @@ class TeammateCliTest(unittest.TestCase):
                                                       "--key-file", str(bad), "status", "job-1"])
 
         self.assertNotEqual(code, 0)
+
+
+class WorkerKeyAndBaseCommitTest(unittest.TestCase):
+    def test_worker_public_key_loads_from_a_pub_file_or_base64_and_rejects_anything_else(self):
+        from .remote_shim import load_worker_public_key
+
+        with tempfile.TemporaryDirectory() as tmp:
+            _path, public_b64 = admin_cli.keygen(tmp, "w")
+            from_file = load_worker_public_key(str(Path(tmp) / "w.pub"))
+            from_text = load_worker_public_key(public_b64)
+            self.assertEqual(from_file.public_bytes_raw(), from_text.public_bytes_raw())
+        for bad in ("not base64!", "", base64.b64encode(b"short").decode()):
+            with self.subTest(bad=bad):
+                with self.assertRaises(ValueError):
+                    load_worker_public_key(bad)
+
+    def test_smoke_refuses_to_run_without_the_worker_public_key(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            key, _pub = admin_cli.keygen(tmp, "dev")
+            env = {"SYNORA_GATEWAY_URL": "https://gw.example", "SYNORA_DEVELOPER_ID": "alice", "SYNORA_DEVELOPER_KEY_FILE": str(key)}
+            with mock.patch.dict("os.environ", env, clear=True):
+                code, _out, err = _run(teammate_cli.main, ["smoke"])
+
+        self.assertNotEqual(code, 0)
+        self.assertIn("SYNORA_WORKER_PUBLIC_KEY", str(code) + err)
+
+    def test_the_default_base_commit_is_a_real_commit_of_the_callers_checkout(self):
+        import subprocess
+
+        from .remote_shim import default_base_commit
+
+        with tempfile.TemporaryDirectory() as tmp:
+            subprocess.run(["git", "init", "-q"], cwd=tmp, check=True)
+            subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@e", "commit", "-q", "--allow-empty", "-m", "x"], cwd=tmp, check=True)
+            expected = subprocess.run(["git", "rev-parse", "HEAD"], cwd=tmp, capture_output=True, text=True, check=True).stdout.strip()
+            self.assertEqual(default_base_commit(tmp), expected)
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(ValueError):
+                default_base_commit(tmp)
 
 
 if __name__ == "__main__":

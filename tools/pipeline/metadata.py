@@ -16,6 +16,8 @@ MAX_REPOSITORY_CHARS = 140
 MAX_JOB_PAYLOAD_BYTES = 131072
 REPOSITORY_PATTERN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,38}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}\Z')
 DEFAULT_REPOSITORY = 'NEC-08240/Synora'
+# Hex only: the Gateway's own pattern also admits '-' and '/', which git would read as options or refs.
+BASE_COMMIT_PATTERN = re.compile(r'[0-9a-fA-F]{7,40}\Z')
 
 
 def _text(value, field):
@@ -41,6 +43,15 @@ def validate_repository(value):
     if '..' in value or not REPOSITORY_PATTERN.match(value):
         raise ValueError('repository must look like owner/name with letters, digits, dot, dash, or underscore.')
     return value
+
+
+def validate_base_commit(value):
+    """A requested base as lowercase hex, or None when the job did not ask for one."""
+    if value is None or value == '':
+        return None
+    if not isinstance(value, str) or not BASE_COMMIT_PATTERN.match(value):
+        raise ValueError('base_commit must be 7 to 40 hexadecimal characters.')
+    return value.lower()
 
 
 def validate_branch(value):
@@ -69,4 +80,5 @@ def validate_job_payload(job_data):
         'developer_id': validate_developer_id(job_data.get('developer_id')),
         'repository': validate_repository(job_data.get('repository')),
         'branch': validate_branch(job_data.get('branch')),
+        'base_commit': validate_base_commit(job_data.get('base_commit')),
     }

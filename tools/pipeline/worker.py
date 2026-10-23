@@ -24,7 +24,7 @@ from .protocol import (
     MSG_WORKER_CHALLENGE,
     MSG_WORKER_AUTH,
 )
-from .result_envelope import ResultEnvelope
+from .result_envelope import ResultEnvelope, attest_result
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +75,9 @@ class ClaudeWorker:
 
     def _intake(self, job_data):
         """Check a Gateway job before any work. Remote fields never change the Worker's limits."""
-        validate_job_payload(job_data)
+        checked = validate_job_payload(job_data)
+        if self.bridge is not None and checked['base_commit']:
+            self.bridge.resolve_base(checked['base_commit'])
         if self.bridge is not None and self.budget is not None:
             self.budget.admit()
 
@@ -114,6 +116,7 @@ class ClaudeWorker:
                     task_type=task_type,
                     developer_id=developer_id,
                     branch=job_data.get('branch'),
+                    base_commit=job_data.get('base_commit'),
                 )
                 local_job_id = record['job_id']
                 self.bridge.execute(local_job_id)
@@ -121,6 +124,7 @@ class ClaudeWorker:
 
             status = result.get('status', 'SUCCEEDED')
             result = sanitize_worker_result(result)
+            result = attest_result(self.private_key, job_id, developer_id, self.worker_id, status, result)
             if hasattr(self.gateway, 'worker_submit_signed_result'):
                 envelope = ResultEnvelope.create(
                     private_key=self.private_key,
@@ -306,6 +310,7 @@ class OutboundWorker(ClaudeWorker):
                     task_type=task_type,
                     developer_id=developer_id,
                     branch=job_data.get('branch'),
+                    base_commit=job_data.get('base_commit'),
                 )
                 local_job_id = record['job_id']
                 self.bridge.execute(local_job_id)
@@ -313,6 +318,7 @@ class OutboundWorker(ClaudeWorker):
 
             status = result.get('status', 'SUCCEEDED')
             result = sanitize_worker_result(result)
+            result = attest_result(self.private_key, job_id, developer_id, self.worker_id, status, result)
             envelope = ResultEnvelope.create(
                 private_key=self.private_key,
                 job_id=job_id,

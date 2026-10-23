@@ -1,5 +1,6 @@
 # Cryptographic signed result envelope protocol for Synora Agent Bridge
 import base64
+import hashlib
 import json
 import secrets
 from datetime import datetime, timezone
@@ -140,3 +141,59 @@ class ResultEnvelope:
             raise InvalidResultSignature('Result envelope signature verification failed.') from None
 
         return envelope
+
+
+# --- Client-verifiable attestation -------------------------------------------------------------
+# The Gateway stores only the signed envelope's `result` and drops the signature, so a client cannot
+# check the outer envelope. The Worker therefore signs a second, small envelope over a digest of the
+# result and stores it inside the result under ATTESTATION_KEY. The client verifies it with the
+# Worker's public key, which it must hold from a channel other than the Gateway.
+
+ATTESTATION_KEY = 'attestation'
+ATTESTATION_KIND = 'synora-result-v1'
+CLIENT_MAX_AGE_SECONDS = 365 * 24 * 3600.0  # the client may read a result long after it was signed
+
+
+class AttestationError(ResultEnvelopeError):
+    pass
+
+
+def result_digest(result: Dict[str, Any]) -> str:
+    body = {k: v for k, v in result.items() if k != ATTESTATION_KEY}
+    return hashlib.sha256(json.dumps(body, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+
+
+def attest_result(private_key, job_id, developer_id, worker_id, status, result):
+    """Return the result with a signed attestation of its content added under ATTESTATION_KEY."""
+    attestation = ResultEnvelope.create(
+        private_key=private_key, job_id=job_id, developer_id=developer_id, worker_id=worker_id, status=status,
+        result={'kind': ATTESTATION_KIND, 'result_sha256': result_digest(result)},
+    )
+    return {**result, ATTESTATION_KEY: attestation}
+
+
+def verify_result_response(response, public_key, expected_job_id, expected_developer_id, expected_worker_id=None):
+    """Check a Gateway /jobs/<id>/result response against the Worker's public key.
+
+    Returns the verified result dict, or raises AttestationError (the only failure type). Use that, not the response's top-level fields: the Gateway merges
+    the result over its own job record and a compromised Gateway can change anything outside `result`.
+    """
+    result = response.get('result') if isinstance(response, dict) else None
+    if not isinstance(result, dict):
+        raise AttestationError('The response has no result to verify.')
+    attestation = result.get(ATTESTATION_KEY)
+    if not isinstance(attestation, dict):
+        raise AttestationError('The result carries no Worker attestation (unsigned or from an older Worker).')
+    try:
+        ResultEnvelope.verify(
+            attestation, public_key, expected_job_id=expected_job_id, expected_developer_id=expected_developer_id,
+            expected_worker_id=expected_worker_id, max_age_seconds=CLIENT_MAX_AGE_SECONDS,
+        )
+    except ResultEnvelopeError as err:
+        raise AttestationError(str(err)) from None
+    signed = attestation.get('result')
+    if not isinstance(signed, dict) or signed.get('kind') != ATTESTATION_KIND:
+        raise AttestationError('The attestation is not a Synora result attestation.')
+    if signed.get('result_sha256') != result_digest(result):
+        raise AttestationError('The result content does not match what the Worker signed.')
+    return result
