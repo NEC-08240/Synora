@@ -21,7 +21,8 @@ Claude credentials and never runs agents. Johan's Worker connects **out** to it 
 | Deployment directory | `/opt/synora` (owned by root) |
 | Virtualenv | `/opt/synora/.venv` (Python 3.12.3) |
 
-`9e6d6b3` is the deployed application revision. Commits made to the branch later, including documentation-only
+`9e6d6b3` is the deployed application revision (the Gateway). The Worker and client code on Johan's PC are newer commits
+of the same branch and are not deployed to AWS; see Part C. Commits made to the branch later, including documentation-only
 commits such as the one that last edited this file, do **not** change what runs on the host. The host changes only
 when someone explicitly runs `git fetch && git checkout <commit>` in `/opt/synora` and restarts the service, and that
 change must be recorded here.
@@ -227,6 +228,141 @@ Items marked **[BACKUP]** must be restored from a secure backup; items marked **
 
 ---
 
+# Part C: Johan's Worker on Windows (as built, 2026-10-23)
+
+The Gateway in Part A is unchanged and still runs commit `9e6d6b3`. Everything in this part runs on Johan's PC and
+works against that Gateway. "Verified" means observed by running it; limitations are listed separately and are not
+claimed to work.
+
+## What runs and where
+| Item | Value |
+|---|---|
+| Mechanism | Windows Scheduled Task `Synora Worker`, per user (`Interactive`, no stored password) |
+| Process | `python.exe -B -u -m tools.pipeline.worker_daemon --env-file %USERPROFILE%\.synora\worker.env`, started by the Task Scheduler service itself (its parent is a `svchost.exe`), so it does not depend on any Claude Code or terminal session |
+| Code it runs | A dedicated, detached checkout: `C:\Users\Johan Joseph\Documents\Synora-worktrees\worker-runtime`, pinned to one commit. It is also the repository the Worker creates job worktrees in. Do not run it from a checkout you are editing |
+| Settings | `%USERPROFILE%\.synora\worker.env` (names and paths only; template: `tools/pipeline/deploy/windows/worker.env.example`) |
+| Secrets | `%USERPROFILE%\.synora\keys\worker-johan.key` (raw Ed25519 private key, never in the env file, never committed) |
+| Trust anchor | `%USERPROFILE%\.synora\gateway.crt` (public; SHA-256 `35c41670…2c96b1`, see Part A) |
+| Log | `%USERPROFILE%\.synora\logs\worker.log`: timestamped, rotated at 5 MB, 3 backups |
+| Network | One outbound `wss://13.228.104.217:443` connection; no listening socket |
+
+Why a Scheduled Task and not a Windows service: Claude Code's login lives in the user profile, and a service would
+need a stored password or a different account that has no Claude login. No new dependency (NSSM, WinSW, pywin32) is
+needed. Why not a plain startup shortcut: it would not restart a dead Worker.
+
+## Install, update, stop, remove
+```
+# one time: copy tools\pipeline\deploy\windows\worker.env.example to %USERPROFILE%\.synora\worker.env and edit it
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\pipeline\deploy\windows\install-worker-task.ps1 -Start
+
+# update the Worker's code: move the pinned checkout, then restart the task
+git -C <worker-runtime> checkout --detach <commit>
+Stop-ScheduledTask 'Synora Worker'     # the one-minute check below starts it again with the new code
+
+# look at it
+Get-ScheduledTask 'Synora Worker' | Select State
+Get-Content $env:USERPROFILE\.synora\logs\worker.log -Tail 30 -Wait
+
+# stop it properly (Stop alone is undone within a minute, see below)
+Disable-ScheduledTask 'Synora Worker'; Stop-ScheduledTask 'Synora Worker'
+Enable-ScheduledTask  'Synora Worker'      # to resume
+
+# remove it (keeps %USERPROFILE%\.synora)
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\pipeline\deploy\windows\uninstall-worker-task.ps1
+```
+The task has two triggers: at logon, and every minute. A start is ignored while an instance is running
+(`MultipleInstances IgnoreNew`), so the minute trigger only acts when the Worker is not running. Task Scheduler's
+built-in "restart on failure" was tried first and does **not** fire when the process is killed (the task just returns to
+Ready), so it is not used.
+
+## Verified behaviour
+- **Starts by itself:** after registration, without `-Start`, the daemon was started by the one-minute trigger.
+- **Survives a hard kill:** `Stop-Process -Force` on the daemon; a new daemon was running 53 s later.
+- **Stops cleanly:** after `Disable-ScheduledTask` + `Stop-ScheduledTask` no daemon process remained and none appeared
+  in the following 75 s; `Enable-ScheduledTask` brought it back on its own. (An earlier PowerShell-wrapper design left the
+  daemon running after `Stop-ScheduledTask`; that design was replaced.)
+- **Outbound only:** the daemon owned 0 listening TCP sockets and one established connection to `13.228.104.217:443`.
+- **Pinned certificate and authentication preserved:** it connects only with `SYNORA_CA_CERT` and signs the Gateway's
+  challenge with its key. A Worker pinned to a different certificate never registered and kept retrying (loopback harness).
+- **Reconnects after a Gateway restart:** a real Gateway process was killed and restarted; the Worker re-registered
+  and the next job succeeded (loopback harness, which runs real processes over TLS).
+- **Reconnects through network trouble:** during testing the laptop's connection to AWS dropped and timed out several
+  times (its public IP also alternated between two addresses). The Worker logged each failure, backed off
+  (0.1 s doubling to 30 s) and reconnected without intervention.
+- **Long jobs:** see the next section.
+
+## Fixed in this work: long jobs lost their result
+The Gateway's WebSocket server (uvicorn) pings every 20 s and closes a connection that does not answer within 20 s.
+The Worker answered pings only while it was reading, and it did not read while Claude ran, so any job longer than about
+40 s lost its connection: the job finished on the Worker, the result was never delivered and the job stayed `RUNNING`
+on the Gateway. This was seen on the deployed Gateway (disconnect exactly 60 s after connecting, 27 s into a job).
+The Worker now runs the job in a thread while the main thread keeps reading the socket, and keeps a signed result that
+the Gateway did not acknowledge so it can send it again after reconnecting. Verified: a 50 s job on the deployed Gateway
+delivered its result and verified; `test_worker_long_jobs` reproduces both failures against a real TLS Gateway with a 1 s
+keepalive. No Gateway change is needed.
+
+## `base_commit`
+Before: the Gateway checked only the *format* of `base_commit` and passed it on. The Worker never read it and always
+started the job worktree at its repository's current `HEAD`, whatever the client sent; the result's `base_commit`
+field held the Worker's HEAD. A client therefore believed its job was based on one commit while it was based on another.
+
+Now (Worker-side, in `bridge.py`): the value must be 7 to 40 hex characters (the Gateway's own pattern also admits
+`-` and `/`, which git could read as an option or a ref, so the Worker does not rely on it). The Worker resolves it
+in its own repository, requires it to be in the history of its current `HEAD` (a job cannot reach other branches), and
+starts the worktree at exactly that commit. Anything else is refused before any worktree exists, with
+`Refused: base_commit is not a commit in the Worker repository's current history.` Review jobs still start from the
+reviewed job's base. An absent `base_commit` still means `HEAD`.
+Consequences: the commit must exist in the Worker's checkout (pushed and fetched there); `teammate_cli` now defaults to
+the HEAD of the caller's own checkout instead of the old placeholder `abc1234`. Verified on the deployed Gateway: an
+unknown commit was refused by the Worker, and a job based on older commit `9e6d6b3` (Worker HEAD was newer) succeeded
+with that commit recorded as its base.
+
+## Result signatures (client side)
+The Worker signs every successful result with its key. The deployed Gateway verifies that signature (the
+`JOB_RESULT_VERIFIED` audit event) but stores only the signed `result` and discards the signature, so clients could not
+check anything. Rather than change the Gateway, the Worker now also embeds a second, small signed envelope
+(`result.attestation`) over the SHA-256 of the result. A client holding the Worker's public key checks that signature,
+that it names the job and developer it asked about, and that the returned content hashes to what was signed.
+- **Get the Worker's public key from Johan, not from the Gateway** (`worker-johan.pub`; public). A key taken from the
+  Gateway would let a compromised Gateway vouch for itself.
+- `teammate_cli smoke` and `teammate_cli result` require `SYNORA_WORKER_PUBLIC_KEY` (a `.pub` file or the base64 text) and
+  fail with exit code 7 if the signature does not verify. The MCP `get_result` tool verifies when the variable is set.
+- Use the verified result that `get_verified_result` returns. Outside `result`, the Gateway merges the result over its
+  own job record (for example the returned `job_id` is the Worker's local ID), and a compromised Gateway can change
+  those top-level fields.
+- Verified: valid results verify; a changed field, a different key, another job ID or developer, a missing attestation
+  and an attestation copied onto different content are all rejected (`test_base_commit_and_attestation` and the live checks below).
+
+## Live checks against the deployed Gateway (2026-10-23, Gateway `9e6d6b3`, Worker from the pinned checkout)
+All 12 passed:
+- unauthenticated `/worker/status` refused (401); forged login signature refused (401); unenrolled developer refused;
+- a client without the pinned certificate cannot connect; a client pinned to a different certificate cannot connect;
+- a branch outside the developer's scope (`main`) refused; a malformed job (wrong types) refused with 400;
+- unknown `base_commit` (`abc1234`): accepted by the Gateway, refused by the Worker (`Refused: base_commit is not a commit...`);
+- real older commit `9e6d6b3` (Worker HEAD `1402adf`): job succeeded, signature verified, result records `9e6d6b3bcc7b` as its base;
+- a tampered result and a result checked against another key were both rejected by the client.
+Also on the deployed Gateway: `teammate_cli smoke` passed with the signature step, and a requeued job that ran 50 s
+(longer than the old 40 s limit) delivered a result that verified.
+
+## Known limitations
+- **Not tested: logon and reboot.** The logon trigger is registered, but no logoff/reboot was performed. The one-minute
+  trigger was tested. The task runs only while the user is logged on; before logon nothing runs.
+- **Restart latency** after a crash is up to a minute, not immediate.
+- **`Stop-ScheduledTask` alone is not a stop** (the minute trigger restarts it); use Disable first.
+- **A forced stop mid-job** can orphan a Claude process. If the Worker stays away for more than 60 s the Gateway puts its
+  unfinished jobs back in the queue and the Worker runs them again from the start (observed: the job stranded by the
+  keepalive bug was requeued when the Worker was stopped for over a minute, re-run, and succeeded). If the Worker is
+  back in under 60 s the Gateway does not requeue, and a job whose result was lost stays `RUNNING` until its 24 h
+  expiry unless the Worker still holds that result for redelivery.
+- **Only successful results are signed and stored.** A job that fails stores only its error text, which is not
+  verifiable. Treat failure messages as informational.
+- **A result must be redelivered within the Gateway's 300 s freshness window** or the Gateway rejects it (logged by the Worker).
+- **The Worker's sleep or network loss means no processing**; queued jobs wait.
+- **The Gateway still allows each developer one active job**; a stranded job blocks that developer until it finishes or expires.
+- The Gateway's result endpoint is unchanged: it still merges `result` fields into the job record.
+
+---
+
 # Generic install procedure
 
 The numbered steps below are the original install steps. Part A records what was actually done.
@@ -286,6 +422,7 @@ Then `sudo systemctl reload caddy`.
     ss -ltn | grep 8000                    # must show 127.0.0.1:8000 only
 
 ## 8. Johan's Worker (Windows PC; needs no inbound access)
+Run it as a supervised scheduled task: see Part C (install, update, stop, logs). For a one-off foreground run:
     set SYNORA_WORKER_ID=worker-johan
     set SYNORA_GATEWAY_URL=wss://<HOST>
     set SYNORA_WORKER_KEY_FILE=<path to worker-johan.key>
@@ -295,11 +432,15 @@ Then `sudo systemctl reload caddy`.
 Budget limits default to 10 jobs/hour, 50/day, 2 GiB, 2 worktrees (SYNORA_WORKER_JOBS_PER_HOUR, _PER_DAY, _MAX_DISK_MB, _MAX_WORKTREES).
 
 ## 9. First end-to-end teammate test
-On the teammate machine (pip install -r tools/pipeline/requirements-client.txt):
+On the teammate machine (pip install -r tools/pipeline/requirements-client.txt), from a checkout of the repository:
     set SYNORA_GATEWAY_URL=https://<HOST>
     set SYNORA_DEVELOPER_ID=<id>
     set SYNORA_DEVELOPER_KEY_FILE=<path to private key>
     set SYNORA_CA_CERT=<gateway.crt>            (self-signed only)
+    set SYNORA_WORKER_PUBLIC_KEY=<worker-johan.pub, from Johan, not from the Gateway>
     python -m tools.pipeline.teammate_cli smoke
-Passes when all four steps print PASS: sign in, Worker online, job accepted, result returned. A non-zero exit code
-names the failing step (3 = Worker offline, 4 = rejected, 5 = timeout, 6 = job failed).
+The job's base commit defaults to the HEAD of that checkout, which must be in the history of the Worker's repository
+(see `base_commit` in Part C); pass `--base-commit <sha>` to choose another.
+Passes when every step prints PASS: sign in, Worker online, job accepted, job finished, Worker signature verifies, result
+returned. A non-zero exit code names the failing step (3 = Worker offline, 4 = rejected, 5 = timeout, 6 = job failed,
+7 = the Worker's signature did not verify).

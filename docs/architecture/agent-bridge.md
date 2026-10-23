@@ -74,6 +74,9 @@ Recovery runs once, at startup. `Bridge.recover_abandoned(owner)` requires the `
 - Each job gets its own detached git worktree under `.agents/pipeline/worktrees/<job_id>`. The path comes from a validated UUID, so task text cannot steer it.
 - The bridge checks the repo's own status before and after each job, excluding `.agents/pipeline/`. A change to the checkout during a job fails it.
 - A job records its base commit at start. A review worktree starts from the reviewed job's base commit, and the reviewed diff is applied there, so the review sees the candidate change.
+- A job from the Gateway may name a `base_commit`. The Worker accepts only 7 to 40 hex characters that resolve to a commit in its own repository's current `HEAD` history, starts the worktree at exactly that commit, and refuses the job before any worktree exists otherwise. An absent value means `HEAD`. The Gateway checks only the format.
+- Claude's result is signed twice: the outer envelope, which the Gateway verifies, and an attestation over the result's SHA-256 stored inside the result, which clients verify against the Worker's public key obtained from Johan (never from the Gateway).
+- While Claude runs, the Worker keeps reading the Gateway connection so keepalive pings are answered, and it resends a signed result that the Gateway did not acknowledge after it reconnects.
 - Claude's tools are set by `--tools`:
   - implementer: `Read,Write,Edit,Glob,Grep`, permission `acceptEdits`. Writes are limited to the job worktree.
   - reviewer: `Read,Glob,Grep`, permission `dontAsk`. No shell, no edit tool, no MCP. The bridge also checks that the reviewer left the worktree unchanged.
