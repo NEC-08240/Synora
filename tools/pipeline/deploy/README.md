@@ -40,7 +40,7 @@ change must be recorded here.
 ### Security Group `sg-0e9e8622e87721c46`: inbound (verified by the administrator in the AWS console)
 | Protocol / port | Source | Purpose |
 |---|---|---|
-| TCP 22 | `106.216.234.211/32` | SSH, administrator only |
+| TCP 22 | the administrator's current public IP, as a single `/32` (the literal address is deliberately not recorded here: this repository is public) | SSH, administrator only |
 | TCP 80 | `0.0.0.0/0` | Caddy redirect to HTTPS |
 | TCP 443 | `0.0.0.0/0` | Caddy, public HTTPS |
 | (none) | | **No inbound TCP 8000 rule** |
@@ -158,7 +158,7 @@ httpx 0.28.1, mcp 2.3.0. The deployment venv deliberately does **not** contain `
 - Local: `http://127.0.0.1:8000/health` returned HTTP 200 through the service.
 - Listeners: the Gateway (`python`, user `synora-gateway`) only on `127.0.0.1:8000` with no other sockets; Caddy on
   `*:80`, `*:443`, UDP 443 and `127.0.0.1:2019`; also SSH (22) and the system resolver on loopback.
-- External, from the administrator's laptop (egress `106.216.234.211`) and an independent public port-checker:
+- External, from the administrator's laptop and an independent public port-checker:
   - TCP 443 reachable (the port-checker's SYN was also seen on the instance's network interface);
   - `https://13.228.104.217/health` returned HTTP 200 `{"status":"HEALTHY","service":"Synora Agent Gateway",...}`;
   - verification against the pinned `gateway.crt` succeeded, and fails without the pin;
@@ -239,7 +239,7 @@ claimed to work.
 |---|---|
 | Mechanism | Windows Scheduled Task `Synora Worker`, per user (`Interactive`, no stored password) |
 | Process | `python.exe -B -u -m tools.pipeline.worker_daemon --env-file %USERPROFILE%\.synora\worker.env`, started by the Task Scheduler service itself (its parent is a `svchost.exe`), so it does not depend on any Claude Code or terminal session |
-| Code it runs | A dedicated, detached checkout: `C:\Users\Johan Joseph\Documents\Synora-worktrees\worker-runtime`, pinned to one commit. It is also the repository the Worker creates job worktrees in. Do not run it from a checkout you are editing |
+| Code it runs | A dedicated, detached checkout: `%USERPROFILE%\Documents\Synora-worktrees\worker-runtime`, pinned to one commit. It is also the repository the Worker creates job worktrees in. Do not run it from a checkout you are editing |
 | Settings | `%USERPROFILE%\.synora\worker.env` (names and paths only; template: `tools/pipeline/deploy/windows/worker.env.example`) |
 | Secrets | `%USERPROFILE%\.synora\keys\worker-johan.key` (raw Ed25519 private key, never in the env file, never committed) |
 | Trust anchor | `%USERPROFILE%\.synora\gateway.crt` (public; SHA-256 `35c41670…2c96b1`, see Part A) |
@@ -290,6 +290,33 @@ Ready), so it is not used.
   times (its public IP also alternated between two addresses). The Worker logged each failure, backed off
   (0.1 s doubling to 30 s) and reconnected without intervention.
 - **Long jobs:** see the next section.
+
+## Lifecycle verification (2026-10-23)
+| Event | Result | Evidence |
+|---|---|---|
+| Worker running, connected, Gateway reports it online | PASS | daemon owned 0 listening sockets and one connection to the Gateway's 443; `/worker/status` online with a fresh heartbeat |
+| Normal job, signed result verified by the client | PASS | `teammate_cli smoke`, all six steps |
+| Update procedure (move the pinned checkout, `Stop-ScheduledTask`) | PASS | new daemon running 54 s later, job succeeded |
+| Hard kill of the daemon | PASS | new daemon running 41 s later; Gateway online; next job succeeded and verified |
+| Job longer than the Gateway keepalive | PASS | 59.8 s from claim to `JOB_RESULT_VERIFIED` on the deployed Gateway; verified by the client |
+| Start at logon | OBSERVED, not a controlled test | see below |
+| Planned logoff, logon, reboot, logon | PENDING | needs the user to log back in; see below |
+
+**Observed logon start (unplanned).** The current interactive session began at 18:43:21 (explorer.exe) and the daemon
+started at 18:43:28, seven seconds later, with nobody running anything. No daemon start is logged between the 16:22 boot
+and that logon. This is consistent with the task starting at logon, but it was not set up as a test and does not prove
+that a reboot-then-logon path works. In the three minutes after it the daemon was terminated without a log entry three
+times (restarts at 18:44:44, 18:45:40 and 18:46:40) before running stably from 18:46:38; each restart came from the
+one-minute trigger. The cause of those three terminations was **not established** (a Python crash would have logged
+`Worker daemon crashed`, an orderly stop would have logged the shutdown signal).
+
+**Pending: planned logoff/logon and reboot/logon.** These cannot be run by the assistant (they end its own session and
+need the user's password at the logon screen). A temporary scheduled task, `Synora Lifecycle Check (temporary)`, runs
+90 s after each logon and appends one JSON line to `%USERPROFILE%\.synora\logs\lifecycle-check.log` recording when the
+daemon started relative to the logon and the last boot, whether the Gateway reports the Worker online, the number of
+listening sockets, and the outcome of one real job with its signature verified. After the logoff/logon and the
+reboot/logon, that file is the evidence. Remove the temporary task afterwards:
+`Unregister-ScheduledTask 'Synora Lifecycle Check (temporary)' -Confirm:$false`.
 
 ## Fixed in this work: long jobs lost their result
 The Gateway's WebSocket server (uvicorn) pings every 20 s and closes a connection that does not answer within 20 s.
@@ -351,7 +378,7 @@ Also on the deployed Gateway: `teammate_cli smoke` passed with the signature ste
   the Worker should not hold.
 - **Crash recovery takes up to about a minute.** The one-minute trigger is the restart mechanism (53 s measured).
 - **`Stop-ScheduledTask` alone is not a stop** (the minute trigger restarts it); use `Disable-ScheduledTask` first.
-- **Logon and reboot: see "Lifecycle verification" below** for exactly what was and was not exercised.
+- **Logon and reboot: see "Lifecycle verification" above** for exactly what was and was not exercised.
 - **`base_commit` must exist in the Worker's checkout.** The Worker accepts only a commit that is in the history of the
   commit its `worker-runtime` checkout is on. A teammate's commit must be pushed to GitHub and fetched into that
   checkout (`git -C <worker-runtime> fetch origin`) before it can be a base, and the checkout must be at or after it;
