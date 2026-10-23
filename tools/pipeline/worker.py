@@ -4,6 +4,7 @@ import json
 import os
 import logging
 import ssl
+import threading
 import time
 from typing import Any, Dict, Optional
 
@@ -53,6 +54,10 @@ def sanitize_worker_result(result_dict: dict) -> dict:
 
 class WorkerConnectionError(ConnectionError):
     pass
+
+
+class ResultNotDelivered(WorkerConnectionError):
+    """The job finished but the connection failed before the Gateway acknowledged its result."""
 
 
 class ClaudeWorker:
@@ -177,6 +182,7 @@ class OutboundWorker(ClaudeWorker):
         self.poll_interval = poll_interval
         self._ws = None
         self._is_connected = False
+        self._undelivered = None  # a signed result the Gateway has not acknowledged yet
         self._running = False
         self._reconnect_attempts = 0
 
@@ -246,6 +252,7 @@ class OutboundWorker(ClaudeWorker):
             self.disconnect()
             raise WorkerConnectionError(f'Gateway rejected worker registration: {ack}')
 
+        self._redeliver_undelivered()
         return True
 
     def disconnect(self):
@@ -305,16 +312,19 @@ class OutboundWorker(ClaudeWorker):
                     'task': task,
                 }
             else:
-                record = self.bridge.create(
-                    task=task,
-                    task_type=task_type,
-                    developer_id=developer_id,
-                    branch=job_data.get('branch'),
-                    base_commit=job_data.get('base_commit'),
-                )
-                local_job_id = record['job_id']
-                self.bridge.execute(local_job_id)
-                result = self.bridge.get(local_job_id)
+                def run_bridge_job():
+                    record = self.bridge.create(
+                        task=task,
+                        task_type=task_type,
+                        developer_id=developer_id,
+                        branch=job_data.get('branch'),
+                        base_commit=job_data.get('base_commit'),
+                    )
+                    local_job_id = record['job_id']
+                    self.bridge.execute(local_job_id)
+                    return self.bridge.get(local_job_id)
+
+                result = self._run_keeping_connection_alive(run_bridge_job)
 
             status = result.get('status', 'SUCCEEDED')
             result = sanitize_worker_result(result)
@@ -327,13 +337,11 @@ class OutboundWorker(ClaudeWorker):
                 status=status,
                 result=result,
             )
-            self._send({
-                'message_type': MSG_JOB_RESULT,
-                'payload': envelope,
-            })
-            ack = self._recv()
+            self._deliver_result(envelope)
             return result
 
+        except ResultNotDelivered:
+            raise  # the job succeeded; its result is held for redelivery, so do not report a failure
         except Exception as err:
             self._send({
                 'message_type': MSG_JOB_FAILURE,
@@ -343,6 +351,64 @@ class OutboundWorker(ClaudeWorker):
             raise
         finally:
             self._release()
+
+    def _deliver_result(self, envelope):
+        """Send a signed result and wait for the Gateway's reply. On a connection failure keep the result for redelivery."""
+        try:
+            self._send({'message_type': MSG_JOB_RESULT, 'payload': envelope})
+            reply = self._recv()
+        except Exception as err:
+            self._undelivered = envelope
+            raise ResultNotDelivered(f'Result for job {envelope.get("job_id")} was not acknowledged: {err}') from err
+        self._undelivered = None
+        if reply.get('message_type') != 'JOB_RESULT_ACK':
+            logger.warning(f'Gateway did not accept the result for job {envelope.get("job_id")}: {reply.get("error", reply)}')
+
+    def _redeliver_undelivered(self):
+        if self._undelivered is not None:
+            logger.info(f'Redelivering the result for job {self._undelivered.get("job_id")} after reconnecting.')
+            self._deliver_result(self._undelivered)
+
+    def _run_keeping_connection_alive(self, work):
+        """Run `work()` in a thread while this thread keeps reading the WebSocket.
+
+        The Gateway pings on a timer and drops a connection that does not answer. websocket-client answers a ping
+        only while it is reading, and a Claude run can last minutes, so without this the Gateway closes the
+        connection mid-job and the finished result cannot be delivered. The Gateway sends nothing unprompted, so
+        anything read here besides control frames is unexpected and ignored.
+        """
+        box = {}
+
+        def target():
+            try:
+                box['value'] = work()
+            except BaseException as err:
+                box['error'] = err
+
+        thread = threading.Thread(target=target, daemon=True)
+        thread.start()
+        servicing = hasattr(self._ws, 'settimeout') and hasattr(self._ws, 'recv')
+        if servicing:
+            import websocket  # only the real client reaches here; Gateway-only hosts never import it
+        while thread.is_alive():
+            ws = self._ws
+            if not servicing or ws is None:
+                thread.join(timeout=1.0)
+                continue
+            try:
+                ws.settimeout(1.0)
+                ws.recv()
+            except websocket.WebSocketTimeoutException:
+                pass
+            except Exception as err:
+                logger.warning(f'Connection lost while a job was running: {err}. The job will finish; its result may not be deliverable.')
+                servicing = False
+        thread.join()
+        if servicing and self._ws is not None:
+            self._ws.settimeout(10)
+        if 'error' in box:
+            raise box['error']
+        return box['value']
 
     def run_reconnect_loop(
         self,
