@@ -299,31 +299,32 @@ Ready), so it is not used.
 | Update procedure (move the pinned checkout, `Stop-ScheduledTask`) | PASS | new daemon running 54 s later, job succeeded |
 | Hard kill of the daemon | PASS | new daemon running 41 s later; Gateway online; next job succeeded and verified |
 | Job longer than the Gateway keepalive | PASS | 59.8 s from claim to `JOB_RESULT_VERIFIED` on the deployed Gateway; verified by the client |
-| Start at logon | OBSERVED once, not a controlled test | see below |
-| Planned logoff, logon, reboot, logon | **NOT VERIFIED** | a check afterwards found no logoff, logon or reboot had taken place on this PC; see below |
+| Start at logon | PASS | daemon started 21:40:30, 1 s after the sign-in at 21:40:29 (see below) |
+| Planned sign out, sign in | PASS | Terminal Services logoff 21:34:21 (event 23), logon 21:40:29 (event 21); new daemon PID 21596 at 21:40:30 with no manual action; zero listening sockets; Gateway reports online; smoke job SUCCEEDED with `base_commit` `507bf8d` and the signature verified |
+| Clean reboot, logon | PASS | last boot 20:34:19 (clean shutdown at 20:34:09); logon 20:34:36; daemon started 20:34:36 with no manual action; connected once the network came up (20:36:28); smoke job SUCCEEDED with `507bf8d` and the signature verified |
 
 **Observed logon start (unplanned).** An interactive session began at 18:43:21 (explorer.exe) and the daemon started at
 18:43:28, seven seconds later, with nobody running anything. No daemon start is logged between the 16:22 boot and that
 logon. This is consistent with the task starting at logon, but it was not set up as a test and does not prove that a
 reboot-then-logon path works.
 
-**Planned logoff/logon and reboot/logon: not verified.** A temporary scheduled task, `Synora Lifecycle Check
-(temporary)`, was installed to record the evidence 90 s after each logon in `%USERPROFILE%\.synora\logs\lifecycle-check.log`
-(when the daemon started relative to the logon and the last boot, whether the Gateway reports the Worker online,
-listening sockets, and one real job with its signature verified). When the log was read after the owner reported doing
-the test, it held only the three manual checks made earlier the same day, with no post-logon record, and the machine
-showed no sign of either event: the temporary task had never run (`LastRunTime` unset, result `0x41303`, "has not
-run"); the last boot time was still 16:22:22 (uptime about 4 h); the interactive session and explorer.exe were still the
-18:43:21 ones; and the System log had no shutdown, restart, sleep or logon-related event after 18:50. So the logoff/logon
-and reboot/logon are **not evidenced on this PC**, and nothing here claims the Worker was shown to start after them.
-Possible reasons include the test being run on another machine or account, or a logoff/restart that was cancelled or
-blocked; this was not determined.
+**Planned sign out/sign in and reboot/logon: verified.** A temporary scheduled task, `Synora Lifecycle Check
+(temporary)`, recorded each logon in `%USERPROFILE%\.synora\logs\lifecycle-check.log` (daemon start relative to the logon
+and last boot, Gateway status, listening sockets, and a smoke job). The first attempt that day was not evidenced: the
+task had never run and Windows showed no logoff or logon. The two later cycles were, each with a new record:
+- **Reboot:** the machine shut down cleanly at 20:34:09 and booted at 20:34:19 (`last_boot`). The user logged on at
+  20:34:36 and the daemon started then, through the logon trigger. Its connection attempts failed with WinError 10051 until
+  Windows brought the network up at 20:36:28; it then connected. The post-logon record written at 20:36 failed its smoke job
+  only because the PR head `8f39be6` was not in the Worker checkout (`507bf8d`). That is a base-commit mismatch, not a
+  lifecycle failure; the smoke job rerun with `--base-commit 507bf8d` passed.
+- **Sign out and sign in:** Terminal Services logged the logoff at 21:34:21 (event 23) and the logon at 21:40:29
+  (event 21). Explorer, sihost and ctfmon restarted 21:40:29–36. The daemon (PID 21596) started at 21:40:30 with no
+  manual action, its record shows `logon_session_started` 21:40:30, zero listening sockets and the Gateway reporting it
+  online. A smoke job with `--base-commit 507bf8d` was accepted, reached SUCCEEDED and its signature verified on the client
+  (exit 0).
 
-To run it properly: leave the temporary task installed, then **log off and back in**, wait about two minutes, then use
-**Restart** (not Shut down: Fast Startup is on, `HiberbootEnabled=1`, so Shut down followed by power-on keeps the old boot
-time) and log in, wait two more minutes. Each logon appends a record. A real logoff/logon shows a new
-`logon_session_started`, a real reboot shows a new `last_boot`, and `daemon_started` should be seconds after the logon.
-Then remove the task: `Unregister-ScheduledTask 'Synora Lifecycle Check (temporary)' -Confirm:$false`.
+The temporary task was removed after these checks. The Worker task (`Synora Worker`) is unchanged. Fast Startup is on
+(`HiberbootEnabled=1`), so to test a reboot use **Restart**; Shut down followed by power-on keeps the old boot time.
 
 **Unexplained terminations (cause not established).** The daemon has been terminated without any log entry four times:
 at about 18:44, 18:45 and 18:46 (within three minutes of the 18:43 logon) and at about 20:13 after 78 minutes of
@@ -397,9 +398,9 @@ Also on the deployed Gateway: `teammate_cli smoke` passed with the signature ste
   the Worker should not hold.
 - **Crash recovery takes up to about a minute.** The one-minute trigger is the restart mechanism (53 s measured).
 - **`Stop-ScheduledTask` alone is not a stop** (the minute trigger restarts it); use `Disable-ScheduledTask` first.
-- **Logon and reboot are not verified.** One unplanned logon start was observed; the planned logoff/logon and reboot/logon
-  were not evidenced. See "Lifecycle verification" above. The daemon has also been ended without a log entry four
-  times for an unknown reason; the one-minute trigger replaced it each time.
+- **Logon and reboot are verified for one user on one PC** (see "Lifecycle verification" above). The daemon was also
+  ended without a log entry four times before that test, for an unknown reason; the one-minute trigger replaced it each
+  time. None of those terminations occurred during the verified logon tests.
 - **`base_commit` must exist in the Worker's checkout.** The Worker accepts only a commit that is in the history of the
   commit its `worker-runtime` checkout is on. A teammate's commit must be pushed to GitHub and fetched into that
   checkout (`git -C <worker-runtime> fetch origin`) before it can be a base, and the checkout must be at or after it;
