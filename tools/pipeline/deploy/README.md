@@ -299,24 +299,43 @@ Ready), so it is not used.
 | Update procedure (move the pinned checkout, `Stop-ScheduledTask`) | PASS | new daemon running 54 s later, job succeeded |
 | Hard kill of the daemon | PASS | new daemon running 41 s later; Gateway online; next job succeeded and verified |
 | Job longer than the Gateway keepalive | PASS | 59.8 s from claim to `JOB_RESULT_VERIFIED` on the deployed Gateway; verified by the client |
-| Start at logon | OBSERVED, not a controlled test | see below |
-| Planned logoff, logon, reboot, logon | PENDING | needs the user to log back in; see below |
+| Start at logon | OBSERVED once, not a controlled test | see below |
+| Planned logoff, logon, reboot, logon | **NOT VERIFIED** | a check afterwards found no logoff, logon or reboot had taken place on this PC; see below |
 
-**Observed logon start (unplanned).** The current interactive session began at 18:43:21 (explorer.exe) and the daemon
-started at 18:43:28, seven seconds later, with nobody running anything. No daemon start is logged between the 16:22 boot
-and that logon. This is consistent with the task starting at logon, but it was not set up as a test and does not prove
-that a reboot-then-logon path works. In the three minutes after it the daemon was terminated without a log entry three
-times (restarts at 18:44:44, 18:45:40 and 18:46:40) before running stably from 18:46:38; each restart came from the
-one-minute trigger. The cause of those three terminations was **not established** (a Python crash would have logged
-`Worker daemon crashed`, an orderly stop would have logged the shutdown signal).
+**Observed logon start (unplanned).** An interactive session began at 18:43:21 (explorer.exe) and the daemon started at
+18:43:28, seven seconds later, with nobody running anything. No daemon start is logged between the 16:22 boot and that
+logon. This is consistent with the task starting at logon, but it was not set up as a test and does not prove that a
+reboot-then-logon path works.
 
-**Pending: planned logoff/logon and reboot/logon.** These cannot be run by the assistant (they end its own session and
-need the user's password at the logon screen). A temporary scheduled task, `Synora Lifecycle Check (temporary)`, runs
-90 s after each logon and appends one JSON line to `%USERPROFILE%\.synora\logs\lifecycle-check.log` recording when the
-daemon started relative to the logon and the last boot, whether the Gateway reports the Worker online, the number of
-listening sockets, and the outcome of one real job with its signature verified. After the logoff/logon and the
-reboot/logon, that file is the evidence. Remove the temporary task afterwards:
-`Unregister-ScheduledTask 'Synora Lifecycle Check (temporary)' -Confirm:$false`.
+**Planned logoff/logon and reboot/logon: not verified.** A temporary scheduled task, `Synora Lifecycle Check
+(temporary)`, was installed to record the evidence 90 s after each logon in `%USERPROFILE%\.synora\logs\lifecycle-check.log`
+(when the daemon started relative to the logon and the last boot, whether the Gateway reports the Worker online,
+listening sockets, and one real job with its signature verified). When the log was read after the owner reported doing
+the test, it held only the three manual checks made earlier the same day, with no post-logon record, and the machine
+showed no sign of either event: the temporary task had never run (`LastRunTime` unset, result `0x41303`, "has not
+run"); the last boot time was still 16:22:22 (uptime about 4 h); the interactive session and explorer.exe were still the
+18:43:21 ones; and the System log had no shutdown, restart, sleep or logon-related event after 18:50. So the logoff/logon
+and reboot/logon are **not evidenced on this PC**, and nothing here claims the Worker was shown to start after them.
+Possible reasons include the test being run on another machine or account, or a logoff/restart that was cancelled or
+blocked; this was not determined.
+
+To run it properly: leave the temporary task installed, then **log off and back in**, wait about two minutes, then use
+**Restart** (not Shut down: Fast Startup is on, `HiberbootEnabled=1`, so Shut down followed by power-on keeps the old boot
+time) and log in, wait two more minutes. Each logon appends a record. A real logoff/logon shows a new
+`logon_session_started`, a real reboot shows a new `last_boot`, and `daemon_started` should be seconds after the logon.
+Then remove the task: `Unregister-ScheduledTask 'Synora Lifecycle Check (temporary)' -Confirm:$false`.
+
+**Unexplained terminations (cause not established).** The daemon has been terminated without any log entry four times:
+at about 18:44, 18:45 and 18:46 (within three minutes of the 18:43 logon) and at about 20:13 after 78 minutes of
+running; each was replaced by the one-minute trigger within about a minute (`Starting Synora Worker daemon` at 18:44:44,
+18:45:40, 18:46:40 and 20:13:39). It was not a Python crash (that logs `Worker daemon crashed`) and not an orderly stop
+(that logs the shutdown signal). Checked and found nothing: the Windows Application and System logs, Reliability Monitor
+(no application failures), and the command history of every assistant session on this PC (no kill, stop or restart
+command in the relevant windows). Not checkable: the Task Scheduler operational log is disabled on this PC, so
+scheduler-initiated stops from that time cannot be recovered. To diagnose a recurrence, enable it once from an
+elevated prompt (`wevtutil sl Microsoft-Windows-TaskScheduler/Operational /e:true`) and see which process ended the task.
+The Worker's behaviour after each event (restart within about a minute, reconnect, next job succeeds) is the designed
+recovery, but the underlying cause remains unresolved.
 
 ## Fixed in this work: long jobs lost their result
 The Gateway's WebSocket server (uvicorn) pings every 20 s and closes a connection that does not answer within 20 s.
@@ -378,11 +397,15 @@ Also on the deployed Gateway: `teammate_cli smoke` passed with the signature ste
   the Worker should not hold.
 - **Crash recovery takes up to about a minute.** The one-minute trigger is the restart mechanism (53 s measured).
 - **`Stop-ScheduledTask` alone is not a stop** (the minute trigger restarts it); use `Disable-ScheduledTask` first.
-- **Logon and reboot: see "Lifecycle verification" above** for exactly what was and was not exercised.
+- **Logon and reboot are not verified.** One unplanned logon start was observed; the planned logoff/logon and reboot/logon
+  were not evidenced. See "Lifecycle verification" above. The daemon has also been ended without a log entry four
+  times for an unknown reason; the one-minute trigger replaced it each time.
 - **`base_commit` must exist in the Worker's checkout.** The Worker accepts only a commit that is in the history of the
   commit its `worker-runtime` checkout is on. A teammate's commit must be pushed to GitHub and fetched into that
   checkout (`git -C <worker-runtime> fetch origin`) before it can be a base, and the checkout must be at or after it;
-  otherwise the Worker refuses the job. Moving the checkout to a different commit changes which bases are accepted.
+  otherwise the Worker refuses the job. Moving the checkout to a different commit changes which bases are accepted. In particular, `teammate_cli` defaults
+  the base to the HEAD of the caller's own checkout, which is usually newer than `worker-runtime`; after merging this work,
+  move `worker-runtime` to the merged commit before teammates run their first job, or they will be refused.
 - **The Gateway's top-level job record is not authoritative.** It merges the Worker's result over its own fields (the
   returned `job_id` is the Worker's local ID) and a compromised Gateway can change them. Read results through
   `get_verified_result` / `teammate_cli result` / MCP `get_result` with `SYNORA_WORKER_PUBLIC_KEY` set.
