@@ -34,10 +34,10 @@ change must be recorded here.
 | Instance type | `t4g.small` *(administrator-stated)* |
 | OS | Ubuntu 24.04.5 LTS, aarch64 (read from the host) |
 | Python | 3.12.3 (system `python3`) |
-| Elastic IP | `13.228.104.217` (the instance metadata service reports the same public IPv4) |
-| Attached Security Group | `sg-0e9e8622e87721c46` (group ID read from the instance metadata service) |
+| Elastic IP | `<ELASTIC_IP>` (the instance metadata service reports the same public IPv4) |
+| Attached Security Group | `<SECURITY_GROUP_ID>` (group ID read from the instance metadata service) |
 
-### Security Group `sg-0e9e8622e87721c46`: inbound (verified by the administrator in the AWS console)
+### Security Group `<SECURITY_GROUP_ID>`: inbound (verified by the administrator in the AWS console)
 | Protocol / port | Source | Purpose |
 |---|---|---|
 | TCP 22 | the administrator's current public IP, as a single `/32` (the literal address is deliberately not recorded here: this repository is public) | SSH, administrator only |
@@ -100,7 +100,7 @@ The instance has no DNS name, so Caddy serves a self-signed certificate for the 
 - Caddy listens on 80 and 443 (and UDP 443 for HTTP/3). HTTP on 80 redirects to HTTPS (308). The Caddy admin API is
   on `127.0.0.1:2019` only.
 - Caddy reverse-proxies to `127.0.0.1:8000` and limits request bodies to 2 MB (`request_body max_size`).
-- Certificate: CN and SAN `13.228.104.217`, created with `admin_cli gen-cert --host 13.228.104.217 --days 90`
+- Certificate: CN and SAN `<ELASTIC_IP>`, created with `admin_cli gen-cert --host <ELASTIC_IP> --days 90`
   (the files came out as `test_server.crt/.key` and were renamed to `gateway.crt/.key`), valid until **2027-01-21**.
 - **SHA-256 fingerprint:** `35c4167013e381872e132c2d18a1762eed9577e8063e168a89764630802c96b1`.
 - **Renewal:** the certificate expires after 90 days. Before 2027-01-21 regenerate it (Part B step 12), reload Caddy
@@ -110,10 +110,10 @@ The Caddyfile in use is `Caddyfile.ip-selfsigned` with the address filled in **a
 originally lacked**:
 ```
 {
-	default_sni 13.228.104.217
+	default_sni <ELASTIC_IP>
 }
 
-https://13.228.104.217 {
+https://<ELASTIC_IP> {
 	tls /etc/caddy/tls/gateway.crt /etc/caddy/tls/gateway.key
 	request_body {
 		max_size 2MB
@@ -160,11 +160,11 @@ httpx 0.28.1, mcp 2.3.0. The deployment venv deliberately does **not** contain `
   `*:80`, `*:443`, UDP 443 and `127.0.0.1:2019`; also SSH (22) and the system resolver on loopback.
 - External, from the administrator's laptop and an independent public port-checker:
   - TCP 443 reachable (the port-checker's SYN was also seen on the instance's network interface);
-  - `https://13.228.104.217/health` returned HTTP 200 `{"status":"HEALTHY","service":"Synora Agent Gateway",...}`;
+  - `https://<ELASTIC_IP>/health` returned HTTP 200 `{"status":"HEALTHY","service":"Synora Agent Gateway",...}`;
   - verification against the pinned `gateway.crt` succeeded, and fails without the pin;
   - `/worker/status` without authentication returned 401;
   - TCP 8000 unreachable from outside;
-  - `http://13.228.104.217/` returned 308 to `https://13.228.104.217/`;
+  - `http://<ELASTIC_IP>/` returned 308 to `https://<ELASTIC_IP>/`;
   - a 3 MB request body through Caddy returned 413.
 
 ### An earlier transient connectivity failure (root cause not established)
@@ -183,8 +183,8 @@ and nothing is claimed about it. If external 443 fails again, repeat the instanc
 Items marked **[BACKUP]** must be restored from a secure backup; items marked **[REGENERATE]** can be recreated.
 
 1. **Provision** a fresh Ubuntu 24.04 ARM64 instance (`t4g.small` or larger) in `ap-southeast-1`. Do not use an AMI or snapshot of the old host.
-2. **Elastic IP:** associate `13.228.104.217` with the new instance (disassociate it from the old one first). A different IP means a new certificate (step 12) and new `SYNORA_GATEWAY_URL` values everywhere.
-3. **Security Group:** attach a group with exactly TCP 22 from the administrator's current `/32`, TCP 80 and 443 from `0.0.0.0/0`, and **no 8000**. Reuse `sg-0e9e8622e87721c46` if it still exists.
+2. **Elastic IP:** associate `<ELASTIC_IP>` with the new instance (disassociate it from the old one first). A different IP means a new certificate (step 12) and new `SYNORA_GATEWAY_URL` values everywhere.
+3. **Security Group:** attach a group with exactly TCP 22 from the administrator's current `/32`, TCP 80 and 443 from `0.0.0.0/0`, and **no 8000**. Reuse `<SECURITY_GROUP_ID>` if it still exists.
 4. **Prerequisites:** `sudo apt-get install -y python3-venv git caddy`.
 5. **Users and directories:**
    ```
@@ -244,7 +244,7 @@ claimed to work.
 | Secrets | `%USERPROFILE%\.synora\keys\worker-johan.key` (raw Ed25519 private key, never in the env file, never committed) |
 | Trust anchor | `%USERPROFILE%\.synora\gateway.crt` (public; SHA-256 `35c41670…2c96b1`, see Part A) |
 | Log | `%USERPROFILE%\.synora\logs\worker.log`: timestamped, rotated at 5 MB, 3 backups |
-| Network | One outbound `wss://13.228.104.217:443` connection; no listening socket |
+| Network | One outbound `wss://<ELASTIC_IP>:443` connection; no listening socket |
 
 Why a Scheduled Task and not a Windows service: Claude Code's login lives in the user profile, and a service would
 need a stored password or a different account that has no Claude login. No new dependency (NSSM, WinSW, pywin32) is
@@ -281,7 +281,7 @@ Ready), so it is not used.
 - **Stops cleanly:** after `Disable-ScheduledTask` + `Stop-ScheduledTask` no daemon process remained and none appeared
   in the following 75 s; `Enable-ScheduledTask` brought it back on its own. (An earlier PowerShell-wrapper design left the
   daemon running after `Stop-ScheduledTask`; that design was replaced.)
-- **Outbound only:** the daemon owned 0 listening TCP sockets and one established connection to `13.228.104.217:443`.
+- **Outbound only:** the daemon owned 0 listening TCP sockets and one established connection to `<ELASTIC_IP>:443`.
 - **Pinned certificate and authentication preserved:** it connects only with `SYNORA_CA_CERT` and signs the Gateway's
   challenge with its key. A Worker pinned to a different certificate never registered and kept retrying (loopback harness).
 - **Reconnects after a Gateway restart:** a real Gateway process was killed and restarted; the Worker re-registered
