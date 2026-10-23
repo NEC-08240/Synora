@@ -1,0 +1,28 @@
+[Unit]
+Description=Synora Agent Gateway (control plane only; holds no Claude credentials)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=synora-gateway
+Group=synora-gateway
+WorkingDirectory=/opt/synora
+EnvironmentFile=/etc/synora-gateway/gateway.env
+# Single process on purpose: challenges and worker tokens live in memory.
+ExecStart=/opt/synora/.venv/bin/python -m tools.pipeline.gateway_server
+Restart=on-failure
+RestartSec=3
+StateDirectory=synora-gateway
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/synora-gateway /var/log/synora-gateway
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,3 @@
+# Johan's Worker machine (outbound-only execution boundary). Also needs the Claude Code CLI and git on PATH.
+cryptography>=42
+websocket-client>=1.9,<2

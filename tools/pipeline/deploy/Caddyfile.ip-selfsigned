@@ -1,0 +1,14 @@
+# Use when the instance has only an IP address. The certificate comes from admin_cli gen-cert and every
+# client (Worker, teammates) must be given gateway.crt as SYNORA_CA_CERT.
+{
+	# Required for an IP-only site: clients send no SNI, so Caddy needs a default to pick this certificate.
+	default_sni 203.0.113.10
+}
+
+https://203.0.113.10 {
+	tls /etc/caddy/tls/gateway.crt /etc/caddy/tls/gateway.key
+	request_body {
+		max_size 2MB
+	}
+	reverse_proxy 127.0.0.1:8000
+}
