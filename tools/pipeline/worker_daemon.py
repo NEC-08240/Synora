@@ -1,5 +1,9 @@
 # Standalone Production Daemon for Johan's Claude Worker
+import argparse
+import logging
+import logging.handlers
 import os
+import re
 import signal
 import sys
 import time
@@ -9,6 +13,39 @@ from .bridge import Bridge
 from .budget import DEFAULT_JOBS_PER_DAY, DEFAULT_MAX_DISK_BYTES, DEFAULT_MAX_WORKTREES, DEFAULT_JOBS_PER_WINDOW, DEFAULT_WINDOW_SECONDS, WorkerBudget
 from .transport import normalize_gateway_url
 from .worker import OutboundWorker, load_worker_private_key
+
+
+logger = logging.getLogger('synora.worker')
+MAX_LOG_BYTES = 5 * 1024 * 1024
+LOG_BACKUPS = 3
+
+
+def load_env_file(path, environ=None):
+    """Set SYNORA_* settings from a NAME=value file. Variables already in the environment win; other names are ignored.
+
+    The file holds paths and names only. Private keys stay in their own files and are never read here.
+    """
+    environ = os.environ if environ is None else environ
+    with open(path, 'r', encoding='utf-8') as handle:
+        for raw in handle:
+            line = raw.strip()
+            if not line or line.startswith('#') or '=' not in line:
+                continue
+            name, value = line.split('=', 1)
+            name = name.strip()
+            if re.fullmatch(r'SYNORA_[A-Z0-9_]+', name):
+                environ.setdefault(name, value.strip())
+
+
+def configure_logging(environ=None):
+    """Timestamped logs to stderr, or to a size-rotated file when SYNORA_WORKER_LOG_FILE is set."""
+    environ = os.environ if environ is None else environ
+    log_file = environ.get('SYNORA_WORKER_LOG_FILE')
+    handlers = None
+    if log_file:
+        os.makedirs(os.path.dirname(os.path.abspath(log_file)), exist_ok=True)
+        handlers = [logging.handlers.RotatingFileHandler(log_file, maxBytes=MAX_LOG_BYTES, backupCount=LOG_BACKUPS, encoding='utf-8')]
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s', handlers=handlers, force=True)
 
 
 def _positive_int(environ, name, default):
@@ -128,31 +165,43 @@ def create_worker_from_config(config: Optional[Dict[str, Any]] = None) -> Outbou
     return worker
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description='Synora Worker daemon')
+    parser.add_argument('--env-file', help='NAME=value file with SYNORA_* settings (paths and names only).')
+    args = parser.parse_args(argv)
     try:
+        if args.env_file:
+            load_env_file(args.env_file)
+        configure_logging()
         config = load_worker_config()
     except Exception as err:
+        configure_logging()
+        logger.critical(f'Configuration error: {err}')
         print(f'Configuration error: {err}', file=sys.stderr)
         sys.exit(1)
 
-    worker = create_worker_from_config(config)
+    try:
+        worker = create_worker_from_config(config)
 
-    def _handle_signal(signum, frame):
-        print(f'\nReceived shutdown signal ({signum}). Stopping worker daemon gracefully...')
-        worker.stop()
+        def _handle_signal(signum, frame):
+            logger.info(f'Received shutdown signal ({signum}). Stopping worker daemon gracefully...')
+            worker.stop()
 
-    signal.signal(signal.SIGINT, _handle_signal)
-    if hasattr(signal, 'SIGTERM'):
-        signal.signal(signal.SIGTERM, _handle_signal)
+        signal.signal(signal.SIGINT, _handle_signal)
+        if hasattr(signal, 'SIGTERM'):
+            signal.signal(signal.SIGTERM, _handle_signal)
 
-    print(
-        f'Starting Synora Worker daemon [{config["worker_id"]}] connecting to {config["gateway_url"]} '
-        f'(poll_interval={config["poll_interval"]}s, max_backoff={config["max_backoff"]}s)'
-    )
-    print('Absolute Security Invariant: Zero inbound listening sockets.')
+        logger.info(
+            f'Starting Synora Worker daemon [{config["worker_id"]}] connecting to {config["gateway_url"]} '
+            f'(poll_interval={config["poll_interval"]}s, max_backoff={config["max_backoff"]}s)'
+        )
+        logger.info('Absolute Security Invariant: Zero inbound listening sockets.')
 
-    worker.run_reconnect_loop(max_cycles=None, poll_interval=config['poll_interval'])
-    print('Synora Worker daemon stopped.')
+        worker.run_reconnect_loop(max_cycles=None, poll_interval=config['poll_interval'])
+        logger.info('Synora Worker daemon stopped.')
+    except Exception:
+        logger.critical('Worker daemon crashed', exc_info=True)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
