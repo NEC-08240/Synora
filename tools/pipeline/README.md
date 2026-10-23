@@ -50,8 +50,10 @@ On start, the server takes an exclusive lock on `.agents/pipeline/jobs/.owner.lo
 ## Run
 
 ```bash
-# Run all unit and integration tests (204 tests)
-python -m unittest tools.pipeline.test_bridge tools.pipeline.test_executables tools.pipeline.test_hardening tools.pipeline.test_server tools.pipeline.test_storage tools.pipeline.test_step3 tools.pipeline.test_gateway_api tools.pipeline.test_gateway_auth tools.pipeline.test_gateway_authorization tools.pipeline.test_gateway_concurrency tools.pipeline.test_worker_network tools.pipeline.test_worker_reconnect tools.pipeline.test_worker_security tools.pipeline.test_result_signing tools.pipeline.test_remote_protocol tools.pipeline.test_git_ownership tools.pipeline.test_lan_mode tools.pipeline.test_deployment_fixes
+# Run every test module (389 tests in 32 modules when last run, on Windows with Python 3.14).
+# PowerShell:  python -m unittest (Get-ChildItem tools/pipeline/test_*.py | % { "tools.pipeline.$($_.BaseName)" })
+# bash:        python -m unittest $(ls tools/pipeline/test_*.py | sed 's|/|.|g; s|\.py$||')
+# On a Linux Gateway-only host six Worker-side tests fail for environmental reasons: see tools/pipeline/deploy/README.md.
 
 # Run local stdio MCP bridge
 python -m tools.pipeline.server
@@ -59,6 +61,16 @@ python -m tools.pipeline.server
 # Run remote MCP shim
 python -m tools.pipeline.remote_shim
 ```
+
+## Remote Gateway: which result to trust
+
+`remote_shim` and `teammate_cli` talk to the Gateway. `GET /jobs/<id>/result` (and `RemoteGatewayClient.get_result`) returns
+the Gateway's job record with the Worker's result merged over it, so its top-level fields (including `job_id`) are
+**not authoritative**: a compromised Gateway can change them. Clients should read results with
+`RemoteGatewayClient.get_verified_result(job_id, worker_public_key)`, `teammate_cli result <job_id>`, or the MCP `get_result`
+tool with `SYNORA_WORKER_PUBLIC_KEY` set. These check the Worker's signature over the content and return only the
+verified `result`. The Worker's public key must come from Johan, never from the Gateway. Details and limits:
+[deploy/README.md](deploy/README.md), Part C.
 
 Requires `mcp`, `starlette`, `uvicorn`, `cryptography`, and `websocket-client`. The tests use real git, creating temporary repositories where necessary, and mock Claude execution so no Claude Code token is required during automated testing.
 

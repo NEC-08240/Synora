@@ -345,10 +345,23 @@ Also on the deployed Gateway: `teammate_cli smoke` passed with the signature ste
 (longer than the old 40 s limit) delivered a result that verified.
 
 ## Known limitations
-- **Not tested: logon and reboot.** The logon trigger is registered, but no logoff/reboot was performed. The one-minute
-  trigger was tested. The task runs only while the user is logged on; before logon nothing runs.
-- **Restart latency** after a crash is up to a minute, not immediate.
-- **`Stop-ScheduledTask` alone is not a stop** (the minute trigger restarts it); use Disable first.
+- **Runs only while Johan is logged in (by design).** The task is per-user and `Interactive` so that Claude Code uses
+  Johan's own login and no password is stored. Before logon, after logoff, and while the PC is off or asleep, no jobs are
+  processed and queued jobs wait. Do not "fix" this by running the Worker as a system service: it would need credentials
+  the Worker should not hold.
+- **Crash recovery takes up to about a minute.** The one-minute trigger is the restart mechanism (53 s measured).
+- **`Stop-ScheduledTask` alone is not a stop** (the minute trigger restarts it); use `Disable-ScheduledTask` first.
+- **Logon and reboot: see "Lifecycle verification" below** for exactly what was and was not exercised.
+- **`base_commit` must exist in the Worker's checkout.** The Worker accepts only a commit that is in the history of the
+  commit its `worker-runtime` checkout is on. A teammate's commit must be pushed to GitHub and fetched into that
+  checkout (`git -C <worker-runtime> fetch origin`) before it can be a base, and the checkout must be at or after it;
+  otherwise the Worker refuses the job. Moving the checkout to a different commit changes which bases are accepted.
+- **The Gateway's top-level job record is not authoritative.** It merges the Worker's result over its own fields (the
+  returned `job_id` is the Worker's local ID) and a compromised Gateway can change them. Read results through
+  `get_verified_result` / `teammate_cli result` / MCP `get_result` with `SYNORA_WORKER_PUBLIC_KEY` set.
+- **AWS SSH access depends on Johan's public IP.** The Security Group allows SSH only from one `/32`, and the IP changed
+  at least twice during this work. When it changes, SSH to the host fails until the rule is updated. HTTPS (443) is
+  unaffected, so the Gateway and Worker keep working; only administration is blocked.
 - **A forced stop mid-job** can orphan a Claude process. If the Worker stays away for more than 60 s the Gateway puts its
   unfinished jobs back in the queue and the Worker runs them again from the start (observed: the job stranded by the
   keepalive bug was requeued when the Worker was stopped for over a minute, re-run, and succeeded). If the Worker is
@@ -357,7 +370,6 @@ Also on the deployed Gateway: `teammate_cli smoke` passed with the signature ste
 - **Only successful results are signed and stored.** A job that fails stores only its error text, which is not
   verifiable. Treat failure messages as informational.
 - **A result must be redelivered within the Gateway's 300 s freshness window** or the Gateway rejects it (logged by the Worker).
-- **The Worker's sleep or network loss means no processing**; queued jobs wait.
 - **The Gateway still allows each developer one active job**; a stranded job blocks that developer until it finishes or expires.
 - The Gateway's result endpoint is unchanged: it still merges `result` fields into the job record.
 
