@@ -505,7 +505,7 @@ class Bridge:
             full = self._git(["rev-parse", "--verify", "--quiet", requested + "^{commit}"], self.repo).strip()
             self._git(["merge-base", "--is-ancestor", full, "HEAD"], self.repo)
         except (RuntimeError, subprocess.CalledProcessError):
-            raise ValueError("base_commit is not a commit in the Worker repository's current history.") from None
+            raise ValueError("base_commit is not a commit in the Worker repository's current history. Fetch it into the Worker checkout and make sure that checkout is at or after it, or use an older commit.") from None
         return full
 
     def _base_commit(self, record):
