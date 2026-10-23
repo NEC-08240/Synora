@@ -10,11 +10,16 @@ SAFE_COMMIT_PATTERN = re.compile(r'^[a-zA-Z0-9_.\-/]{7,128}$')
 DIFF_HEADER_PATTERN = re.compile(r'^diff --git a/(.+) b/(.+)$', re.MULTILINE)
 OLD_FILE_PATTERN = re.compile(r'^--- a/(.+)$', re.MULTILINE)
 NEW_FILE_PATTERN = re.compile(r'^\+\+\+ b/(.+)$', re.MULTILINE)
+QUOTED_HEADER_PATTERN = re.compile(r'^(?:diff --git |--- |\+\+\+ )"', re.MULTILINE)
 
 class ContributionGateError(ValueError):
     pass
 
 def extract_files_from_diff(diff_text: str) -> List[str]:
+    # git quotes paths with non-ASCII or special characters; those headers would
+    # not match the patterns below and the file would escape the scope check.
+    if QUOTED_HEADER_PATTERN.search(diff_text):
+        raise ContributionGateError('Quoted diff paths are not supported; the file scope cannot be verified.')
     files = set()
     for m in DIFF_HEADER_PATTERN.finditer(diff_text):
         files.add(m.group(2).strip())
