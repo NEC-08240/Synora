@@ -4,6 +4,9 @@ from typing import Dict, List, Optional
 
 from .team_registry import DeveloperEntry
 
+SAFE_REF_PATTERN = re.compile(r'^[a-zA-Z0-9_-]+(?:/[a-zA-Z0-9_-]+)*$')
+SAFE_COMMIT_PATTERN = re.compile(r'^[a-zA-Z0-9_.\-/]{7,128}$')
+
 DIFF_HEADER_PATTERN = re.compile(r'^diff --git a/(.+) b/(.+)$', re.MULTILINE)
 OLD_FILE_PATTERN = re.compile(r'^--- a/(.+)$', re.MULTILINE)
 NEW_FILE_PATTERN = re.compile(r'^\+\+\+ b/(.+)$', re.MULTILINE)
@@ -51,16 +54,22 @@ class ContributionGate:
         if not task or len(task.strip()) < 10:
             raise ContributionGateError('Task description must be at least 10 characters long.')
 
-        if not branch or not branch.strip():
+        if not branch or not isinstance(branch, str) or not branch.strip():
             raise ContributionGateError('Branch name must be specified.')
+
+        if len(branch.strip()) > 255 or not SAFE_REF_PATTERN.match(branch.strip()):
+            raise ContributionGateError(f'Invalid branch format or illegal characters: {branch!r}.')
 
         if not developer.can_touch_branch(branch):
             raise ContributionGateError(
                 f'Developer {developer.developer_id!r} is not authorized for branch {branch!r}.'
             )
 
-        if not base_commit or len(base_commit.strip()) < 7:
+        if not base_commit or not isinstance(base_commit, str) or len(base_commit.strip()) < 7:
             raise ContributionGateError('Valid base_commit ref or SHA must be provided.')
+
+        if len(base_commit.strip()) > 128 or not SAFE_COMMIT_PATTERN.match(base_commit.strip()) or '..' in base_commit or ';' in base_commit or '$' in base_commit:
+            raise ContributionGateError(f'Invalid base_commit format or illegal characters: {base_commit!r}.')
 
         changed_files = []
         if is_repair:

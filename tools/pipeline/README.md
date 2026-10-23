@@ -50,8 +50,8 @@ On start, the server takes an exclusive lock on `.agents/pipeline/jobs/.owner.lo
 ## Run
 
 ```bash
-# Run all unit and integration tests (181 tests)
-python -m unittest tools.pipeline.test_bridge tools.pipeline.test_executables tools.pipeline.test_hardening tools.pipeline.test_server tools.pipeline.test_storage tools.pipeline.test_step3 tools.pipeline.test_gateway_api tools.pipeline.test_gateway_auth tools.pipeline.test_gateway_authorization tools.pipeline.test_gateway_concurrency tools.pipeline.test_worker_network tools.pipeline.test_worker_reconnect tools.pipeline.test_worker_security tools.pipeline.test_result_signing tools.pipeline.test_remote_protocol tools.pipeline.test_git_ownership tools.pipeline.test_lan_mode
+# Run all unit and integration tests (204 tests)
+python -m unittest tools.pipeline.test_bridge tools.pipeline.test_executables tools.pipeline.test_hardening tools.pipeline.test_server tools.pipeline.test_storage tools.pipeline.test_step3 tools.pipeline.test_gateway_api tools.pipeline.test_gateway_auth tools.pipeline.test_gateway_authorization tools.pipeline.test_gateway_concurrency tools.pipeline.test_worker_network tools.pipeline.test_worker_reconnect tools.pipeline.test_worker_security tools.pipeline.test_result_signing tools.pipeline.test_remote_protocol tools.pipeline.test_git_ownership tools.pipeline.test_lan_mode tools.pipeline.test_deployment_fixes
 
 # Run local stdio MCP bridge
 python -m tools.pipeline.server
@@ -94,3 +94,5 @@ Requires `mcp`, `starlette`, `uvicorn`, `cryptography`, and `websocket-client`. 
 | `worker.py` | `OutboundWorker` persistent daemon establishing outbound WSS connection from Johan's PC. | IMPLEMENTED |
 | `tls_config.py` | Hardened TLS 1.2+ configuration, strict certificate validation, and ephemeral cert generator. | IMPLEMENTED |
 | `remote_shim.py` | Remote MCP adapter translating Antigravity MCP calls into Gateway HTTPS requests. | IMPLEMENTED |
+| `gateway_server.py` | Standalone production Gateway server loading persistent configs & starting recovery scheduler. | IMPLEMENTED |
+| `worker_daemon.py` | Standalone production Worker daemon loading persistent Ed25519 key, with anti-busyloop idle sleep. | IMPLEMENTED |

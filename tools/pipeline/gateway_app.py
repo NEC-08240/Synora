@@ -2,6 +2,7 @@
 import json
 from datetime import datetime, timezone
 from typing import Optional
+import contextlib
 
 from starlette.applications import Starlette
 from starlette.middleware import Middleware
@@ -14,7 +15,7 @@ from starlette.websockets import WebSocket, WebSocketDisconnect
 from .auth import AuthenticationError
 from .authorization import AuthorizationError
 from .contribution_gate import ContributionGateError
-from .gateway import Gateway
+from .gateway import Gateway, RecoveryScheduler
 from .protocol import (
     MSG_HEARTBEAT,
     MSG_JOB_ACK,
@@ -24,6 +25,8 @@ from .protocol import (
     MSG_JOB_RESULT,
     MSG_WORKER_DISCONNECT,
     MSG_WORKER_REGISTER,
+    MSG_WORKER_CHALLENGE,
+    MSG_WORKER_AUTH,
     ProtocolEnvelope,
     ProtocolError,
 )
@@ -65,7 +68,7 @@ def _extract_bearer_token(request: Request) -> str:
     return parts[1].strip()
 
 
-def create_gateway_app(gateway: Gateway) -> Starlette:
+def create_gateway_app(gateway: Gateway, recovery_interval: Optional[float] = None, enable_recovery_scheduler: bool = True) -> Starlette:
     async def handle_challenge(request: Request):
         try:
             body = await request.json()
@@ -73,8 +76,8 @@ def create_gateway_app(gateway: Gateway) -> Starlette:
             return JSONResponse({'error': 'Malformed JSON body.'}, status_code=400)
 
         dev_id = body.get('developer_id')
-        if not dev_id:
-            return JSONResponse({'error': 'developer_id is required.'}, status_code=400)
+        if not dev_id or not isinstance(dev_id, str):
+            return JSONResponse({'error': 'developer_id must be a non-empty string.'}, status_code=400)
 
         try:
             challenge = gateway.request_challenge(dev_id)
@@ -95,8 +98,8 @@ def create_gateway_app(gateway: Gateway) -> Starlette:
         dev_id = body.get('developer_id')
         nonce = body.get('nonce')
         sig = body.get('signature')
-        if not dev_id or not nonce or not sig:
-            return JSONResponse({'error': 'developer_id, nonce, and signature are required.'}, status_code=400)
+        if not dev_id or not nonce or not sig or not isinstance(dev_id, str) or not isinstance(nonce, str) or not isinstance(sig, str):
+            return JSONResponse({'error': 'developer_id, nonce, and signature must be non-empty strings.'}, status_code=400)
 
         try:
             token = gateway.authenticate(dev_id, nonce, sig)
@@ -126,7 +129,7 @@ def create_gateway_app(gateway: Gateway) -> Starlette:
             return JSONResponse({'error': str(err)}, status_code=401)
         except (AuthorizationError, PermissionError) as err:
             return JSONResponse({'error': str(err)}, status_code=403)
-        except (ContributionGateError, ValueError) as err:
+        except (ContributionGateError, ValueError, TypeError, AttributeError) as err:
             err_str = str(err).lower()
             if 'not authorized' in err_str:
                 return JSONResponse({'error': str(err)}, status_code=403)
@@ -208,17 +211,33 @@ def create_gateway_app(gateway: Gateway) -> Starlette:
         )
 
     async def handle_worker_status(request: Request):
-        status = gateway.get_worker_status()
-        return JSONResponse(status, status_code=200)
+        # Worker identity and online state are not public: callers must hold a valid developer session.
+        try:
+            gateway.verify_caller(_extract_bearer_token(request))
+        except AuthenticationError as err:
+            return JSONResponse({'error': str(err)}, status_code=401)
+        return JSONResponse(gateway.get_worker_status(), status_code=200)
 
     async def worker_ws_endpoint(websocket: WebSocket):
         await websocket.accept()
         current_worker_id: Optional[str] = None
         try:
             # Expect initial register or auth message
-            init_data = await websocket.receive_json()
+            try:
+                init_data = await websocket.receive_json()
+            except Exception:
+                await websocket.close(code=1008)
+                return
+
+            if not isinstance(init_data, dict):
+                await websocket.send_json({'error': 'First message must be a JSON object.'})
+                await websocket.close(code=1008)
+                return
+
             msg_type = init_data.get('message_type')
-            payload = init_data.get('payload', {})
+            payload = init_data.get('payload')
+            if not isinstance(payload, dict):
+                payload = {}
 
             if msg_type != MSG_WORKER_REGISTER:
                 await websocket.send_json({'error': 'First message must be WORKER_REGISTER.'})
@@ -232,13 +251,53 @@ def create_gateway_app(gateway: Gateway) -> Starlette:
                 return
 
             try:
-                worker_entry = gateway.worker_registry.get(worker_id)
-                if not worker_entry.is_active():
-                    await websocket.send_json({'error': f'Worker {worker_id} is suspended.'})
-                    await websocket.close(code=1008)
-                    return
+                challenge = gateway.request_worker_challenge(worker_id)
             except WorkerNotFound:
                 await websocket.send_json({'error': f'Worker {worker_id} is not registered.'})
+                await websocket.close(code=1008)
+                return
+            except AuthenticationError as err:
+                await websocket.send_json({'error': str(err)})
+                await websocket.close(code=1008)
+                return
+
+            # Send challenge to worker
+            await websocket.send_json({
+                'message_type': MSG_WORKER_CHALLENGE,
+                'payload': challenge,
+            })
+
+            # Wait for WORKER_AUTH response
+            try:
+                auth_msg = await websocket.receive_json()
+            except Exception:
+                await websocket.close(code=1008)
+                return
+
+            if not isinstance(auth_msg, dict) or auth_msg.get('message_type') != MSG_WORKER_AUTH:
+                await websocket.send_json({'error': 'Expected WORKER_AUTH message.'})
+                await websocket.close(code=1008)
+                return
+
+            auth_payload = auth_msg.get('payload', {})
+            auth_worker_id = auth_payload.get('worker_id')
+            nonce = auth_payload.get('nonce')
+            signature = auth_payload.get('signature')
+
+            if not auth_worker_id or not nonce or not signature:
+                await websocket.send_json({'error': 'worker_id, nonce, and signature are required in WORKER_AUTH.'})
+                await websocket.close(code=1008)
+                return
+
+            if auth_worker_id != worker_id:
+                await websocket.send_json({'error': f'Worker identity mismatch: expected {worker_id!r}, got {auth_worker_id!r}.'})
+                await websocket.close(code=1008)
+                return
+
+            try:
+                gateway.authenticate_worker(worker_id, nonce, signature)
+            except Exception as err:
+                await websocket.send_json({'error': f'Worker authentication failed: {err}'})
                 await websocket.close(code=1008)
                 return
 
@@ -252,9 +311,20 @@ def create_gateway_app(gateway: Gateway) -> Starlette:
 
             # Main bidirectional event loop
             while True:
-                msg = await websocket.receive_json()
+                try:
+                    msg = await websocket.receive_json()
+                except Exception:
+                    break
+
+                if not isinstance(msg, dict):
+                    await websocket.send_json({'error': 'Messages must be JSON objects.'})
+                    await websocket.close(code=1008)
+                    break
+
                 m_type = msg.get('message_type')
-                p = msg.get('payload', {})
+                p = msg.get('payload')
+                if not isinstance(p, dict):
+                    p = {}
 
                 if m_type == MSG_HEARTBEAT:
                     gateway.worker_heartbeat(current_worker_id)
@@ -339,4 +409,24 @@ def create_gateway_app(gateway: Gateway) -> Starlette:
         Middleware(SecurityHeadersMiddleware),
     ]
 
-    return Starlette(routes=routes, middleware=middleware)
+    @contextlib.asynccontextmanager
+    async def lifespan(app: Starlette):
+        scheduler = getattr(app.state, 'recovery_scheduler', None)
+        if scheduler is None and enable_recovery_scheduler:
+            scheduler = getattr(gateway, 'recovery_scheduler', None)
+            if scheduler is None:
+                scheduler = RecoveryScheduler(
+                    queue=gateway.queue,
+                    interval_seconds=recovery_interval or 30.0,
+                    audit=gateway.audit,
+                )
+            app.state.recovery_scheduler = scheduler
+        if scheduler and not scheduler.is_running:
+            scheduler.start()
+        try:
+            yield
+        finally:
+            if scheduler and scheduler.is_running:
+                await scheduler.stop()
+
+    return Starlette(routes=routes, middleware=middleware, lifespan=lifespan)

@@ -239,7 +239,11 @@ eap_stale_workers and safely resets unfinished ASSIGNED/RUNNING jobs back to QUE
   - Git Ownership Protection (	ools/pipeline/test_git_ownership.py): Verified invariant that Claude/worker never commits, pushes, or merges. Diffs and patches are returned to the human developer for manual review and staging.
 
 - **VERIFIED**:
-  - 181/181 combined tests passing (121 Phase C Step 1/2/3 tests + 60 Phase C Step 4 tests).
+  - 204/204 combined tests passing (121 Phase C Step 1/2/3 tests + 60 Step 4 tests + 23 Step 6 deployment verification tests).
+  - Production Gateway Server (`tools/pipeline/gateway_server.py`) with strict environment validation, persistent SQLite and registries, and refusal to generate ephemeral replacement secrets.
+  - Production Worker Daemon (`tools/pipeline/worker_daemon.py`) with persistent Ed25519 key loading, graceful signal shutdown, and empty-queue idle sleep to eliminate busy-looping.
+  - Mutual Ed25519 Challenge-Response WebSocket Authentication: Unauthenticated sockets cannot poll jobs; spoofing and eavesdropping on developer tasks are cryptographically blocked.
+  - Background Recovery Scheduler (`RecoveryScheduler`): Periodic stale-worker reaping and job TTL expiration scheduled via Starlette lifespan with duplicate prevention.
   - All Gateway REST API endpoints, challenge-response auth, session token lifecycle, and audit scrubbing.
   - Role-based authorization, branch restrictions, and cross-developer job isolation.
   - Worker outbound WebSocket connection, registration handshake, heartbeats, and job lifecycle.

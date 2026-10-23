@@ -169,6 +169,12 @@ class JobQueue:
                 )
                 self._conn.execute(upsert_sql, (worker_id, 'ONLINE', now, cap_json))
 
+    def worker_heartbeats(self) -> Dict[str, dict]:
+        """Last heartbeat the Gateway saw from each worker. Read-only."""
+        with self._lock:
+            rows = self._conn.execute('SELECT worker_id, status, last_heartbeat FROM workers;').fetchall()
+        return {r['worker_id']: {'status': r['status'], 'last_heartbeat': r['last_heartbeat']} for r in rows}
+
     def reap_stale_workers(self, timeout_seconds: float = 60.0) -> List[str]:
         now = datetime.now(timezone.utc)
         reaped_workers = []

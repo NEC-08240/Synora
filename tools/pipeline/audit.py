@@ -1,12 +1,28 @@
 # Structured JSON Lines audit logger for Synora Agent Bridge
 import json
 import os
+import re
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
 SENSITIVE_KEYS = {'secret', 'token', 'signature', 'key', 'password', 'authorization', 'bearer'}
+
+# Credential formats redacted from free-text values, wherever they appear. Key-name matching alone
+# misses secrets pasted into text fields.
+SECRET_VALUE_PATTERNS = [
+    re.compile(r'sk-ant-[A-Za-z0-9_-]{20,}'),
+    re.compile(r'gh[pousr]_[A-Za-z0-9]{36}'),
+    re.compile(r'github_pat_[A-Za-z0-9_]{50,}'),
+    re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)', re.DOTALL),
+]
+
+
+def redact_secret_values(text: str) -> str:
+    for pattern in SECRET_VALUE_PATTERNS:
+        text = pattern.sub('[REDACTED_SECRET]', text)
+    return text
 
 def _now_iso():
     return datetime.now(timezone.utc).isoformat()
@@ -24,8 +40,10 @@ def scrub_sensitive(data: Any, depth: int = 0) -> Any:
         return cleaned
     if isinstance(data, list):
         return [scrub_sensitive(item, depth + 1) for item in data[:50]]
-    if isinstance(data, str) and len(data) > 1000:
-        return data[:1000] + '... [TRUNCATED]'
+    if isinstance(data, str):
+        data = redact_secret_values(data)
+        if len(data) > 1000:
+            return data[:1000] + '... [TRUNCATED]'
     return data
 
 class AuditLogger:

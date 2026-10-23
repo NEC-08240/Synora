@@ -6,6 +6,8 @@ from typing import Any, Dict
 
 MSG_AUTHENTICATE = 'AUTHENTICATE'
 MSG_WORKER_REGISTER = 'WORKER_REGISTER'
+MSG_WORKER_CHALLENGE = 'WORKER_CHALLENGE'
+MSG_WORKER_AUTH = 'WORKER_AUTH'
 MSG_HEARTBEAT = 'HEARTBEAT'
 MSG_JOB_ASSIGN = 'JOB_ASSIGN'
 MSG_JOB_ACK = 'JOB_ACK'
@@ -18,6 +20,8 @@ MSG_WORKER_DISCONNECT = 'WORKER_DISCONNECT'
 KNOWN_MESSAGES = {
     MSG_AUTHENTICATE,
     MSG_WORKER_REGISTER,
+    MSG_WORKER_CHALLENGE,
+    MSG_WORKER_AUTH,
     MSG_HEARTBEAT,
     MSG_JOB_ASSIGN,
     MSG_JOB_ACK,
@@ -46,6 +50,8 @@ class ProtocolMessage:
         required_fields = {
             MSG_AUTHENTICATE: ('developer_id', 'nonce', 'signature'),
             MSG_WORKER_REGISTER: ('worker_id',),
+            MSG_WORKER_CHALLENGE: ('worker_id', 'nonce', 'message'),
+            MSG_WORKER_AUTH: ('worker_id', 'nonce', 'signature'),
             MSG_JOB_ASSIGN: ('job_id',),
             MSG_JOB_ACK: ('job_id', 'worker_id'),
             MSG_JOB_PROGRESS: ('job_id', 'status'),

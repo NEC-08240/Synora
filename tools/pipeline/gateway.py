@@ -1,10 +1,15 @@
 # Synora Agent Gateway coordination engine
+import asyncio
+import base64
+import contextlib
+import logging
 import secrets
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from .metadata import MAX_TASK_CHARS
 from .audit import AuditLogger
 from .auth import (
     AuthenticationError,
@@ -28,6 +33,71 @@ from .team_registry import DeveloperEntry, TeamRegistry
 from .worker_registry import WorkerNotFound, WorkerRegistry
 
 
+
+logger = logging.getLogger(__name__)
+
+
+class RecoveryScheduler:
+    """Lightweight asyncio background scheduler for periodic stale-worker and job recovery."""
+
+    def __init__(
+        self,
+        queue: JobQueue,
+        interval_seconds: float = 30.0,
+        worker_stale_timeout: float = 60.0,
+        job_ttl_seconds: float = 86400.0,
+        audit: Optional[AuditLogger] = None,
+    ):
+        self.queue = queue
+        self.interval = float(interval_seconds)
+        self.worker_stale_timeout = float(worker_stale_timeout)
+        self.job_ttl = float(job_ttl_seconds)
+        self.audit = audit
+        self._task: Optional[asyncio.Task] = None
+        self._running = False
+
+    @property
+    def is_running(self) -> bool:
+        return self._running and self._task is not None and not self._task.done()
+
+    async def run_once(self) -> tuple:
+        loop = asyncio.get_running_loop()
+        reaped = await loop.run_in_executor(None, self.queue.reap_stale_workers, self.worker_stale_timeout)
+        expired = await loop.run_in_executor(None, self.queue.expire_stale_jobs, self.job_ttl)
+        if self.audit:
+            if reaped:
+                self.audit.record('WORKERS_REAPED', 'scheduler', {'reaped_workers': reaped})
+            if expired:
+                self.audit.record('JOBS_EXPIRED', 'scheduler', {'expired_jobs': expired})
+        return reaped, expired
+
+    async def _loop(self):
+        while self._running:
+            try:
+                await asyncio.sleep(self.interval)
+                if not self._running:
+                    break
+                await self.run_once()
+            except asyncio.CancelledError:
+                break
+            except Exception as err:
+                logger.error(f'Error in recovery loop: {err}')
+
+    def start(self):
+        if self._running or (self._task is not None and not self._task.done()):
+            return  # Prevent duplicate scheduler tasks
+        self._running = True
+        self._task = asyncio.create_task(self._loop())
+
+    async def stop(self):
+        self._running = False
+        if self._task is not None:
+            self._task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._task
+            self._task = None
+
+
 class Gateway:
     def __init__(
         self,
@@ -37,20 +107,24 @@ class Gateway:
         signing_secret: Optional[bytes] = None,
         worker_registry: Optional[WorkerRegistry] = None,
         max_jobs_per_developer: int = 1,
-        max_task_size: int = 65536,
+        max_task_size: int = MAX_TASK_CHARS,
         max_diff_size: int = 524288,
         max_result_age_seconds: float = 300.0,
+        worker_online_window_seconds: float = 30.0,
     ):
         self.registry = registry
         self.queue = queue or JobQueue(':memory:')
         self.audit = audit or AuditLogger()
         self.signing_secret = signing_secret or secrets.token_bytes(32)
         self.challenges = ChallengeStore(default_ttl_seconds=300)
+        self.worker_challenges = ChallengeStore(default_ttl_seconds=60)
         self.worker_registry = worker_registry or WorkerRegistry()
+        self.recovery_scheduler = RecoveryScheduler(queue=self.queue, audit=self.audit)
         self.max_jobs_per_developer = max_jobs_per_developer
         self.max_task_size = max_task_size
         self.max_diff_size = max_diff_size
         self.max_result_age_seconds = max_result_age_seconds
+        self.worker_online_window_seconds = worker_online_window_seconds
         self._worker_tokens = {}
 
     def request_challenge(self, developer_id: str) -> dict:
@@ -93,11 +167,21 @@ class Gateway:
             )
 
         is_repair = bool(job_payload.get('is_repair'))
-        task = job_payload.get('task', '')
+        task = job_payload.get('task')
+        if not isinstance(task, str):
+            raise ValueError('task must be a string.')
         task_type = job_payload.get('task_type', 'docs')
-        branch = job_payload.get('branch', '')
-        base_commit = job_payload.get('base_commit', '')
+        if not isinstance(task_type, str):
+            raise ValueError('task_type must be a string.')
+        branch = job_payload.get('branch')
+        if not isinstance(branch, str):
+            raise ValueError('branch must be a string.')
+        base_commit = job_payload.get('base_commit')
+        if not isinstance(base_commit, str):
+            raise ValueError('base_commit must be a string.')
         diff = job_payload.get('diff', '')
+        if not isinstance(diff, str):
+            raise ValueError('diff must be a string.')
         local_evidence = job_payload.get('local_evidence')
 
         # Size validations
@@ -182,6 +266,35 @@ class Gateway:
             )
         self.audit.record('JOB_CANCELLED', caller.developer_id, {'job_id': job_id})
         return {'success': True, 'job_id': job_id, 'status': 'CANCELLED'}
+
+    def request_worker_challenge(self, worker_id: str) -> dict:
+        worker_entry = self.worker_registry.get(worker_id)
+        if not worker_entry.is_active():
+            self.audit.record('WORKER_CHALLENGE_REJECTED', worker_id, {'reason': 'suspended'})
+            raise AuthenticationError(f'Worker {worker_id!r} is suspended.')
+        challenge = self.worker_challenges.create(worker_id)
+        self.audit.record('WORKER_CHALLENGE_ISSUED', worker_id, {'nonce': challenge['nonce']})
+        return {
+            'worker_id': worker_id,
+            'nonce': challenge['nonce'],
+            'message': challenge['message'],
+            'expires_at': challenge['expires_at'],
+        }
+
+    def authenticate_worker(self, worker_id: str, nonce: str, signature_b64: str) -> None:
+        worker_entry = self.worker_registry.get(worker_id)
+        if not worker_entry.is_active():
+            self.audit.record('WORKER_AUTH_REJECTED', worker_id, {'reason': 'suspended'})
+            raise AuthenticationError(f'Worker {worker_id!r} is suspended.')
+        message = self.worker_challenges.consume(worker_id, nonce)
+        try:
+            raw_sig = base64.b64decode(signature_b64.strip(), validate=True)
+            pub = worker_entry.get_public_key()
+            pub.verify(raw_sig, message.encode('utf-8'))
+        except Exception as err:
+            self.audit.record('WORKER_AUTH_FAILED', worker_id, {'error': str(err)})
+            raise AuthenticationError(f'Worker signature verification failed: {err}') from None
+        self.audit.record('WORKER_AUTH_SUCCESS', worker_id, {})
 
     def register_worker(self, worker_id: str, worker_token: str, capabilities: dict) -> dict:
         self.queue.heartbeat_worker(worker_id, capabilities)
@@ -271,13 +384,26 @@ class Gateway:
         self.audit.record('JOB_RESULT_VERIFIED', worker_id, {'job_id': job_id, 'status': status})
         return {'success': True, 'job_id': job_id, 'status': status}
 
+    def _is_online(self, beat: Optional[dict]) -> bool:
+        """A worker is online only if the Gateway heard from it recently. 'status' is enrolment, not liveness."""
+        if not beat or beat.get('status') != 'ONLINE':
+            return False
+        try:
+            seen = datetime.fromisoformat(beat['last_heartbeat'])
+        except (KeyError, TypeError, ValueError):
+            return False
+        return (datetime.now(timezone.utc) - seen).total_seconds() < self.worker_online_window_seconds
+
     def get_worker_status(self) -> dict:
         workers = self.worker_registry.list_workers()
+        beats = self.queue.worker_heartbeats()
         return {
             'workers': [
                 {
                     'worker_id': w.worker_id,
                     'status': w.status,
+                    'online': self._is_online(beats.get(w.worker_id)),
+                    'last_heartbeat': (beats.get(w.worker_id) or {}).get('last_heartbeat'),
                     'capabilities': w.capabilities,
                     'created_at': w.created_at,
                 }

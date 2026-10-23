@@ -1,7 +1,10 @@
 # Authorization policy for Synora Agent Bridge
+import re
 from typing import Optional, Sequence
 
 from .team_registry import DeveloperEntry
+
+SAFE_REF_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]*(?:/[a-zA-Z0-9][a-zA-Z0-9_-]*)*\Z')
 
 class AuthorizationError(PermissionError):
     pass
@@ -11,6 +14,9 @@ class AuthorizationPolicy:
     def check_submit_task(developer: DeveloperEntry, branch: str, task_type: str, changed_files: Optional[Sequence[str]] = None) -> None:
         if not developer.is_active():
             raise AuthorizationError(f'Developer {developer.developer_id!r} is {developer.status}.')
+
+        if not branch or not isinstance(branch, str) or len(branch.strip()) > 255 or not SAFE_REF_PATTERN.match(branch):
+            raise AuthorizationError(f'Invalid branch format or illegal characters in branch: {branch!r}.')
 
         if not developer.can_touch_branch(branch):
             raise AuthorizationError(

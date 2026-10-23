@@ -1,5 +1,7 @@
 # Claude Worker daemon & Outbound Worker for Synora Agent Bridge
+import base64
 import json
+import os
 import logging
 import ssl
 import time
@@ -8,6 +10,9 @@ from typing import Any, Dict, Optional
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from .bridge import Bridge
+from .budget import BudgetExceeded, WorkerBudget
+from .metadata import validate_job_payload
+from .transport import certificate_options, normalize_gateway_url, websocket_url
 from .protocol import (
     MSG_HEARTBEAT,
     MSG_JOB_ACK,
@@ -16,10 +21,34 @@ from .protocol import (
     MSG_JOB_PROGRESS,
     MSG_JOB_RESULT,
     MSG_WORKER_REGISTER,
+    MSG_WORKER_CHALLENGE,
+    MSG_WORKER_AUTH,
 )
 from .result_envelope import ResultEnvelope
 
 logger = logging.getLogger(__name__)
+
+import re
+
+from .audit import redact_secret_values
+
+def _redact_deep(value, depth=0):
+    if depth > 20:
+        return '[REDACTED_DEPTH_LIMIT]'
+    if isinstance(value, str):
+        return redact_secret_values(value)
+    if isinstance(value, dict):
+        return {_redact_deep(k, depth + 1): _redact_deep(v, depth + 1) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_redact_deep(v, depth + 1) for v in value]
+    return value
+
+
+def sanitize_worker_result(result_dict: dict) -> dict:
+    if not isinstance(result_dict, dict):
+        return result_dict
+    return _redact_deep(result_dict)
+
 
 
 class WorkerConnectionError(ConnectionError):
@@ -33,12 +62,26 @@ class ClaudeWorker:
         bridge: Optional[Bridge] = None,
         gateway: Any = None,
         private_key: Optional[ed25519.Ed25519PrivateKey] = None,
+        budget: Optional[WorkerBudget] = None,
     ):
         self.worker_id = worker_id
         self.bridge = bridge
         self.gateway = gateway
         self.private_key = private_key or ed25519.Ed25519PrivateKey.generate()
         self.capabilities = {'supported_tasks': ['docs', 'code', 'review']}
+        if budget is None and bridge is not None:
+            budget = WorkerBudget(bridge.records_dir.parent)
+        self.budget = budget
+
+    def _intake(self, job_data):
+        """Check a Gateway job before any work. Remote fields never change the Worker's limits."""
+        validate_job_payload(job_data)
+        if self.bridge is not None and self.budget is not None:
+            self.budget.admit()
+
+    def _release(self):
+        if self.bridge is not None and self.budget is not None:
+            self.budget.finish()
 
     def process_one_job(self) -> Optional[dict]:
         if not self.gateway:
@@ -51,6 +94,12 @@ class ClaudeWorker:
         developer_id = job_data['developer_id']
         task = job_data['task']
         task_type = job_data.get('task_type', 'docs')
+
+        try:
+            self._intake(job_data)
+        except (ValueError, BudgetExceeded) as err:
+            self.gateway.worker_submit_failure(self.worker_id, job_id, redact_secret_values(f'Refused: {err}'))
+            return None
 
         try:
             if not self.bridge:
@@ -71,6 +120,7 @@ class ClaudeWorker:
                 result = self.bridge.get(local_job_id)
 
             status = result.get('status', 'SUCCEEDED')
+            result = sanitize_worker_result(result)
             if hasattr(self.gateway, 'worker_submit_signed_result'):
                 envelope = ResultEnvelope.create(
                     private_key=self.private_key,
@@ -85,8 +135,10 @@ class ClaudeWorker:
                 self.gateway.worker_submit_result(self.worker_id, job_id, result)
             return result
         except Exception as err:
-            self.gateway.worker_submit_failure(self.worker_id, job_id, f'{type(err).__name__}: {err}')
+            self.gateway.worker_submit_failure(self.worker_id, job_id, redact_secret_values(f'{type(err).__name__}: {err}'))
             raise
+        finally:
+            self._release()
 
 
 class OutboundWorker(ClaudeWorker):
@@ -106,14 +158,22 @@ class OutboundWorker(ClaudeWorker):
         heartbeat_interval: float = 10.0,
         max_backoff: float = 30.0,
         ssl_context: Optional[ssl.SSLContext] = None,
+        poll_interval: float = 3.0,
+        allow_insecure_lan: bool = False,
+        budget: Optional[WorkerBudget] = None,
     ):
-        super().__init__(worker_id=worker_id, bridge=bridge, gateway=gateway, private_key=private_key)
+        super().__init__(worker_id=worker_id, bridge=bridge, gateway=gateway, private_key=private_key, budget=budget)
+        if gateway_url is not None:
+            gateway_url = normalize_gateway_url(gateway_url, allow_insecure=allow_insecure_lan)
+        self.allow_insecure_lan = allow_insecure_lan
         self.gateway_url = gateway_url
         self.heartbeat_interval = heartbeat_interval
         self.max_backoff = max_backoff
         self.ssl_context = ssl_context
+        self.poll_interval = poll_interval
         self._ws = None
         self._is_connected = False
+        self._running = False
         self._reconnect_attempts = 0
 
     def connect_ws(self, ws_client=None):
@@ -131,16 +191,11 @@ class OutboundWorker(ClaudeWorker):
             if not self.gateway_url:
                 raise WorkerConnectionError('gateway_url must be provided for network connection.')
 
-            ws_url = self.gateway_url.replace('http://', 'ws://').replace('https://', 'wss://')
-            if not ws_url.endswith('/ws/worker'):
-                ws_url = ws_url.rstrip('/') + '/ws/worker'
-
-            sslopt = None
-            if self.ssl_context:
-                sslopt = {'context': self.ssl_context}
+            ws_url = websocket_url(normalize_gateway_url(self.gateway_url, allow_insecure=self.allow_insecure_lan))
+            sslopt = certificate_options(ws_url, self.ssl_context)
 
             try:
-                self._ws = websocket.create_connection(ws_url, sslopt=sslopt, timeout=10)
+                self._ws = websocket.create_connection(ws_url, sslopt=sslopt, timeout=10, redirect_limit=0)
                 self._is_connected = True
                 self._reconnect_attempts = 0
             except Exception as err:
@@ -155,6 +210,33 @@ class OutboundWorker(ClaudeWorker):
                 'capabilities': self.capabilities,
             },
         })
+
+        challenge_msg = self._recv()
+        if challenge_msg.get('message_type') != MSG_WORKER_CHALLENGE:
+            self.disconnect()
+            raise WorkerConnectionError(f'Expected WORKER_CHALLENGE from gateway, got: {challenge_msg}')
+
+        challenge_payload = challenge_msg.get('payload', {})
+        nonce = challenge_payload.get('nonce')
+        challenge_text = challenge_payload.get('message')
+        if not nonce or not challenge_text:
+            self.disconnect()
+            raise WorkerConnectionError('Malformed WORKER_CHALLENGE from gateway.')
+
+        # Sign challenge with worker private key
+        sig_raw = self.private_key.sign(challenge_text.encode('utf-8'))
+        sig_b64 = base64.b64encode(sig_raw).decode('ascii')
+
+        # Send WORKER_AUTH
+        self._send({
+            'message_type': MSG_WORKER_AUTH,
+            'payload': {
+                'worker_id': self.worker_id,
+                'nonce': nonce,
+                'signature': sig_b64,
+            },
+        })
+
         ack = self._recv()
         if ack.get('status') != 'REGISTERED':
             self.disconnect()
@@ -188,18 +270,24 @@ class OutboundWorker(ClaudeWorker):
             return None
 
         job_data = msg['payload']
-        job_id = job_data['job_id']
-        developer_id = job_data['developer_id']
-        task = job_data['task']
-        task_type = job_data.get('task_type', 'docs')
-
-        # Send ACK
-        self._send({
-            'message_type': MSG_JOB_ACK,
-            'payload': {'job_id': job_id, 'worker_id': self.worker_id},
-        })
-
+        job_id = job_data.get('job_id') if isinstance(job_data, dict) else None
         try:
+            self._intake(job_data)
+        except (ValueError, BudgetExceeded) as err:
+            self._send({
+                'message_type': MSG_JOB_FAILURE,
+                'payload': {'job_id': job_id, 'error': redact_secret_values(f'Refused: {err}')},
+            })
+            self._recv()
+            return None
+        try:
+            developer_id = job_data['developer_id']
+            task = job_data['task']
+            task_type = job_data.get('task_type', 'docs')
+            self._send({
+                'message_type': MSG_JOB_ACK,
+                'payload': {'job_id': job_id, 'worker_id': self.worker_id},
+            })
             # Report progress
             self._send({
                 'message_type': MSG_JOB_PROGRESS,
@@ -224,6 +312,7 @@ class OutboundWorker(ClaudeWorker):
                 result = self.bridge.get(local_job_id)
 
             status = result.get('status', 'SUCCEEDED')
+            result = sanitize_worker_result(result)
             envelope = ResultEnvelope.create(
                 private_key=self.private_key,
                 job_id=job_id,
@@ -242,28 +331,48 @@ class OutboundWorker(ClaudeWorker):
         except Exception as err:
             self._send({
                 'message_type': MSG_JOB_FAILURE,
-                'payload': {'job_id': job_id, 'error': f'{type(err).__name__}: {err}'},
+                'payload': {'job_id': job_id, 'error': redact_secret_values(f'{type(err).__name__}: {err}')},
             })
             self._recv()
             raise
+        finally:
+            self._release()
 
-    def run_reconnect_loop(self, max_cycles: int = 1, backoff_base: float = 0.1):
-        """Worker event loop with bounded exponential backoff reconnection."""
+    def run_reconnect_loop(
+        self,
+        max_cycles: Optional[int] = 1,
+        backoff_base: float = 0.1,
+        poll_interval: Optional[float] = None,
+    ):
+        """Worker event loop with bounded exponential backoff reconnection and idle sleep."""
+        self._running = True
         cycle = 0
         backoff = backoff_base
-        while cycle < max_cycles:
+        idle_sleep = poll_interval if poll_interval is not None else self.poll_interval
+        while self._running:
+            if max_cycles is not None and cycle >= max_cycles:
+                break
             cycle += 1
             try:
                 if not self._is_connected:
                     self.connect_ws()
                 self.send_heartbeat()
-                self.poll_and_execute_one_job()
+                job_res = self.poll_and_execute_one_job()
                 backoff = backoff_base  # reset on success
+                if job_res is None and self._running:
+                    time.sleep(idle_sleep)
             except Exception as err:
                 logger.warning(f'Worker loop encountered error: {err}. Reconnecting with backoff {backoff:.2f}s')
                 self.disconnect()
-                time.sleep(backoff)
-                backoff = min(backoff * 2, self.max_backoff)
+                if self._running:
+                    time.sleep(backoff)
+                    backoff = min(backoff * 2, self.max_backoff)
+
+    def stop(self):
+        """Stop worker execution loop gracefully."""
+        self._running = False
+        self.disconnect()
+
 
     def _send(self, data: dict):
         if hasattr(self._ws, 'send_json'):
@@ -281,3 +390,29 @@ class OutboundWorker(ClaudeWorker):
             return json.loads(raw)
         else:
             raise WorkerConnectionError('No active WebSocket connection.')
+
+
+def load_worker_private_key(
+    key_file: Optional[str] = None,
+    key_b64: Optional[str] = None,
+) -> ed25519.Ed25519PrivateKey:
+    """Load an Ed25519 private key from a file or base64 string without generating a new random key."""
+    if key_b64 and key_b64.strip():
+        raw = base64.b64decode(key_b64.strip(), validate=True)
+        if len(raw) == 32:
+            return ed25519.Ed25519PrivateKey.from_private_bytes(raw)
+        from cryptography.hazmat.primitives import serialization
+        return serialization.load_der_private_key(raw, password=None)
+
+    if key_file and os.path.exists(key_file):
+        with open(key_file, 'rb') as f:
+            data = f.read()
+        if len(data) == 32:
+            return ed25519.Ed25519PrivateKey.from_private_bytes(data)
+        from cryptography.hazmat.primitives import serialization
+        try:
+            return serialization.load_pem_private_key(data, password=None)
+        except Exception:
+            return ed25519.Ed25519PrivateKey.from_private_bytes(data[:32])
+
+    raise ValueError('A valid SYNORA_WORKER_KEY_FILE or SYNORA_WORKER_PRIVATE_KEY_B64 is required.')

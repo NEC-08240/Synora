@@ -39,3 +39,10 @@ Thumbs.db
 # Agent bridge job records and worktrees (local only)
 .agents/pipeline/
 __pycache__/
+
+# Local runtime databases and test keys (deployment safety)
+*.db
+*.sqlite
+*.sqlite3
+*.key
+*.pem

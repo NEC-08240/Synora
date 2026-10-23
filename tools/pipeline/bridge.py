@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
 from .executables import CLAUDE_ENV, GIT_ENV, resolve_executable
+from .metadata import MAX_TASK_CHARS, validate_branch, validate_developer_id, validate_repository
 from .records import RecordCorrupt, RecordStore, canonical_job_id
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -40,13 +41,13 @@ REVIEW_CATEGORIES = (
     "DOCUMENTATION_PROBLEM",
     "OTHER",
 )
-MAX_TASK_CHARS = 2000
 MAX_RESULT_CHARS = 8000
 MAX_DIFF_CHARS = 20000
 MAX_OUTPUT_CHARS = 2000
 MAX_STDERR_CHARS = 500
 MAX_EVIDENCE_LIMITS_CHARS = 500
 AGENT_TIMEOUT_SECONDS = 180
+CLAUDE_MAX_BUDGET_USD = "1.00"  # spend cap per Claude invocation, enforced by Claude Code
 VERIFY_TIMEOUT_SECONDS = 300
 
 STATUS_QUEUED = "QUEUED"
@@ -108,16 +109,36 @@ Reply with only a JSON object:
 """
 
 
+# Only what Claude Code needs to start and to find its login (Windows profile and PATH variables).
+# Everything else, including Worker keys, Gateway secrets, and tokens, stays out of Claude's environment.
+CLAUDE_ENV_ALLOWLIST = (
+    "PATH", "PATHEXT", "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR", "COMSPEC", "TEMP", "TMP", "TMPDIR",
+    "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "HOME", "APPDATA", "LOCALAPPDATA", "USERNAME", "USER",
+    "COMPUTERNAME", "PROGRAMDATA", "PROGRAMFILES", "PROGRAMFILES(X86)", "LANG", "LC_ALL",
+)
+
+
+def minimal_environment(source=None):
+    """Explicit allowlist for every child process the bridge starts. Inheriting the full environment is not allowed."""
+    source = os.environ if source is None else source
+    return {name: source[name] for name in CLAUDE_ENV_ALLOWLIST if name in source}
+
+
+claude_environment = minimal_environment
+
+
 def run_claude(prompt, cwd, tools, permission_mode, executable):
     """Run Claude Code headless: no shell, no MCP servers, no user-level hooks or plugins."""
     cmd = [
         executable,
         "-p",
+        "--restricted",
         "--output-format", "json",
         "--tools", tools,
         "--strict-mcp-config",
         "--permission-mode", permission_mode,
         "--setting-sources", "project",
+        "--max-budget-usd", CLAUDE_MAX_BUDGET_USD,
     ]
     proc = subprocess.run(
         cmd,
@@ -127,6 +148,7 @@ def run_claude(prompt, cwd, tools, permission_mode, executable):
         text=True,
         encoding="utf-8",
         timeout=AGENT_TIMEOUT_SECONDS,
+        env=minimal_environment(),
     )
     return proc.returncode, proc.stdout, proc.stderr
 
@@ -232,6 +254,7 @@ def _run_commands(commands, worktree):
                 encoding="utf-8",
                 errors="replace",
                 timeout=VERIFY_TIMEOUT_SECONDS,
+                env=minimal_environment(),
             )
             exit_code, output = proc.returncode, proc.stdout + proc.stderr
         except (OSError, subprocess.TimeoutExpired) as err:
@@ -256,6 +279,7 @@ class Bridge:
         self.claude = claude  # resolved on first use when None
         self.runner = runner or self._run_claude
         self.verify_commands = verify_commands or {}
+        self._pointers = {}  # worktree -> the .git pointer the bridge wrote when it created it
 
     def _run_claude(self, prompt, cwd, tools, permission_mode):
         executable = self.claude or resolve_executable("claude", CLAUDE_ENV)
@@ -266,9 +290,33 @@ class Bridge:
     def _git_exe(self):
         return self.git or resolve_executable("git", GIT_ENV)
 
+    def _guard_worktree(self, cwd):
+        """Refuse git in a job worktree whose .git pointer no longer matches the one the bridge created.
+
+        A pointer redirected by a job would make git read config from a directory the job controls.
+        """
+        worktrees = self.worktrees_dir.resolve()
+        try:
+            relative = Path(cwd).resolve().relative_to(worktrees).parts
+        except ValueError:
+            return  # the bridge's own checkout
+        if not relative:
+            return
+        root = worktrees / relative[0]
+        expected = self._pointers.get(str(root))
+        try:
+            current = (root / ".git").read_text(encoding="utf-8")
+        except OSError:
+            current = None
+        if expected is None or current != expected:
+            raise RuntimeError("The job changed the worktree's .git pointer; refusing to run git there.")
+
     def _git(self, args, cwd):
+        self._guard_worktree(cwd)
         return subprocess.run(
-            [self._git_exe(), *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", check=True
+            [self._git_exe(), "-c", "core.fsmonitor=false", *args],
+            cwd=cwd, capture_output=True, text=True, encoding="utf-8", check=True,
+            env=minimal_environment(),
         ).stdout
 
     def _status(self, cwd):
@@ -279,8 +327,10 @@ class Bridge:
         return self._git(["status", "--porcelain", "-uall", "--", ".", ":(exclude).agents/pipeline"], self.repo)
 
     def _apply_patch(self, patch, cwd):
+        self._guard_worktree(cwd)
         proc = subprocess.run(
-            [self._git_exe(), "apply", "-"], cwd=cwd, input=patch, capture_output=True, text=True, encoding="utf-8"
+            [self._git_exe(), "-c", "core.fsmonitor=false", "apply", "-"], cwd=cwd, input=patch, capture_output=True, text=True, encoding="utf-8",
+            env=minimal_environment(),
         )
         if proc.returncode != 0:
             raise RuntimeError(f"Could not apply the target diff: {proc.stderr[:MAX_STDERR_CHARS]}")
@@ -331,6 +381,10 @@ class Bridge:
 
     def create(self, task, task_type="docs", working_dir=".", target_job_id=None, developer_id=None, repository=None, branch=None):
         task, working_dir = _validate_task(task, task_type, working_dir)
+        if developer_id is not None:
+            developer_id = validate_developer_id(developer_id)
+        repository = validate_repository(repository)
+        branch = validate_branch(branch)
         target_job_id = self._validate_target(task_type, target_job_id)
         now = _now()
         record = {
@@ -466,6 +520,7 @@ class Bridge:
                 raise RuntimeError("A worktree already exists for this job.")
             self._check_inside_worktrees(worktree)
             self._git(["worktree", "add", "--detach", str(worktree), commit], self.repo)
+            self._pointers[str(self.worktrees_dir.resolve() / worktree.name)] = (worktree / ".git").read_text(encoding="utf-8")
         except (RuntimeError, subprocess.CalledProcessError) as err:
             raise RuntimeError(f"Worktree creation failed: {err}") from None
 

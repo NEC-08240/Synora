@@ -12,7 +12,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 ROLES = ('project_owner', 'developer', 'auditor')
 STATUSES = ('active', 'suspended')
 
-DEVELOPER_ID_PATTERN = re.compile(r'^[a-zA-Z0-9_-]{2,64}$')
+DEVELOPER_ID_PATTERN = re.compile(r'^[a-zA-Z0-9][a-zA-Z0-9_-]{1,63}\Z')
 GITHUB_USERNAME_PATTERN = re.compile(r'^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$')
 
 class RegistryError(ValueError):
