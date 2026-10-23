@@ -1,0 +1,9 @@
+# Use when you own a DNS name pointing at the instance. Caddy obtains a Let's Encrypt certificate itself.
+# Needs inbound 80 (certificate challenge) and 443.
+gateway.example.com {
+	request_body {
+		max_size 2MB
+	}
+	# WebSocket upgrades (the Worker's wss:// connection) are proxied automatically.
+	reverse_proxy 127.0.0.1:8000
+}
