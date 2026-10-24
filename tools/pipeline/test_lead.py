@@ -67,8 +67,8 @@ class FakeClaude:
 
 
 def _turn_calls(fake):
-    """Lead turns carry a <request> block; creation and review calls do not."""
-    return [c for c in fake.calls if "<request>" in c["prompt"]]
+    """Lead turns carry a <request> block; creation and review calls are not turns."""
+    return [c for c in fake.calls if "<request>" in c["prompt"] and "REVIEW" not in c["prompt"]]
 
 
 def _flag(args, name):
@@ -242,6 +242,20 @@ class LeadRunnerTest(unittest.TestCase):
             restarted.run_turn(_job(job_id="job-crashed"))
 
     # ---- reviewer isolation ---------------------------------------------------
+
+    def test_reviewer_sees_the_request_and_the_pass_criterion(self):
+        self.runner().run_turn(_job(text="Remember the code word BLUE-HERON-42."))
+        review = [c for c in self.fake.calls if "REVIEW" in c["prompt"]][0]["prompt"]
+        self.assertIn("<request>", review)
+        self.assertIn("BLUE-HERON-42", review)
+        self.assertIn("PASS when the decision stays inside the allowed scope", review)
+
+    def test_lead_instructions_require_decision_and_scope_check(self):
+        text = (Path(__file__).with_name("lead_instructions.md")).read_text(encoding="utf-8")
+        self.assertIn("DECISION:", text)
+        self.assertIn("SCOPE CHECK:", text)
+        self.assertIn("credential", text.lower())
+        self.assertIn("not credentials", text)
 
     def test_reviewer_is_a_separate_ephemeral_invocation(self):
         self.runner().run_turn(_job())
