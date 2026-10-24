@@ -110,6 +110,8 @@ class TestGate25GatewayCompromiseValidation(unittest.TestCase):
         with open(self.secret1_path, 'r', encoding='utf-8') as f:
             self.assertEqual(f.read(), 'SYNORA_OUTSIDE_SECRET_001')
 
+    # Linux treats a backslash as a filename character, so the Windows-path case only applies on Windows.
+    @unittest.skipUnless(os.name == "nt", "backslash path separators are Windows-only")
     def test_critical_3_relative_path_traversal_blocked(self):
         """Critical Test 3: Relative path traversal (../ or ..\\) is blocked for both read and write.
 

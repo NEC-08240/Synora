@@ -32,6 +32,8 @@ def _run_server(repo, extra_env=None, timeout=60):
     )
 
 
+# These start the real server, which needs the Claude CLI on PATH (or SYNORA_BRIDGE_CLAUDE). CI runners lack it.
+@unittest.skipUnless(shutil.which("claude") or os.environ.get("SYNORA_BRIDGE_CLAUDE"), "needs the Claude CLI")
 class ServerStartupTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

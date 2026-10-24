@@ -23,6 +23,8 @@ WORKER_SECRETS = {
 }
 
 
+# The stand-in is a .bat file that only Windows executes. Linux CI skips these; they run on the Windows Worker.
+@unittest.skipUnless(os.name == "nt", "stand-in is a Windows .bat file")
 class StandInClaudeTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
