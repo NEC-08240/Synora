@@ -308,6 +308,13 @@ class LeadRunnerTest(unittest.TestCase):
         for call in self.fake.calls:
             self.assertNotIn(SECRET, call["prompt"])
 
+    def test_outcome_does_not_use_the_gateway_reserved_result_key(self):
+        # The Gateway returns a signed job result under the key `result`. A Lead outcome that also uses `result`
+        # overwrites that wrapper, so the client cannot verify the signature. The decision text is `decision`.
+        outcome = self.runner().run_turn(_job())
+        self.assertNotIn("result", outcome)
+        self.assertTrue(outcome["decision"].startswith("ok; remembered"))
+
     def test_assigned_credentials_are_redacted_from_prompt_and_log_but_ordinary_text_is_kept(self):
         self.runner().run_turn(_job(text="deploy with password=hunter2secret and note the token count is high"))
         prompt = _turn_calls(self.fake)[0]["prompt"]

@@ -193,7 +193,7 @@ class LeadRunner:
             outcome, lead_cost = self._lead_turn(job, session_id, state)
         review_cost = 0.0
         if outcome["status"] == "OK":
-            review, review_cost = self._review(job, outcome["result"])
+            review, review_cost = self._review(job, outcome["decision"])
             outcome.update(review=review, status="SUCCEEDED" if review["verdict"] == "PASS" else "CHANGES_REQUIRED")
         cost = round(lead_cost + review_cost, 8)
         with self._locked():
@@ -250,7 +250,8 @@ class LeadRunner:
                 {"expected": session_id, "returned": str(data.get("session_id"))[:64], "job_id": job["job_id"]},
             )
             raise LeadStateError("Claude returned a different session ID on resume; the Lead is stopped for admin review.")
-        return {"status": "OK", "result": str(data.get("result", ""))[:MAX_RESULT_CHARS]}, cost
+        # `decision`, not `result`: the Gateway reserves `result` for the signed job-result wrapper.
+        return {"status": "OK", "decision": str(data.get("result", ""))[:MAX_RESULT_CHARS]}, cost
 
     def _review(self, job: dict, lead_text: str):
         """A separate, ephemeral, read-only invocation. It has no session flags and does not hold the mutex."""

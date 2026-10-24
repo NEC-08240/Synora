@@ -41,7 +41,7 @@ class RecordingLead:
         self.turns.append(job)
         if self.fail:
             raise LeadScopeError("The job carries no authorized scope; the Lead refuses it.")
-        return {"status": "SUCCEEDED", "result": "decision", "review": {"verdict": "PASS"}, "cost_usd": 0.02}
+        return {"status": "SUCCEEDED", "decision": "decision", "review": {"verdict": "PASS"}, "cost_usd": 0.02}
 
 
 class OpenBudget:
@@ -125,6 +125,23 @@ class FakeWebSocket:
 
     def receive_json(self):
         return self.replies.pop(0)
+
+
+class LeadResultAttestationTest(unittest.TestCase):
+    """A Lead outcome must survive the Worker's signing and the client's verification, as a bridge result does."""
+
+    def test_lead_outcome_verifies_as_a_signed_result(self):
+        from cryptography.hazmat.primitives.asymmetric import ed25519
+        from .result_envelope import attest_result, verify_result_response
+
+        private = ed25519.Ed25519PrivateKey.generate()
+        outcome = {"status": "SUCCEEDED", "decision": "DECISION: note it.\nSCOPE CHECK: inside docs/.",
+                   "review": {"verdict": "PASS"}, "turn": 1, "cost_usd": 0.02}
+        attested = attest_result(private, LEAD_JOB["job_id"], LEAD_JOB["developer_id"], "worker-test", "SUCCEEDED", dict(outcome))
+        verified = verify_result_response({"result": attested}, private.public_key(),
+                                          expected_job_id=LEAD_JOB["job_id"], expected_developer_id=LEAD_JOB["developer_id"])
+        self.assertEqual(verified["decision"], outcome["decision"])
+        self.assertEqual(verified["status"], "SUCCEEDED")
 
 
 class InterruptedLeadJobsTest(unittest.TestCase):
