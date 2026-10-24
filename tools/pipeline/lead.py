@@ -145,7 +145,7 @@ class LeadRunner:
         instructions: Optional[str] = None,
     ):
         self.state_path = Path(state_path)
-        self.mutex = LeadMutex(mutex_path, timeout=lock_timeout)
+        self.mutex_path = Path(mutex_path)
         self.workspace = Path(workspace)
         self.log_path = Path(log_path)
         self.expected_session_id = expected_session_id
@@ -193,7 +193,8 @@ class LeadRunner:
     # ---- internals ------------------------------------------------------------
 
     def _locked(self):
-        return _Held(self.mutex, self.lock_timeout)
+        # A fresh mutex (and OS handle) per section, so threads sharing one runner cannot collide on one handle.
+        return _Held(LeadMutex(self.mutex_path, timeout=self.lock_timeout), self.lock_timeout)
 
     def _caller(self) -> Caller:
         if self._claude is not None:
