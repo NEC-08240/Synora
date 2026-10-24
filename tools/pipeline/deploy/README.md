@@ -509,5 +509,5 @@ On the teammate machine (pip install -r tools/pipeline/requirements-client.txt),
 The job's base commit defaults to the HEAD of that checkout, which must be in the history of the Worker's repository
 (see `base_commit` in Part C); pass `--base-commit <sha>` to choose another.
 Passes when every step prints PASS: sign in, Worker online, job accepted, job finished, Worker signature verifies, result
-returned. A non-zero exit code names the failing step (3 = Worker offline, 4 = rejected, 5 = timeout, 6 = job failed,
+returned. A non-zero exit code names the failing step (1 = sign-in failed, 3 = Worker offline, 4 = rejected, 5 = timeout, 6 = job failed,
 7 = the Worker's signature did not verify).

@@ -99,7 +99,7 @@ Each check is read-only. If a value differs from the table, that is drift: find 
 
 **Verification:** Worker log shows a successful connection; `/worker/status` online; a smoke job succeeds and its signature verifies.
 
-**3b. Certificate regeneration (UNTESTED as a whole procedure on this host):** create a new certificate with `admin_cli gen-cert --host <ELASTIC_IP> --days 90` (deploy README Part B step 12), move it to `gateway.crt`/`gateway.key` with the documented ownership, `sudo systemctl reload caddy`, then give the new `gateway.crt` to Johan's Worker and every teammate. Old clients fail until updated. The certificate generation was run once (2026-10-23); the reload and client update were verified only for that run.
+**3b. Certificate regeneration (UNTESTED as a whole procedure on this host):** first copy the current `gateway.crt` and `gateway.key` to a secure location and confirm the copy opens; do not continue without it. Then create a new certificate with `admin_cli gen-cert --host <ELASTIC_IP> --days 90` (deploy README Part B step 12), move it to `gateway.crt`/`gateway.key` with the documented ownership, `sudo systemctl reload caddy`, then give the new `gateway.crt` to Johan's Worker and every teammate. Old clients fail until updated. The certificate generation was run once (2026-10-23); the reload and client update were verified only for that run.
 
 **Escalation:** a fingerprint mismatch that you cannot explain is a possible compromise. Stop, do not connect with the new certificate, and report to Johan.
 
@@ -114,7 +114,7 @@ Each check is read-only. If a value differs from the table, that is drift: find 
 2. `sudo caddy validate --config /etc/caddy/Caddyfile`
 3. `sudo ss -ltnp | grep -E ':(80|443)\b'` must show Caddy.
 4. Confirm the Caddyfile still has `default_sni <ELASTIC_IP>`. Without it every IP-based handshake fails (recorded in the deploy README).
-5. From the host, `curl -sk --resolve <ELASTIC_IP>:443:127.0.0.1 https://<ELASTIC_IP>/health`. Works = Caddy is fine and the outside path is the problem (Security Group, network).
+5. From the host, `curl --cacert /etc/caddy/tls/gateway.crt --resolve <ELASTIC_IP>:443:127.0.0.1 https://<ELASTIC_IP>/health` (verification stays on; the pinned certificate is public). Works = Caddy is fine and the outside path is the problem (Security Group, network).
 6. If external 443 times out while the host is healthy: this happened once before with no cause found (deploy README, Part A). Check the Security Group allows TCP 443 from `0.0.0.0/0`, then capture SYN packets on the instance as that section describes.
 
 **Recovery:**
@@ -154,7 +154,7 @@ Each check is read-only. If a value differs from the table, that is drift: find 
 
 **Recovery:** follow deploy README **Part B, "Rebuild from nothing"**, steps 1 to 17. Important points:
 - Use the known-good commit (`f371792` or a later commit explicitly approved and recorded). Do not use an AMI or snapshot of the old host.
-- Restore `gateway.env`, `team.json`, `workers.json`, and the certificate pair from the secure backup. Regenerate them only if no backup exists, and then accept that every session is invalidated and everyone is re-enrolled.
+- Restore `gateway.env`, `team.json`, `workers.json`, and the certificate pair from the secure backup. Regenerate them only if no backup exists, and then accept that every session is invalidated and everyone is re-enrolled. Before any regeneration, copy the current files to a secure location and confirm the copy is readable. Regenerating needs Johan's approval.
 - Keep the Security Group rules exactly as listed in Part A.
 
 **Verification:** Part B step 15 and 16 checks; the Worker reconnects (scenario 2); one smoke job succeeds.
@@ -194,7 +194,7 @@ python -m tools.pipeline.teammate_cli smoke
 ```
 
 Exit code 0 = all steps PASS (Gateway sign-in, Worker online, job accepted, finished, signature verified, result returned).
-Non-zero codes: 3 Worker offline, 4 rejected, 5 timeout, 6 job failed, 7 Worker signature did not verify. Treat exit 7 as a
+Non-zero codes: 1 sign-in failed, 3 Worker offline, 4 rejected, 5 timeout, 6 job failed, 7 Worker signature did not verify. Treat exit 7 as a
 security stop, not a retry. The smoke job consumes Johan's Claude budget (10 jobs an hour, 50 a day by default), so run it
 once per recovery, not in a loop.
 
@@ -205,7 +205,7 @@ once per recovery, not in a loop.
 **Diagnosis:** `gh auth status` (shows the account and scopes, not the token).
 
 **Recovery:**
-- Expired login: `gh auth login`, or refresh the required scope with `gh auth refresh -h github.com -s admin:org` (device flow in the browser). Request only the scope you need.
+- Expired login: `gh auth login` with the default scopes. Request an extra scope only for the task that needs it, for example `gh auth refresh -h github.com -s admin:org` for ruleset or team administration (device flow in the browser). Do not keep the admin scope after the task.
 - The AI sessions use Johan's GitHub credentials. There is no separate AI account (a documented limit). Do not create a token and paste it into a file or chat.
 - Never store a token in the repository or in `worker.env`.
 
@@ -213,7 +213,7 @@ once per recovery, not in a loop.
 
 **Escalation:** if an action happens under an account you did not expect, stop and report it to Johan. Rotate the token in GitHub settings.
 
-**Status:** refresh flow **VERIFIED** (2026-10-24, device-flow browser approval for `admin:org`).
+**Status:** the device-flow refresh for `admin:org` **VERIFIED** (2026-10-24, browser approval, used for the governance setup). Default `gh auth login` re-login **UNTESTED** in this runbook.
 
 ## 10. Team enrollment recovery
 
@@ -250,7 +250,7 @@ Expected: enforcement `active`; bypass actor is only the team `20296003`; member
 - Team membership changed: restore membership through the org settings, and record the change.
 - Do not relax protection to get a PR merged.
 
-**Verification:** the diagnosis commands return the expected values; a probe PR shows `REVIEW_REQUIRED` and `BLOCKED` before approval, then close it unmerged.
+**Verification:** the diagnosis commands return the expected values. If a probe PR is needed to confirm enforcement, open it only with Johan's approval, check it shows `REVIEW_REQUIRED` and `BLOCKED`, then close it unmerged and delete its branch.
 
 **Escalation:** repository admins (Rajaneesh is one) can edit the ruleset on the free plan. This is an accepted limit. Any unexplained change is reported to Johan and investigated.
 
@@ -263,7 +263,7 @@ Expected: enforcement `active`; bypass actor is only the team `20296003`; member
 **Diagnosis:** identify the last known-good commit from the table at the top, then the diff: `git diff <good> <bad> --stat`.
 
 **Recovery:**
-- Do not force-push `main` (prohibited by the ruleset). Revert with a new PR: `git revert <bad>` on a branch, PR, and merge.
+- Do not force-push `main` (prohibited by the ruleset). Revert with a new PR: `git revert <bad>` on a branch, PR, and merge. Open and merge it only with Johan's approval.
 - Production: on the host, move the checkout to the known-good commit (`sudo git fetch && sudo git -c safe.directory=/opt/synora -C /opt/synora checkout <good>`). Record the change in deploy README Part A.
 - Restart only if the runtime code changed. Commit changes limited to docs or CODEOWNERS do not need a Gateway restart; confirm with `git diff <old> <new> -- tools/`, which must be empty for a restart-free move.
 - Worker: move `worker-runtime` with `git -C <worker-runtime> checkout --detach <good>` then `Stop-ScheduledTask` (after `Disable-ScheduledTask`, re-enable afterwards).
