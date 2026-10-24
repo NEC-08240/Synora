@@ -5,7 +5,6 @@ Run: python -m unittest tools.pipeline.test_lead_attach -v
 
 import json
 import os
-import subprocess
 import sys
 import tempfile
 import unittest

@@ -12,20 +12,19 @@ a job without that scope is refused before Claude runs.
 """
 
 import json
-import os
 import re
 import subprocess
 import uuid
 from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Callable, Optional
 
 from .audit import redact_secret_values
 from .bridge import MAX_RESULT_CHARS, REVIEW_TOOLS, _parse_claude_json, _parse_verdict, minimal_environment
 from .executables import CLAUDE_ENV, resolve_executable
-from .lead_mutex import LeadBusy, LeadMutex
-from .lead_state import JOB_DONE, LeadState, LeadStateError, STATE_ACTIVE, STATE_UNINITIALIZED
+from .lead_mutex import LeadMutex
+from .lead_state import LeadState, LeadStateError, STATE_UNINITIALIZED
 from .metadata import MAX_TASK_CHARS
 
 LEAD_TOOLS = "Read,Glob,Grep"  # read-only; no Bash, no writes. The Lead delegates changes to bounded jobs.

@@ -315,8 +315,6 @@ class OutboundWorker(ClaudeWorker):
             return None
         try:
             developer_id = job_data['developer_id']
-            task = job_data['task']
-            task_type = job_data.get('task_type', 'docs')
             self._send({
                 'message_type': MSG_JOB_ACK,
                 'payload': {'job_id': job_id, 'worker_id': self.worker_id},
