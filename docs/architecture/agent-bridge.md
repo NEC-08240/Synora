@@ -295,7 +295,7 @@ own identity, run them at the same time, and each job keeps its own worktree or 
    `python -m tools.pipeline.lead_attach` (it reads the same environment variables).
    Do not run a bare `claude --resume`: it does not take the Lead mutex, so Worker turns would not wait for it.
 3. Keep one attachment open at a time. While it is open, Worker turns wait (up to two minutes, then the job fails
-   with "Lead busy"). Exit the terminal to release the Lead.
+   with a busy refusal). Exit the terminal to release the Lead.
 4. Anything you type becomes part of the same conversation the Worker resumes for the next request.
 
 The session ID is kept only in the Worker's local state folder (`lead_state.json`). It is an identifier, not a
@@ -338,11 +338,38 @@ credential, but it is not written to tracked files.
   metadata only: job ID, requester, branch, scope, Lead session identifier, turn number, status, cost, review verdict.
 - Superpowers, ECC, Bash and unrestricted Claude are not enabled. Enabling any of them needs its own security review.
 
+### Verification record
+
+- **Interactive attach (real terminal, real Claude CLI, temporary state folder):** `python -m tools.pipeline.lead_attach`
+  opened the stored session in the workspace. The attached terminal held the Lead mutex, and a Worker turn started
+  during the attachment was refused with a busy error. A message Johan submitted in the terminal was saved to the same
+  session transcript, and the next Worker turn saw it. The session ID did not change. Closing with `/exit` released the
+  mutex, and the next Worker turn succeeded. The wrapper itself returned 0; the terminal runner reported a non-zero code
+  that is not the wrapper's (winpty's own return value). The wrapper removes the inherited `CLAUDE_CODE_CHILD_SESSION`
+  marker, so the attached turn was saved.
+- **Shared-conversation probes (real Claude CLI, seven adversarial requests, two teammates):** a value planted by one
+  teammate was not revealed to the other. Claimed identity and scope in request text were not applied. Requests to
+  reveal the hidden instructions, to change the session, to produce a credential, and to change the Lead's role were
+  refused. The session ID stayed the same, and no secret-format string appeared in any output. These are seven samples,
+  not a proof: the Lead keeps every teammate's request in its context, so the protection is also a model behaviour.
+- **Reviewer on a credential-like answer:** the reviewer rejected a turn whose answer was a plain code word that looked
+  like a credential. It failed closed, which is the intended behaviour. It can produce false positives for code-like
+  values.
+
 ### Known limits and open items
 
-- **Shared conversation.** One Lead conversation holds requests from every teammate. A later turn can see an earlier
-  teammate's request, and transcripts on disk keep every request. This is a blocker for multi-teammate production use
-  until it is reviewed. The Lead's instructions reduce, but do not prevent, cross-teammate exposure.
+- **Shared conversation (open security gate).** One Lead conversation holds requests from every teammate. A later
+  turn can see an earlier teammate's request, and transcripts on disk keep every request. The Lead's instructions and
+  the transaction framing reduce this risk, but they do not remove it, and the probes above are a sample. Code
+  enforces identity, scope and forged-block handling; it does not enforce what the Lead remembers.
+  **Multi-teammate production use requires the owner to accept this residual risk in writing.** Until then, use the
+  Lead for Johan only.
+- **Forged transaction blocks.** Teammate text containing structural tags (`transaction`, `request`, `decision`) is
+  escaped before it reaches the Lead. A forged block is shown as text, not as a transaction.
+- **Stuck creation.** If Claude fails while the session is being created, the state stays `CREATING`, and the Lead
+  refuses to start until an administrator clears it. This is deliberate: a retry could otherwise create a second session.
+- **Shared Bridge objects.** Concurrency comes from separate Worker instances with their own Bridge and budget. A single
+  Bridge is not designed to be shared between threads.
 - **Lead cost grows with the conversation.** Costs are recorded per turn and cumulatively. Session rotation is a
   documented follow-up and is not automatic.
 - **The Lead does not dispatch work itself.** Specialist jobs are submitted through the existing path. Automatic
@@ -350,12 +377,22 @@ credential, but it is not written to tracked files.
 - **Production concurrency needs more enrolled Worker identities.** One Worker process runs one job at a time. Running
   implementation jobs side by side in production means starting more Worker instances, each with its own enrolled
   identity. That is a Gateway administration action and has not been done.
-- **Registry module scopes.** The registry normalizes `frontend/*` to `frontend/*/`, so wildcard module scopes do not
-  match file paths. This predates the Lead and is not changed here.
+- **Registry module scopes.** The registry normalizes `frontend/*` to `frontend/*/`. A wildcard module scope therefore
+  fails closed: real paths such as `frontend/app.js` are refused. It is not an escalation. Changing it is a registry
+  change and is not made here.
 - **Per-developer job limit.** The Gateway allows one active job per developer. A developer's Lead request and
   implementation job therefore cannot be in flight together.
-- **Interactive attach is verified only by spike and unit tests.** The attach wrapper's lock and environment behaviour
-  are tested with a stand-in process. Johan typing into a live attached session was observed in the local spike, not
-  automated.
-- **Not done:** live event streaming, Remote Control, automatic session rotation, a Lead web interface, and any
-  production deployment.
+- **Production migration.** The Gateway adds a nullable `scope_json` column to the `jobs` table on start. The change is
+  additive; existing rows keep a NULL scope, and a Lead job without scope is refused. It takes effect only when the
+  Gateway is restarted with the new code.
+- **Production concurrency.** Each additional Worker identity needs an administrator enrollment (`add-worker`) and its
+  own daemon. None was enrolled.
+- **Not done:** live event streaming, Remote Control, automatic session rotation, automatic dispatch of Lead decisions
+  into sub-jobs, a Lead web interface, Superpowers or ECC in the Lead, Bash for the Lead, and any production deployment.
+
+### Readiness
+
+- **Single-user Lead for Johan:** ready for a supervised canary on the feature branch's code, once it has been reviewed
+  and merged, and with the deployment steps below.
+- **Multi-teammate Lead:** not ready. The shared-conversation gate above is open, and the owner has not accepted the
+  residual risk.
