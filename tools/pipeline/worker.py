@@ -150,6 +150,10 @@ class ClaudeWorker:
             self._release()
 
 
+class LeadNotConfigured(RuntimeError):
+    """A Lead job reached a Worker that has no Lead configured. The job is refused."""
+
+
 class OutboundWorker(ClaudeWorker):
     """Outbound persistent Claude Worker client.
 
@@ -170,10 +174,12 @@ class OutboundWorker(ClaudeWorker):
         poll_interval: float = 3.0,
         allow_insecure_lan: bool = False,
         budget: Optional[WorkerBudget] = None,
+        lead: Any = None,
     ):
         super().__init__(worker_id=worker_id, bridge=bridge, gateway=gateway, private_key=private_key, budget=budget)
         if gateway_url is not None:
             gateway_url = normalize_gateway_url(gateway_url, allow_insecure=allow_insecure_lan)
+        self.lead = lead  # the persistent Engineering Lead, or None when it is not configured
         self.allow_insecure_lan = allow_insecure_lan
         self.gateway_url = gateway_url
         self.heartbeat_interval = heartbeat_interval
@@ -305,26 +311,7 @@ class OutboundWorker(ClaudeWorker):
                 'payload': {'job_id': job_id, 'status': 'RUNNING'},
             })
 
-            if not self.bridge:
-                result = {
-                    'status': 'SUCCEEDED',
-                    'output': f'Simulated bridge execution for job {job_id}',
-                    'task': task,
-                }
-            else:
-                def run_bridge_job():
-                    record = self.bridge.create(
-                        task=task,
-                        task_type=task_type,
-                        developer_id=developer_id,
-                        branch=job_data.get('branch'),
-                        base_commit=job_data.get('base_commit'),
-                    )
-                    local_job_id = record['job_id']
-                    self.bridge.execute(local_job_id)
-                    return self.bridge.get(local_job_id)
-
-                result = self._run_keeping_connection_alive(run_bridge_job)
+            result = self._run_keeping_connection_alive(lambda: self.run_job_payload(job_data))
 
             status = result.get('status', 'SUCCEEDED')
             result = sanitize_worker_result(result)
@@ -351,6 +338,29 @@ class OutboundWorker(ClaudeWorker):
             raise
         finally:
             self._release()
+
+    def run_job_payload(self, job_data: dict) -> dict:
+        """Run one Gateway job locally. `lead` jobs go to the persistent Lead; every other job goes to the bridge."""
+        if job_data.get('task_type') == 'lead':
+            if self.lead is None:
+                raise LeadNotConfigured('The persistent Engineering Lead is not configured on this Worker; the job is refused.')
+            return self.lead.run_turn(job_data)
+        if not self.bridge:
+            return {
+                'status': 'SUCCEEDED',
+                'output': f"Simulated bridge execution for job {job_data['job_id']}",
+                'task': job_data['task'],
+            }
+        record = self.bridge.create(
+            task=job_data['task'],
+            task_type=job_data.get('task_type', 'docs'),
+            developer_id=job_data['developer_id'],
+            branch=job_data.get('branch'),
+            base_commit=job_data.get('base_commit'),
+        )
+        local_job_id = record['job_id']
+        self.bridge.execute(local_job_id)
+        return self.bridge.get(local_job_id)
 
     def _deliver_result(self, envelope):
         """Send a signed result and wait for the Gateway's reply. On a connection failure keep the result for redelivery."""
