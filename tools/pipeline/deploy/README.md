@@ -16,13 +16,14 @@ Claude credentials and never runs agents. Johan's Worker connects **out** to it 
 | Item | Value |
 |---|---|
 | Repository | https://github.com/NEC-08240/Synora.git |
-| Branch | `chore/agent-bridge-poc` |
-| **Deployed application commit** | **`9e6d6b3`** (checked out detached at `/opt/synora`) |
+| Branch | `main` (since 2026-10-24; was `chore/agent-bridge-poc` when first built) |
+| **Deployed application commit** | **`f371792`** (PR #20 merge; checked out detached at `/opt/synora`). Verified 2026-10-24. Earlier revision `9e6d6b3` (2026-10-23) |
 | Deployment directory | `/opt/synora` (owned by root) |
 | Virtualenv | `/opt/synora/.venv` (Python 3.12.3) |
 
-`9e6d6b3` is the deployed application revision (the Gateway). The Worker and client code on Johan's PC are newer commits
-of the same branch and are not deployed to AWS; see Part C. Commits made to the branch later, including documentation-only
+`f371792` is the deployed application revision (the Gateway). It includes the persistent-Lead code. Later commits on `main`
+that change only documentation or `.github/CODEOWNERS` do not change what runs on the host (`git diff f371792 <new> -- tools/`
+is empty for them). The Worker on Johan's PC runs the same commit; see Part C. Commits made to the branch later, including documentation-only
 commits such as the one that last edited this file, do **not** change what runs on the host. The host changes only
 when someone explicitly runs `git fetch && git checkout <commit>` in `/opt/synora` and restarts the service, and that
 change must be recorded here.
@@ -133,8 +134,8 @@ The certificate is public. Never distribute `gateway.key`.
 ```
 sudo apt-get update && sudo apt-get install -y python3-venv git caddy
 sudo useradd --system --home /opt/synora --shell /usr/sbin/nologin synora-gateway
-sudo git clone --branch chore/agent-bridge-poc https://github.com/NEC-08240/Synora.git /opt/synora
-cd /opt/synora && sudo git checkout 9e6d6b3
+sudo git clone --branch main https://github.com/NEC-08240/Synora.git /opt/synora
+cd /opt/synora && sudo git checkout f371792
 sudo python3 -m venv .venv
 sudo .venv/bin/pip install -r tools/pipeline/requirements-gateway.txt -r tools/pipeline/requirements-client.txt
 ```
@@ -192,8 +193,8 @@ Items marked **[BACKUP]** must be restored from a secure backup; items marked **
    sudo install -d -m 750 -o root -g synora-gateway /etc/synora-gateway
    sudo install -d -m 750 -o synora-gateway -g synora-gateway /var/lib/synora-gateway /var/log/synora-gateway
    ```
-6. **Clone:** `sudo git clone --branch chore/agent-bridge-poc https://github.com/NEC-08240/Synora.git /opt/synora`
-7. **Checkout** the intended revision explicitly (`9e6d6b3` unless a newer one was approved and recorded here): `cd /opt/synora && sudo git checkout <commit>`.
+6. **Clone:** `sudo git clone --branch main https://github.com/NEC-08240/Synora.git /opt/synora`
+7. **Checkout** the intended revision explicitly (`f371792` unless a newer one was approved and recorded here): `cd /opt/synora && sudo git checkout <commit>`.
 8. **Virtualenv:** `sudo python3 -m venv .venv`.
 9. **Dependencies:** `sudo .venv/bin/pip install -r tools/pipeline/requirements-gateway.txt -r tools/pipeline/requirements-client.txt`. Run the Gateway-relevant tests listed in Part A and stop on any Gateway-module failure.
 10. **Gateway configuration:** copy `tools/pipeline/deploy/gateway.env.example` to `/etc/synora-gateway/gateway.env` (root:synora-gateway, 640).
@@ -230,8 +231,11 @@ Items marked **[BACKUP]** must be restored from a secure backup; items marked **
 
 # Part C: Johan's Worker on Windows (as built, 2026-10-23)
 
-The Gateway in Part A is unchanged and still runs commit `9e6d6b3`. Everything in this part runs on Johan's PC and
-works against that Gateway. "Verified" means observed by running it; limitations are listed separately and are not
+The Gateway in Part A runs commit `f371792` (checked 2026-10-24; it ran `9e6d6b3` when the checks below were made on 2026-10-23).
+The Worker runs `worker-runtime` detached at `f371792` (checked 2026-10-24, clean tree). Everything in this part runs on Johan's PC and
+works against that Gateway. The persistent Engineering Lead runs inside this Worker; see
+[agent-bridge.md](../../../docs/architecture/agent-bridge.md#persistent-engineering-lead) and
+[the recovery runbook](../../../docs/operations/recovery-runbook.md). "Verified" means observed by running it; limitations are listed separately and are not
 claimed to work.
 
 ## What runs and where
@@ -405,8 +409,8 @@ Also on the deployed Gateway: `teammate_cli smoke` passed with the signature ste
   commit its `worker-runtime` checkout is on. A teammate's commit must be pushed to GitHub and fetched into that
   checkout (`git -C <worker-runtime> fetch origin`) before it can be a base, and the checkout must be at or after it;
   otherwise the Worker refuses the job. Moving the checkout to a different commit changes which bases are accepted. In particular, `teammate_cli` defaults
-  the base to the HEAD of the caller's own checkout, which is usually newer than `worker-runtime`; after merging this work,
-  move `worker-runtime` to the merged commit before teammates run their first job, or they will be refused.
+  the base to the HEAD of the caller's own checkout, which is usually newer than `worker-runtime`; before teammates run a job,
+  move `worker-runtime` to the newest `main` commit, or they will be refused. (Done 2026-10-24: `worker-runtime` is at `f371792`.)
 - **The Gateway's top-level job record is not authoritative.** It merges the Worker's result over its own fields (the
   returned `job_id` is the Worker's local ID) and a compromised Gateway can change them. Read results through
   `get_verified_result` / `teammate_cli result` / MCP `get_result` with `SYNORA_WORKER_PUBLIC_KEY` set.
