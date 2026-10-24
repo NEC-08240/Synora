@@ -263,3 +263,99 @@ eap_stale_workers and safely resets unfinished ASSIGNED/RUNNING jobs back to QUE
 - **PLANNED** (Phase C Step 5):
   - Multi-developer verification across heterogeneous network environments (home, university, mobile networks).
   - Production deployment of Gateway coordination container to cloud host with Caddy TLS reverse proxy.
+
+## Persistent Engineering Lead
+
+Status: implemented locally on `feature/persistent-lead`. Not deployed. Production needs the Gateway's scope column
+(migrated automatically on start), a Worker update, and the decisions listed under "Open items" below.
+
+### Architecture
+
+    Gateway (queue, authorization, signed results)
+      |
+      v
+    Worker (one identity per process; outbound WebSocket only)
+      |-- task_type "lead" ---> Engineering Lead: ONE persistent Claude session
+      |                             (created once with --session-id, resumed with --resume)
+      |                             guarded by the Lead mutex
+      |                             |
+      |                             v
+      |                         independent reviewer: ephemeral, read-only, no session, outside the mutex
+      |
+      |-- other task types ---> bridge: per-job isolated worktree and branch (unchanged)
+
+The Lead's own turns are serialized. Implementation jobs are not: independent Worker instances, each with its
+own identity, run them at the same time, and each job keeps its own worktree or local job.
+
+### Johan's usage
+
+1. Set `SYNORA_LEAD_WORKSPACE` in the Worker's `worker.env` to a folder of its own. It must not be inside
+   `%USERPROFILE%\.synora` or the bridge checkout. The Worker refuses to start otherwise.
+2. Open the Lead from that folder:
+   `python -m tools.pipeline.lead_attach` (it reads the same environment variables).
+   Do not run a bare `claude --resume`: it does not take the Lead mutex, so Worker turns would not wait for it.
+3. Keep one attachment open at a time. While it is open, Worker turns wait (up to two minutes, then the job fails
+   with "Lead busy"). Exit the terminal to release the Lead.
+4. Anything you type becomes part of the same conversation the Worker resumes for the next request.
+
+The session ID is kept only in the Worker's local state folder (`lead_state.json`). It is an identifier, not a
+credential, but it is not written to tracked files.
+
+### Session lifecycle
+
+    UNINITIALIZED -> CREATING -> ACTIVE -> (BROKEN on a session mismatch)
+
+- The session ID is written to disk before Claude is asked to create the session.
+- Claude's returned `session_id` must equal the stored one on creation and on every resume. A mismatch marks the Lead
+  BROKEN and refuses further turns. The ID is never replaced.
+- A creation interrupted by a restart fails closed: an administrator decides what to do.
+- A configured `SYNORA_LEAD_SESSION_ID` that differs from the stored one fails closed.
+
+### Queue, concurrency and duplicates
+
+- The Gateway queue is unchanged in its ordering. Each job carries the scope approved for its developer, taken from
+  the registry, never from the request body. A job without scope is refused by the Lead.
+- The Lead mutex is an OS file lock. The OS releases it if the holder dies, so a killed turn cannot block the Lead.
+- Each locked section uses its own handle, so one runner can be shared by threads.
+- A repeated job ID returns its stored, redacted outcome and is not run again.
+- A turn still pending after a restart is recorded as interrupted and reported to the Gateway as a failure once the
+  Worker reconnects, so it is not left RUNNING.
+- The Worker now sends heartbeats while a job runs. Before this, a run longer than the 60-second stale timeout got
+  its Worker reaped and its job run twice. This also affected implementation jobs.
+
+### Security model
+
+- The Lead keeps the restricted posture of the bridge: `--restricted`, `--strict-mcp-config`, project settings only,
+  and read-only tools (`Read,Glob,Grep`). No Bash, no MCP servers, no user-level plugins or hooks.
+- Restricted mode confines file reads to the working directory. Verified: a read outside the workspace is refused and
+  recorded in `permission_denials`.
+- Lead instructions are passed on the command line with `--append-system-prompt`. A project `CLAUDE.md` is not loaded
+  under `--restricted`.
+- Every turn carries the requester, branch, and approved modules and branches. Teammate text is wrapped in a
+  `<request>` block that cannot be closed from inside, and it is treated as data.
+- The reviewer is a separate, read-only invocation with no session, so it does not inherit the Lead's context.
+- Secrets matching known credential formats are redacted from stored outcomes and the turn log. The turn log holds
+  metadata only: job ID, requester, branch, scope, Lead session identifier, turn number, status, cost, review verdict.
+- Superpowers, ECC, Bash and unrestricted Claude are not enabled. Enabling any of them needs its own security review.
+
+### Known limits and open items
+
+- **Shared conversation.** One Lead conversation holds requests from every teammate. A later turn can see an earlier
+  teammate's request, and transcripts on disk keep every request. This is a blocker for multi-teammate production use
+  until it is reviewed. The Lead's instructions reduce, but do not prevent, cross-teammate exposure.
+- **Lead cost grows with the conversation.** Costs are recorded per turn and cumulatively. Session rotation is a
+  documented follow-up and is not automatic.
+- **The Lead does not dispatch work itself.** Specialist jobs are submitted through the existing path. Automatic
+  parsing of Lead decisions into sub-jobs is deferred.
+- **Production concurrency needs more enrolled Worker identities.** One Worker process runs one job at a time. Running
+  implementation jobs side by side in production means starting more Worker instances, each with its own enrolled
+  identity. That is a Gateway administration action and has not been done.
+- **Registry module scopes.** The registry normalizes `frontend/*` to `frontend/*/`, so wildcard module scopes do not
+  match file paths. This predates the Lead and is not changed here.
+- **Per-developer job limit.** The Gateway allows one active job per developer. A developer's Lead request and
+  implementation job therefore cannot be in flight together.
+- **Interactive attach is verified only by spike and unit tests.** The attach wrapper's lock and environment behaviour
+  are tested with a stand-in process. Johan typing into a live attached session was observed in the local spike, not
+  automated.
+- **Not done:** live event streaming, Remote Control, automatic session rotation, a Lead web interface, and any
+  production deployment.
