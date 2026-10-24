@@ -40,6 +40,9 @@ Thumbs.db
 .agents/pipeline/
 __pycache__/
 
+# Python virtualenv (the Gateway host creates /opt/synora/.venv)
+.venv/
+
 # Local runtime databases and test keys (deployment safety)
 *.db
 *.sqlite
