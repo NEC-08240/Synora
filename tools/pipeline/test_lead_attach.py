@@ -101,6 +101,40 @@ class AttachTest(unittest.TestCase):
             held.release()
         self.assertFalse(self.probe_out.exists())
 
+    def _assert_mutex_free(self):
+        probe = LeadMutex(self.state_dir / "lead.lock", timeout=0)
+        probe.acquire(timeout=0)  # raises LeadBusy if the attachment left the lock held
+        probe.release()
+
+    def test_lock_is_free_before_attach_and_after_clean_exit(self):
+        self._assert_mutex_free()
+        self._attach()
+        self._assert_mutex_free()
+
+    def test_unexpected_claude_exit_releases_the_lock(self):
+        with mock.patch("tools.pipeline.lead_attach._run_terminal", return_value=3):
+            self.assertEqual(self._attach(), 3)
+        self._assert_mutex_free()
+
+    def test_interruption_of_the_wrapper_releases_the_lock(self):
+        with mock.patch("tools.pipeline.lead_attach._run_terminal", side_effect=KeyboardInterrupt):
+            with self.assertRaises(KeyboardInterrupt):
+                self._attach()
+        self._assert_mutex_free()
+
+    def test_claude_that_fails_to_start_releases_the_lock(self):
+        self.executable = [str(self.workspace / "no-such-claude-binary")]
+        with self.assertRaises(OSError):
+            self._attach()
+        self._assert_mutex_free()
+
+    def test_setup_failure_after_acquiring_the_lock_releases_it(self):
+        missing = self.workspace / "missing-instructions.md"
+        with mock.patch("tools.pipeline.lead_attach.INSTRUCTIONS_FILE", missing):
+            with self.assertRaises(OSError):
+                self._attach()
+        self._assert_mutex_free()
+
     def test_attach_refuses_when_the_lead_is_not_active(self):
         empty_dir = Path(self._tmp.name) / "empty"
         with self.assertRaises(LeadNotReady):
