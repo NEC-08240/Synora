@@ -21,6 +21,7 @@ from pathlib import Path, PurePosixPath
 
 from .executables import CLAUDE_ENV, GIT_ENV, resolve_executable
 from .metadata import MAX_TASK_CHARS, validate_base_commit, validate_branch, validate_developer_id, validate_repository
+from .path_scope import allowed_path, is_control_plane
 from .records import RecordCorrupt, RecordStore, canonical_job_id
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -181,6 +182,19 @@ def _inside(worktree, working_dir):
 def _outside_scope(files, task_type):
     prefixes = WRITE_SCOPE[task_type]
     return [f for f in files if not f.startswith(prefixes) or ".." in PurePosixPath(f).parts]
+
+
+def scope_violations(files, task_type, module_scope):
+    """Files the job may not have changed: outside the task type's write scope, in the control plane, or outside the
+    requesting developer's module scope. A job with no module scope gets only the task-type and control-plane checks."""
+    if task_type not in WRITE_SCOPE:
+        violations = set(files)  # e.g. review: a read-only task type may write nothing
+    else:
+        violations = set(_outside_scope(files, task_type))
+    violations.update(f for f in files if is_control_plane(f))
+    if module_scope is not None:
+        violations.update(f for f in files if not allowed_path(f, module_scope))
+    return sorted(violations)
 
 
 def _parse_claude_json(stdout):
@@ -379,7 +393,7 @@ class Bridge:
             raise ValueError("target_job_id must be a finished job.")
         return target["job_id"]
 
-    def create(self, task, task_type="docs", working_dir=".", target_job_id=None, developer_id=None, repository=None, branch=None, base_commit=None):
+    def create(self, task, task_type="docs", working_dir=".", target_job_id=None, developer_id=None, repository=None, branch=None, base_commit=None, module_scope=None):
         task, working_dir = _validate_task(task, task_type, working_dir)
         if developer_id is not None:
             developer_id = validate_developer_id(developer_id)
@@ -413,6 +427,7 @@ class Bridge:
             "review": None,
             "error": "",
             "cleanup_error": "",
+            "module_scope": list(module_scope) if module_scope is not None else None,
         }
         self.store.write_new(record)
         return record
@@ -566,7 +581,7 @@ class Bridge:
         files = self._changed_files(worktree)
         if not files:
             raise RuntimeError("Claude made no file changes.")
-        outside = _outside_scope(files, task_type)
+        outside = scope_violations(files, task_type, record.get("module_scope"))
         if outside:
             raise RuntimeError(f"Scope violation: {outside}")
         self._git(["add", "--intent-to-add", "--", *files], worktree)

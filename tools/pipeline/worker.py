@@ -365,12 +365,18 @@ class OutboundWorker(ClaudeWorker):
                 'output': f"Simulated bridge execution for job {job_data['job_id']}",
                 'task': job_data['task'],
             }
+        scope = job_data.get('scope')
+        modules = scope.get('modules') if isinstance(scope, dict) else None
+        if not isinstance(modules, list) or not modules:
+            # Fail closed: a job without the requester's authorized modules is refused before any work starts.
+            raise ValueError('The job carries no authorized module scope; the Worker refuses it.')
         record = self.bridge.create(
             task=job_data['task'],
             task_type=job_data.get('task_type', 'docs'),
             developer_id=job_data['developer_id'],
             branch=job_data.get('branch'),
             base_commit=job_data.get('base_commit'),
+            module_scope=modules,
         )
         local_job_id = record['job_id']
         self.bridge.execute(local_job_id)

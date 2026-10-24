@@ -103,7 +103,7 @@ class LongJobTest(unittest.TestCase):
 
     def test_a_job_longer_than_the_keepalive_still_delivers_its_signed_result(self):
         self.gateway.queue.enqueue({
-            "job_id": "job-slow", "developer_id": "alice", "task": "A task that takes a while to run.", "task_type": "docs",
+            "job_id": "job-slow", "developer_id": "alice", "task": "A task that takes a while to run.", "task_type": "docs", "scope": {"modules": ["docs/"], "branches": ["feature/*"]},
             "branch": "feature/slow", "base_commit": "",
         })
         self.worker.connect_ws()
@@ -117,7 +117,7 @@ class LongJobTest(unittest.TestCase):
 
     def test_the_worker_is_still_connected_after_a_long_job(self):
         self.gateway.queue.enqueue({
-            "job_id": "job-slow-2", "developer_id": "alice", "task": "Another task that takes a while.", "task_type": "docs",
+            "job_id": "job-slow-2", "developer_id": "alice", "task": "Another task that takes a while.", "task_type": "docs", "scope": {"modules": ["docs/"], "branches": ["feature/*"]},
             "branch": "feature/slow", "base_commit": "",
         })
         self.worker.connect_ws()
@@ -127,7 +127,7 @@ class LongJobTest(unittest.TestCase):
 
     def test_a_result_whose_connection_dies_before_acknowledgement_is_redelivered_after_reconnecting(self):
         self.gateway.queue.enqueue({
-            "job_id": "job-cut", "developer_id": "alice", "task": "A task whose connection is cut mid-run.", "task_type": "docs",
+            "job_id": "job-cut", "developer_id": "alice", "task": "A task whose connection is cut mid-run.", "task_type": "docs", "scope": {"modules": ["docs/"], "branches": ["feature/*"]},
             "branch": "feature/cut", "base_commit": "",
         })
         self.worker.connect_ws()

@@ -9,6 +9,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from .path_scope import allowed_path, is_file_entry
+
 ROLES = ('project_owner', 'developer', 'auditor')
 STATUSES = ('active', 'suspended')
 
@@ -42,8 +44,8 @@ def _validate_module_scope(modules: Sequence[str]) -> Tuple[str, ...]:
             raise RegistryError(f'Path traversal forbidden in assigned module scope: {mod!r}')
         if m.startswith('/'):
             raise RegistryError(f'Module scope must be relative to repository root: {mod!r}')
-        if m != '*' and not m.endswith('/'):
-            m = m + '/'
+        if m != '*' and not m.endswith('/') and not is_file_entry(m):
+            m = m + '/'  # a directory entry; file entries such as README.md stay exact
         cleaned.append(m)
     return tuple(cleaned)
 
@@ -94,10 +96,7 @@ class DeveloperEntry:
         return self.role == 'project_owner'
 
     def can_touch_file(self, file_path: str) -> bool:
-        if '*' in self.assigned_modules:
-            return True
-        norm = file_path.replace(chr(92), '/').lstrip('/')
-        return any(norm.startswith(mod) for mod in self.assigned_modules)
+        return allowed_path(file_path, self.assigned_modules)
 
     def can_touch_branch(self, branch_name: str) -> bool:
         if '*' in self.allowed_branches:
