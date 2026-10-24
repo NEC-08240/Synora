@@ -87,6 +87,12 @@ Ruleset `Protect main` (id `23422368`), enforcement active:
 
 No administrator bypass, and no user bypass. Rajaneesh and the other teammates are not bypass actors.
 
+**Observed behaviour (2026-10-24, PR #25):** the bypass team did **not** let a normal merge request from Johan's account
+through. `gh pr merge` returned "base branch policy prohibits the merge" for a PR that Johan's account had authored. GitHub
+does not allow an author to approve their own PR, so that PR had no approval that could satisfy the rule. The bypass
+therefore does not apply through the normal merge path. Whether the GitHub UI "merge without waiting" option works for
+such a PR is **not verified**. Do not use `--admin` or any other bypass workaround to merge a PR.
+
 ### CODEOWNERS
 
 `.github/CODEOWNERS` contains one rule:
@@ -103,7 +109,7 @@ that Johan approves.
 
 | Person or identity | GitHub role | Merge authority on `main` |
 |---|---|---|
-| Johan (`StevefromSpace`) | Owner, member of `mainline-owners` | Final authority. Code owner. Bypass applies to the team. |
+| Johan (`StevefromSpace`) | Owner, member of `mainline-owners` | Final authority. Code owner. Cannot approve his own PRs, so a PR authored from his account needs a manual bypass merge (see below). |
 | Rajaneesh T V (`rajaneesh`) | Repository **Admin**, intentionally kept | None. Not a bypass actor, not a code owner. Merging to `main` needs Johan's approval. |
 | Other developers (`suma026`, `Nithyashri-008`, `Poja-006`) | Organisation members with push access to the repository | None on `main`. Their PRs need Johan's approval. |
 | AI sessions (Claude) | Use Johan's GitHub credentials. No separate AI account. | Same as Johan in GitHub's eyes. Governed by the rule below. |
@@ -117,6 +123,8 @@ comes from the ruleset and CODEOWNERS, and both are configured so that Johan dec
 - **Do not merge to `main` without explicit authorization from Johan** for that specific PR. Approval given for one
   action does not extend to the next.
 - Do not use the bypass to merge for convenience. Use it only when Johan has explicitly asked for that merge.
+- Routine automated merging is not in place. Each PR needs an approval from someone other than its author, so an AI-authored
+  PR still needs a human reviewer who is not the author.
 - Do not modify the ruleset, the team, or CODEOWNERS to get a change merged.
 - AI sessions do not hold a separate identity. Actions they take appear as Johan. Treat every AI-driven GitHub action as
   Johan's action when reviewing the audit trail.
