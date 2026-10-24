@@ -44,7 +44,7 @@ Learn → Interact → Practice → Assess → Analyse → Recommend
 - Express.js
 
 ### Database
-- PostgreSQL
+- Microsoft SQL Server
 
 ### Other Technologies
 - WebSockets
