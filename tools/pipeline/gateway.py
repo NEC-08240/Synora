@@ -222,6 +222,8 @@ class Gateway:
             'base_commit': base_commit,
             'diff': diff,
             'is_repair': is_repair,
+            # Taken from the authenticated developer's registry entry, never from the request body.
+            'scope': {'modules': list(caller.assigned_modules), 'branches': list(caller.allowed_branches)},
         }
         self.queue.enqueue(enqueue_record, max_per_developer=self.max_jobs_per_developer)
         self.audit.record('JOB_ENQUEUED', caller.developer_id, {'job_id': job_id, 'branch': branch})

@@ -69,6 +69,13 @@ class JobQueue:
                 self._conn.execute(SCHEMA_SQL)
                 self._conn.execute(WORKERS_SQL)
                 self._conn.execute(NONCES_SQL)
+                self._add_missing_columns()
+
+    def _add_missing_columns(self):
+        """Databases created before the scope column existed are migrated in place. Old rows keep a NULL scope."""
+        existing = {row['name'] for row in self._conn.execute('PRAGMA table_info(jobs);').fetchall()}
+        if 'scope_json' not in existing:
+            self._conn.execute('ALTER TABLE jobs ADD COLUMN scope_json TEXT;')
 
     def enqueue(self, job_dict: dict, max_per_developer: Optional[int] = None) -> str:
         job_id = job_dict['job_id']
@@ -94,8 +101,8 @@ class JobQueue:
 
                 insert_sql = (
                     'INSERT INTO jobs (job_id, developer_id, task, task_type, branch, base_commit, '
-                    'diff, is_repair, status, created_at, updated_at) '
-                    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);'
+                    'diff, is_repair, status, created_at, updated_at, scope_json) '
+                    'VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);'
                 )
                 self._conn.execute(
                     insert_sql,
@@ -111,6 +118,7 @@ class JobQueue:
                         'QUEUED',
                         now,
                         now,
+                        json.dumps(job_dict['scope']) if job_dict.get('scope') is not None else None,
                     ),
                 )
         return job_id
@@ -120,7 +128,7 @@ class JobQueue:
         with self._lock:
             with self._conn:
                 query = (
-                    'SELECT j.job_id, j.developer_id, j.task, j.task_type, j.branch, j.base_commit, j.diff, j.is_repair '
+                    'SELECT j.job_id, j.developer_id, j.task, j.task_type, j.branch, j.base_commit, j.diff, j.is_repair, j.scope_json '
                     'FROM jobs j '
                     'LEFT JOIN (SELECT developer_id, COUNT(*) as active_count FROM jobs WHERE status IN (?, ?) GROUP BY developer_id) a '
                     'ON j.developer_id = a.developer_id '
@@ -141,6 +149,7 @@ class JobQueue:
                 if res_cur.rowcount == 0:
                     return None
                 res = dict(row)
+                res['scope'] = json.loads(res.pop('scope_json')) if res.get('scope_json') else None
                 res['status'] = 'ASSIGNED'
                 res['worker_id'] = worker_id
                 return res
