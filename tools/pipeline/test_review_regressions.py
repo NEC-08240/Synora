@@ -139,14 +139,14 @@ class AdmissionSlotTest(unittest.TestCase):
         return True
 
     def test_job_without_a_task_releases_the_slot(self):
-        job = {"job_id": "job-x", "developer_id": "alice", "task_type": "docs"}
+        job = {"job_id": "job-x", "developer_id": "alice", "task_type": "docs", "scope": {"modules": ["docs/"], "branches": ["feature/*"]}}
         worker = self._worker(_ScriptedSocket([_assign(job), {"message_type": "JOB_FAILURE_ACK"}]))
 
         self.assertIsNone(worker.poll_and_execute_one_job())
         self.assertTrue(self._slot_is_free(), "a refused job must not hold the slot")
 
     def test_socket_failure_on_the_ack_releases_the_slot(self):
-        job = {"job_id": "job-y", "developer_id": "alice", "task": "Write docs.", "task_type": "docs"}
+        job = {"job_id": "job-y", "developer_id": "alice", "task": "Write docs.", "task_type": "docs", "scope": {"modules": ["docs/"], "branches": ["feature/*"]}}
         worker = self._worker(_ScriptedSocket([_assign(job), {"message_type": "JOB_FAILURE_ACK"}], fail_on=MSG_JOB_ACK))
 
         with self.assertRaises(ConnectionError):
@@ -321,7 +321,7 @@ class ReReviewFixesTest(unittest.TestCase):
             bridge = Bridge(repo_root=Path(tmp), runner=lambda *a, **k: (0, "{}", ""))
             budget = WorkerBudget(bridge.records_dir.parent, jobs_per_window=100, jobs_per_day=100)
             socket = _ScriptedSocket([
-                _assign({"job_id": "job-q", "developer_id": "alice", "task": "Write docs.", "task_type": "docs"}),
+                _assign({"job_id": "job-q", "developer_id": "alice", "task": "Write docs.", "task_type": "docs", "scope": {"modules": ["docs/"], "branches": ["feature/*"]}}),
                 {"message_type": "JOB_FAILURE_ACK"},
             ])
             worker = OutboundWorker(worker_id="worker-test", gateway_url="wss://gw.example", bridge=bridge, budget=budget, private_key=None)
