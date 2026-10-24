@@ -390,12 +390,17 @@ class OutboundWorker(ClaudeWorker):
         servicing = hasattr(self._ws, 'settimeout') and hasattr(self._ws, 'recv')
         if servicing:
             import websocket  # only the real client reaches here; Gateway-only hosts never import it
+        next_heartbeat = time.monotonic() + self.heartbeat_interval
         while thread.is_alive():
             ws = self._ws
             if not servicing or ws is None:
                 thread.join(timeout=1.0)
                 continue
             try:
+                if time.monotonic() >= next_heartbeat:
+                    # Keeps the Gateway from reaping this Worker mid-job. The reply is read below and ignored.
+                    self._send({'message_type': MSG_HEARTBEAT, 'payload': {'worker_id': self.worker_id}})
+                    next_heartbeat = time.monotonic() + self.heartbeat_interval
                 ws.settimeout(1.0)
                 ws.recv()
             except websocket.WebSocketTimeoutException:
