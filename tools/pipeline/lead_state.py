@@ -8,6 +8,7 @@ creation, a session mismatch, or a job that is already known to the Lead.
 
 import json
 import os
+import re
 import tempfile
 import uuid
 from pathlib import Path
@@ -199,10 +200,21 @@ def _require_uuid(value):
         raise LeadStateError("The Lead session ID must be a canonical UUID.")
 
 
+_ASSIGNED_CREDENTIAL = re.compile(r"(?i)\b(password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token)\s*[:=]\s*[^\s,;]{8,}")
+
+
+def redact_lead_text(text: str) -> str:
+    """Known credential formats, plus a narrow rule for `password=…`, `api_key: …` style assignments.
+
+    Ordinary words such as "the token count" are kept. Arbitrary unlabelled secrets are not detected.
+    """
+    return _ASSIGNED_CREDENTIAL.sub(lambda m: f"{m.group(1)}=[REDACTED]", redact_secret_values(text))
+
+
 def _clean(value: Any) -> Any:
     """Redact secret-looking text and bound every string, recursively."""
     if isinstance(value, str):
-        return redact_secret_values(value)[:MAX_STORED_TEXT_CHARS]
+        return redact_lead_text(value)[:MAX_STORED_TEXT_CHARS]
     if isinstance(value, dict):
         return {str(k): _clean(v) for k, v in value.items()}
     if isinstance(value, list):

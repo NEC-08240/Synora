@@ -308,6 +308,13 @@ class LeadRunnerTest(unittest.TestCase):
         for call in self.fake.calls:
             self.assertNotIn(SECRET, call["prompt"])
 
+    def test_assigned_credentials_are_redacted_from_prompt_and_log_but_ordinary_text_is_kept(self):
+        self.runner().run_turn(_job(text="deploy with password=hunter2secret and note the token count is high"))
+        prompt = _turn_calls(self.fake)[0]["prompt"]
+        self.assertNotIn("hunter2secret", prompt)
+        self.assertIn("the token count is high", prompt)
+        self.assertNotIn("hunter2secret", self.log_path.read_text(encoding="utf-8"))
+
     def test_job_without_scope_is_refused_before_claude_runs(self):
         with self.assertRaises(LeadScopeError):
             self.runner().run_turn(_job(scope=False))

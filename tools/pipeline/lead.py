@@ -24,7 +24,7 @@ from .audit import redact_secret_values
 from .bridge import MAX_RESULT_CHARS, REVIEW_TOOLS, _parse_claude_json, _parse_verdict, minimal_environment
 from .executables import CLAUDE_ENV, resolve_executable
 from .lead_mutex import LeadMutex
-from .lead_state import LeadState, LeadStateError, STATE_UNINITIALIZED
+from .lead_state import LeadState, LeadStateError, STATE_UNINITIALIZED, redact_lead_text
 from .metadata import MAX_TASK_CHARS
 
 LEAD_TOOLS = "Read,Glob,Grep"  # read-only; no Bash, no writes. The Lead delegates changes to bounded jobs.
@@ -108,7 +108,7 @@ def _neutralise_tags(text: str) -> str:
 
 def build_turn_prompt(job: dict) -> str:
     """The transaction block says who asked and what they may touch. Teammate text stays inside <request>."""
-    text = _neutralise_tags(redact_secret_values(str(job.get("task", "")))[:MAX_TASK_CHARS])
+    text = _neutralise_tags(redact_lead_text(str(job.get("task", "")))[:MAX_TASK_CHARS])
     scope = job["scope"]
     return (
         "Engineering Lead request. The transaction below is authoritative for this request only.\n"
@@ -128,7 +128,7 @@ def build_turn_prompt(job: dict) -> str:
 def build_review_prompt(job: dict, lead_text: str) -> str:
     """Written for a separate reviewer that never sees the Lead's conversation. Request and decision are data."""
     scope = job["scope"]
-    request = _neutralise_tags(redact_secret_values(str(job.get("task", "")))[:MAX_TASK_CHARS])
+    request = _neutralise_tags(redact_lead_text(str(job.get("task", "")))[:MAX_TASK_CHARS])
     return (
         "REVIEW of an Engineering Lead decision by an independent reviewer. Judge only scope and whether the decision "
         "answers the request.\n"
