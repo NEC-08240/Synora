@@ -172,6 +172,9 @@ def create_lead_runner(cfg: Dict[str, Any]) -> Optional[LeadRunner]:
     return runner
 
 
+INTERRUPTED_LEAD_JOB_MESSAGE = 'Interrupted while the Lead was running; the Worker restarted. The job is not run again.'
+
+
 def create_worker_from_config(config: Optional[Dict[str, Any]] = None) -> OutboundWorker:
     """Instantiate OutboundWorker with Bridge and persistent Ed25519 identity."""
     cfg = config if config is not None else load_worker_config()
@@ -183,6 +186,7 @@ def create_worker_from_config(config: Optional[Dict[str, Any]] = None) -> Outbou
     )
 
     budget = WorkerBudget(bridge.records_dir.parent, **cfg['budget'])
+    lead = create_lead_runner(cfg)
 
     worker = OutboundWorker(
         worker_id=cfg['worker_id'],
@@ -195,8 +199,10 @@ def create_worker_from_config(config: Optional[Dict[str, Any]] = None) -> Outbou
         poll_interval=cfg['poll_interval'],
         allow_insecure_lan=cfg['allow_insecure_lan'],
         budget=budget,
-        lead=create_lead_runner(cfg),
+        lead=lead,
     )
+    if lead is not None:
+        worker.add_startup_failures((job_id, INTERRUPTED_LEAD_JOB_MESSAGE) for job_id in lead.recovered_jobs)
     return worker
 
 

@@ -157,13 +157,18 @@ class LeadRunner:
         self.lock_timeout = lock_timeout
         self._claude = claude
         self._instructions = instructions
+        self.recovered_jobs: list = []
 
     # ---- public API -----------------------------------------------------------
 
     def recover(self):
-        """Run at Worker start, before any turn: jobs left PENDING by a crash are recorded as interrupted."""
+        """Run at Worker start, before any turn: jobs left PENDING by a crash are recorded as interrupted.
+
+        The job IDs are kept on `recovered_jobs` so the Worker can report them to the Gateway after it reconnects.
+        """
         with self._locked():
-            return LeadState.load(self.state_path).mark_interrupted_jobs()
+            self.recovered_jobs = LeadState.load(self.state_path).mark_interrupted_jobs()
+        return self.recovered_jobs
 
     def run_turn(self, job: dict) -> dict:
         _validate_job(job)

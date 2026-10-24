@@ -112,6 +112,34 @@ class WorkerLeadRoutingTest(unittest.TestCase):
             worker.run_job_payload(LEAD_JOB)
 
 
+class FakeWebSocket:
+    """Captures what the Worker sends and answers every message the way the Gateway does."""
+
+    def __init__(self):
+        self.sent = []
+        self.replies = []
+
+    def send_json(self, data):
+        self.sent.append(data)
+        self.replies.append({"message_type": "JOB_FAILURE_ACK"})
+
+    def receive_json(self):
+        return self.replies.pop(0)
+
+
+class InterruptedLeadJobsTest(unittest.TestCase):
+    def test_interrupted_lead_jobs_are_reported_as_failed_on_reconnect(self):
+        worker = OutboundWorker(worker_id="worker-test", bridge=RecordingBridge(), budget=OpenBudget(), lead=RecordingLead())
+        worker._ws = FakeWebSocket()
+        worker.add_startup_failures([("job-crashed", "Interrupted while the Lead was running; not run again.")])
+        worker.report_startup_failures()
+        failures = [m for m in worker._ws.sent if m.get("message_type") == "JOB_FAILURE"]
+        self.assertEqual([f["payload"]["job_id"] for f in failures], ["job-crashed"])
+        self.assertIn("not run again", failures[0]["payload"]["error"])
+        worker.report_startup_failures()  # reported once only
+        self.assertEqual(len([m for m in worker._ws.sent if m.get("message_type") == "JOB_FAILURE"]), 1)
+
+
 class LeadConfigTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()

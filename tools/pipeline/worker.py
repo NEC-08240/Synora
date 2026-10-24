@@ -189,8 +189,23 @@ class OutboundWorker(ClaudeWorker):
         self._ws = None
         self._is_connected = False
         self._undelivered = None  # a signed result the Gateway has not acknowledged yet
+        self._startup_failures = []  # (job_id, message) for jobs cut off by a restart; reported once after reconnecting
         self._running = False
         self._reconnect_attempts = 0
+
+    def add_startup_failures(self, failures):
+        self._startup_failures.extend((str(job_id), str(message)) for job_id, message in failures)
+
+    def report_startup_failures(self):
+        """Tell the Gateway about jobs this Worker lost before a restart, so they are not left RUNNING."""
+        while self._startup_failures:
+            job_id, message = self._startup_failures[0]
+            self._send({
+                'message_type': MSG_JOB_FAILURE,
+                'payload': {'job_id': job_id, 'error': redact_secret_values(message)},
+            })
+            self._recv()
+            self._startup_failures.pop(0)
 
     def connect_ws(self, ws_client=None):
         """Connect to the gateway WebSocket endpoint.
@@ -278,6 +293,7 @@ class OutboundWorker(ClaudeWorker):
         return self._recv()
 
     def poll_and_execute_one_job(self) -> Optional[dict]:
+        self.report_startup_failures()
         self._send({
             'message_type': 'JOB_POLL',
             'payload': {'worker_id': self.worker_id},
