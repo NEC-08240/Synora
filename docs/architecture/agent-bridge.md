@@ -355,6 +355,15 @@ credential, but it is not written to tracked files.
 - **Reviewer on a credential-like answer:** the reviewer rejected a turn whose answer was a plain code word that looked
   like a credential. It failed closed, which is the intended behaviour. It can produce false positives for code-like
   values.
+- **Attachment regression:** the first real run did not persist the typed message and did not exit. The cause was the
+  test driver: the text and `/exit` were typed but never submitted, so the attachment never ended and the lock stayed
+  held until the harness killed the process. `lead_attach` was not at fault. A regression test now covers the typed
+  message, the lock during and after the attachment, and the later Worker turn. Every exit path (clean `/exit`,
+  unexpected Claude exit, wrapper interruption, Claude failing to start, setup failure) releases the lock.
+- **Credentials in the transcript (real, negative control):** a known-format credential sent in a request was absent
+  from the transcript, the Lead state and the turn log. A credential in an unrecognised format was written to the
+  transcript on Johan's machine. The transcript is local to that machine, not the Gateway, but the protection covers
+  known formats only. Teammates should not paste credentials into Lead requests.
 
 ### Known limits and open items
 
@@ -394,5 +403,5 @@ credential, but it is not written to tracked files.
 
 - **Single-user Lead for Johan:** ready for a supervised canary on the feature branch's code, once it has been reviewed
   and merged, and with the deployment steps below.
-- **Multi-teammate Lead:** not ready. The shared-conversation gate above is open, and the owner has not accepted the
-  residual risk.
+- **Multi-teammate Lead:** not ready. The shared-conversation gate above is open, credentials in unrecognised formats can
+  persist in the transcript, and the owner has not accepted either residual risk.
