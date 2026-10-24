@@ -11,7 +11,7 @@ from .team_registry import DEVELOPER_ID_PATTERN
 
 MAX_METADATA_CHARS = 255
 MAX_TASK_CHARS = 2000
-ALLOWED_TASK_TYPES = ('docs', 'code', 'review')
+ALLOWED_TASK_TYPES = ('docs', 'code', 'review', 'lead')  # 'lead' goes to the persistent Engineering Lead, not the bridge
 MAX_REPOSITORY_CHARS = 140
 MAX_JOB_PAYLOAD_BYTES = 131072
 REPOSITORY_PATTERN = re.compile(r'[A-Za-z0-9][A-Za-z0-9_.-]{0,38}/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}\Z')

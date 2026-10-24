@@ -9,8 +9,13 @@ import sys
 import time
 from typing import Any, Dict, Optional
 
+from functools import partial
+from pathlib import Path
+
 from .bridge import Bridge
 from .budget import DEFAULT_JOBS_PER_DAY, DEFAULT_MAX_DISK_BYTES, DEFAULT_MAX_WORKTREES, DEFAULT_JOBS_PER_WINDOW, DEFAULT_WINDOW_SECONDS, WorkerBudget
+from .executables import CLAUDE_ENV, resolve_executable
+from .lead import LeadRunner, run_claude_process, validate_lead_workspace
 from .transport import normalize_gateway_url
 from .worker import OutboundWorker, load_worker_private_key
 
@@ -122,6 +127,9 @@ def load_worker_config(env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         'max_worktrees': _positive_int(environ, 'SYNORA_WORKER_MAX_WORKTREES', DEFAULT_MAX_WORKTREES),
     }
 
+    home = environ.get('USERPROFILE') or environ.get('HOME') or str(Path.home())
+    lead_state_dir = environ.get('SYNORA_LEAD_STATE_DIR') or str(Path(home) / '.synora' / 'lead')
+
     return {
         'budget': budget,
         'allow_insecure_lan': allow_insecure_lan,
@@ -135,7 +143,36 @@ def load_worker_config(env: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         'heartbeat_interval': heartbeat_interval,
         'max_backoff': max_backoff,
         'ssl_context': ssl_context,
+        'home': home,
+        'lead_workspace': environ.get('SYNORA_LEAD_WORKSPACE') or None,
+        'lead_state_dir': lead_state_dir,
+        'lead_session_id': environ.get('SYNORA_LEAD_SESSION_ID') or None,
     }
+
+
+def create_lead_runner(cfg: Dict[str, Any]) -> Optional[LeadRunner]:
+    """The persistent Lead is off unless SYNORA_LEAD_WORKSPACE is set. A bad workspace stops startup."""
+    if not cfg.get('lead_workspace'):
+        return None
+    workspace = validate_lead_workspace(cfg['lead_workspace'], repo_root=cfg['repo_root'], home=cfg['home'])
+    state_dir = Path(cfg['lead_state_dir'])
+    executable = cfg.get('claude_bin')
+    claude = partial(run_claude_process, executable=executable or resolve_executable('claude', CLAUDE_ENV))
+    runner = LeadRunner(
+        state_path=state_dir / 'lead_state.json',
+        mutex_path=state_dir / 'lead.lock',
+        workspace=workspace,
+        log_path=state_dir / 'lead_turns.jsonl',
+        claude=claude,
+        expected_session_id=cfg.get('lead_session_id'),
+    )
+    interrupted = runner.recover()
+    if interrupted:
+        logger.warning(f'Lead jobs interrupted before this start and recorded as failed: {", ".join(interrupted)}')
+    return runner
+
+
+INTERRUPTED_LEAD_JOB_MESSAGE = 'Interrupted while the Lead was running; the Worker restarted. The job is not run again.'
 
 
 def create_worker_from_config(config: Optional[Dict[str, Any]] = None) -> OutboundWorker:
@@ -149,6 +186,7 @@ def create_worker_from_config(config: Optional[Dict[str, Any]] = None) -> Outbou
     )
 
     budget = WorkerBudget(bridge.records_dir.parent, **cfg['budget'])
+    lead = create_lead_runner(cfg)
 
     worker = OutboundWorker(
         worker_id=cfg['worker_id'],
@@ -161,7 +199,10 @@ def create_worker_from_config(config: Optional[Dict[str, Any]] = None) -> Outbou
         poll_interval=cfg['poll_interval'],
         allow_insecure_lan=cfg['allow_insecure_lan'],
         budget=budget,
+        lead=lead,
     )
+    if lead is not None:
+        worker.add_startup_failures((job_id, INTERRUPTED_LEAD_JOB_MESSAGE) for job_id in lead.recovered_jobs)
     return worker
 
 
