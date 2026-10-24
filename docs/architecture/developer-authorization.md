@@ -74,29 +74,49 @@ Outside Agent Bridge (on the Gateway host, the Worker machine, and in the reposi
 
 1. **Enforced by code or registry?** Code. The registry supplies the lists. The denylist and the path check are code, and they apply to every entry, including `*`.
 2. **Can Rajaneesh modify `tools/pipeline/` through Agent Bridge?** No. Changed files are checked by the bridge and denied, and `*` does not override the denylist.
-3. **Can he reach Agent Bridge secrets through another path?** Not through Agent Bridge. Secrets are not in the repository, and production files are root-owned on EC2. **Through GitHub he can reach the code, see below.**
+3. **Can he reach Agent Bridge secrets through another path?** Not through Agent Bridge. Secrets are not in the repository, and production files are root-owned on EC2. GitHub Admin is intentional and does not carry Agent Bridge authority.
 4. **Path traversal?** Denied (`..` is refused in both the normaliser and the bridge check).
 5. **Symlinks?** The bridge cannot create symlinks: Claude's restricted tools have no shell, and Write/Edit create regular files. A symlink committed through GitHub would be checked by its path string. Its target would be stored as text. Low risk, but not verified against a checkout on every platform.
-6. **Can he modify the authorization policy?** Not through Agent Bridge (`authorization.py`, `path_scope.py` are control plane). **Through GitHub he can, see below.** Production `team.json` is root-owned and changes only through the admin CLI on the host.
-7. **Can he modify deployment configuration to gain pipeline access?** Not through Agent Bridge (`tools/pipeline/deploy/` is control plane). **Through GitHub he can, see below.**
-8. **Can he modify GitHub workflows to bypass the boundary?** Not through Agent Bridge (`.github/workflows/` is control plane). **Through GitHub he can, see below.** No workflows exist today.
-9. **Does the Agent Bridge scope model protect against these?** For Agent Bridge jobs, yes. It does not govern GitHub actions.
-10. **Does broader repository access grant pipeline access through another path?** Through Agent Bridge, no. **Through GitHub, yes, because his repository permission is `admin`.**
+6. **Can he modify the authorization policy?** Not through Agent Bridge (`authorization.py`, `path_scope.py` are control plane). Production `team.json` is root-owned and changes only through the admin CLI on the host. GitHub Admin is intentional; changes to `main` are governed by the future policy above.
+7. **Can he modify deployment configuration to gain pipeline access?** Not through Agent Bridge (`tools/pipeline/deploy/` is control plane).
+8. **Can he modify GitHub workflows to bypass the boundary?** Not through Agent Bridge (`.github/workflows/` is control plane). GitHub Admin is intentional, and no workflows exist today.
+9. **Does the Agent Bridge scope model protect against these?** For Agent Bridge jobs, yes. It does not govern GitHub actions, which are governed separately.
+10. **Does broader repository access grant pipeline access through another path?** Through Agent Bridge, no. GitHub Admin is a separate, intentional authority.
 
-## Residual risk: GitHub admin permission (requires Johan's decision)
+## GitHub authority and future `main` governance
 
-`rajaneeshappu07-netizen` has **admin** permission on `NEC-08240/Synora`. That is broader than this policy and allows, among
-other things:
+### Current state (intentional)
 
-- merging to `main` (the ruleset requires 0 approvals and has no bypass actors, but admin can still open and merge PRs),
-- editing the ruleset on `main`,
-- adding or changing workflows and repository settings,
-- adding collaborators.
+`rajaneeshappu07-netizen` holds **Admin** on `NEC-08240/Synora`. This is intentional: Rajaneesh is the Engineering
+Manager and manages the development team, and Johan and Rajaneesh hold equivalent repository administration authority
+for this phase. It is not a security finding, and this document does not propose changing it.
 
-The Agent Bridge changes in this document cannot stop those actions. Recommended, in order:
+GitHub Admin and Agent Bridge authorization are separate authority systems:
 
-1. Reduce the permission to `write` for the repository. Command: `gh api -X PUT repos/NEC-08240/Synora/collaborators/rajaneeshappu07-netizen -f permission=push`. **Not run; requires Johan's approval.**
-2. Add `.github/CODEOWNERS` with `tools/pipeline/` and `.github/` owned by Johan, and make the ruleset on `main` require code-owner review. This changes repository protection, so it is also for Johan to approve. Do not weaken the ruleset.
+- GitHub Admin does not grant Agent Bridge authority. Agent Bridge jobs remain limited by the module and branch scope
+  and the control plane described above, whatever the GitHub role.
+- Agent Bridge scope does not grant GitHub authority.
+
+### Future governance requirement (NOT implemented)
+
+Johan intends a stronger governance boundary around `main`. This is a future project requirement, to be implemented
+as a separate GitHub governance task after Johan explicitly authorises it:
+
+```text
+main
+  ├── pull request required; direct pushes prohibited
+  ├── Rajaneesh cannot autonomously merge to main
+  ├── Suma, Nithya Shri and Pooja cannot autonomously merge to main
+  ├── AI agents cannot autonomously merge to main unless Johan explicitly authorises that operation
+  └── Johan retains final authority over changes entering main
+```
+
+Its purpose is to make `Rajaneesh = Engineering Manager` and `Johan = final authority over the canonical mainline`. It
+is not meant to reduce Rajaneesh's ability to manage the team.
+
+Eventually this will require GitHub configuration that is **not** part of PR #22: a stricter ruleset on `main`, a
+required approval from Johan on PRs to `main`, and possibly code-owner review. None of it is implemented or changed
+here.
 
 ## Production migration (prepared, not executed)
 
