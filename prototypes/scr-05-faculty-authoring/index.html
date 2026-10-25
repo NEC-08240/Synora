@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Authoring Studio | Synora</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        canvas: '#0A1128',
+                        surface: '#1C2541',
+                        borders: '#2A375A',
+                        primary: '#00E5FF',
+                        success: '#00E676',
+                        warning: '#FFD600',
+                        light: '#F8F9FA',
+                        muted: '#8D99AE',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica Neue', 'Arial', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Menlo', 'Monaco', 'Courier New', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom scrollbar for dark theme */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0A1128; }
+        ::-webkit-scrollbar-thumb { background: #2A375A; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #8D99AE; }
+        .editor-content:empty:before { content: attr(placeholder); color: #8D99AE; opacity: 0.5; }
+    </style>
+</head>
+<body class="bg-canvas text-light h-screen overflow-hidden flex flex-col">
+
+    <!-- Top Bar -->
+    <header class="h-14 border-b border-borders bg-surface flex items-center justify-between px-4 shrink-0 shadow-sm z-10 relative">
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-canvas font-bold text-lg shadow-[0_0_10px_rgba(0,229,255,0.4)]">S</div>
+                <span class="font-bold text-lg tracking-wide hidden sm:block">SYNORA <span class="text-xs font-normal text-muted ml-1 tracking-normal border border-borders px-1.5 py-0.5 rounded bg-canvas">Faculty</span></span>
+            </div>
+            
+            <nav class="hidden md:flex gap-1 text-sm">
+                <a href="#" class="px-3 py-1.5 rounded hover:bg-canvas text-muted transition-colors">Dashboard</a>
+                <a href="#" class="px-3 py-1.5 rounded bg-canvas text-light font-medium border border-borders">Authoring</a>
+                <a href="#" class="px-3 py-1.5 rounded hover:bg-canvas text-muted transition-colors">Students</a>
+            </nav>
+        </div>
+
+        <div class="flex items-center gap-3">
+            <div class="hidden lg:flex items-center gap-2 text-sm border-r border-borders pr-4 mr-1">
+                <span class="text-muted">Status:</span>
+                <span class="px-2 py-0.5 rounded text-warning text-xs font-medium border border-warning/30 bg-warning/10 flex items-center gap-1.5 shadow-[inset_0_0_8px_rgba(255,214,0,0.1)]">
+                    <div class="w-1.5 h-1.5 rounded-full bg-warning animate-pulse"></div> Draft
+                </span>
+            </div>
+            <button class="px-3 py-1.5 rounded border border-borders hover:bg-borders/50 transition-colors text-sm flex items-center gap-2 text-muted">
+                <i class="fas fa-desktop"></i> Preview
+            </button>
+            <button class="px-4 py-1.5 rounded bg-primary text-canvas font-semibold text-sm hover:bg-primary/90 transition-all shadow-[0_0_12px_rgba(0,229,255,0.3)] hover:shadow-[0_0_16px_rgba(0,229,255,0.5)] flex items-center gap-2">
+                <i class="fas fa-paper-plane"></i> Publish
+            </button>
+            <div class="w-8 h-8 rounded-full border border-borders overflow-hidden flex items-center justify-center cursor-pointer ml-2">
+                <img src="https://i.pravatar.cc/100?img=11" alt="Profile" class="w-full h-full object-cover">
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-[260px_1fr] lg:grid-cols-[280px_1fr_320px] h-full">
+
+        <!-- Left Sidebar: Structural Hierarchy -->
+        <aside class="border-r border-borders bg-[#0F172A] overflow-y-auto hidden md:flex flex-col shadow-[4px_0_12px_rgba(0,0,0,0.1)] z-0 relative">
+            <div class="p-4 border-b border-borders flex justify-between items-center bg-surface sticky top-0 z-10">
+                <h2 class="font-semibold text-xs uppercase tracking-wider text-muted">Curriculum Structure</h2>
+                <button class="text-primary hover:text-light transition-colors" title="Add Subject">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
+            
+            <div class="p-3 flex-1 pb-10">
+                <!-- Subject -->
+                <div class="mb-2">
+                    <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-surface/60 cursor-pointer text-sm font-medium group transition-colors">
+                        <i class="fas fa-chevron-down text-[10px] text-muted w-3 text-center"></i>
+                        <i class="fas fa-book text-muted group-hover:text-primary transition-colors text-sm"></i>
+                        <span class="truncate">CS101: Intro to C</span>
+                    </div>
+                    
+                    <!-- Topic -->
+                    <div class="ml-3 pl-3 border-l border-borders mt-1 space-y-1">
+                        <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-surface/60 cursor-pointer text-sm font-medium text-muted hover:text-light transition-colors">
+                            <i class="fas fa-chevron-right text-[10px] w-3 text-center"></i>
+                            <span class="truncate">1. Basics & Data Types</span>
+                        </div>
+                        
+                        <!-- Open Topic -->
+                        <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-surface/60 cursor-pointer text-sm font-medium text-light transition-colors">
+                            <i class="fas fa-chevron-down text-[10px] w-3 text-center text-muted"></i>
+                            <span class="truncate">2. Control Flow</span>
+                        </div>
+                        
+                        <!-- Items under Topic -->
+                        <div class="ml-3 pl-3 border-l border-borders mt-1 space-y-1">
+                            <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-surface/60 cursor-pointer text-sm text-muted hover:text-light transition-colors group">
+                                <i class="fas fa-file-alt w-4 text-center text-xs"></i>
+                                <span class="truncate">2.1 If/Else Statements</span>
+                            </div>
+                            <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-surface/60 cursor-pointer text-sm text-muted hover:text-light transition-colors group">
+                                <i class="fas fa-play-circle w-4 text-center text-xs"></i>
+                                <span class="truncate">2.2 Switch Cases</span>
+                            </div>
+                            <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-surface/60 cursor-pointer text-sm text-muted hover:text-light transition-colors group">
+                                <i class="fas fa-question-circle w-4 text-center text-xs text-warning/70 group-hover:text-warning"></i>
+                                <span class="truncate">Quiz: Control Structures</span>
+                            </div>
+                            
+                            <!-- Active Practical Task -->
+                            <div class="flex items-center justify-between px-2 py-1.5 rounded bg-primary/10 border-l-2 border-primary cursor-pointer text-sm text-light shadow-[inset_0_0_10px_rgba(0,229,255,0.05)] group relative">
+                                <div class="flex items-center gap-2 overflow-hidden">
+                                    <i class="fas fa-laptop-code w-4 text-center text-xs text-primary"></i>
+                                    <span class="truncate font-medium">Task: Calculator Mini</span>
+                                </div>
+                                <button class="opacity-0 group-hover:opacity-100 text-muted hover:text-light transition-opacity"><i class="fas fa-ellipsis-v text-xs"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-surface/60 cursor-pointer text-sm font-medium text-muted hover:text-light transition-colors mt-2">
+                            <i class="fas fa-chevron-right text-[10px] w-3 text-center"></i>
+                            <span class="truncate">3. Loops (For, While)</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="w-full mt-4 py-2 border border-dashed border-borders rounded text-sm text-muted hover:text-light hover:border-muted hover:bg-surface/30 transition-all flex items-center justify-center gap-2">
+                    <i class="fas fa-plus text-xs"></i> Add Topic
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Canvas: Authoring Workspace -->
+        <section class="bg-canvas flex flex-col h-full relative">
+            
+            <!-- Context Header -->
+            <div class="px-8 py-6 border-b border-borders bg-surface/20 shrink-0">
+                <div class="flex items-center gap-2 text-xs text-muted mb-2 font-medium">
+                    <span class="hover:text-light cursor-pointer transition-colors">CS101: Intro to C</span>
+                    <i class="fas fa-chevron-right text-[8px]"></i>
+                    <span class="hover:text-light cursor-pointer transition-colors">2. Control Flow</span>
+                    <i class="fas fa-chevron-right text-[8px]"></i>
+                    <span class="text-primary bg-primary/10 px-1.5 py-0.5 rounded flex items-center gap-1"><i class="fas fa-laptop-code text-[10px]"></i> Practical Task</span>
+                </div>
+                
+                <input type="text" value="Calculator Mini-Project" class="w-full bg-transparent text-3xl font-bold text-light focus:outline-none focus:border-b-2 focus:border-primary transition-all pb-1 placeholder-muted/30" placeholder="Enter Task Title...">
+                <input type="text" value="Build a simple calculator that handles basic arithmetic using switch cases." class="w-full bg-transparent text-base text-muted focus:outline-none focus:border-b focus:border-primary/50 transition-all pb-1 mt-2 placeholder-muted/30" placeholder="Brief description (optional)...">
+            </div>
+
+            <!-- Single Scrollable Canvas -->
+            <div class="p-8 flex-1 overflow-y-auto space-y-10 pb-20">
+                
+                <!-- 1. Task Description -->
+                <div class="space-y-3">
+                    <h3 class="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-2"><i class="fas fa-align-left text-primary"></i> 1. Task Description</h3>
+                    
+                    <div class="border border-borders rounded-lg bg-surface/50 overflow-hidden shadow-sm">
+                        <!-- Toolbar mock -->
+                        <div class="flex items-center gap-1 border-b border-borders bg-surface px-3 py-2 text-muted">
+                            <select class="bg-transparent text-sm border-r border-borders pr-3 mr-2 outline-none cursor-pointer focus:text-light">
+                                <option>Normal Text</option>
+                                <option>Heading 1</option>
+                                <option>Heading 2</option>
+                            </select>
+                            <button class="w-8 h-8 hover:bg-borders hover:text-light rounded transition-colors flex items-center justify-center"><i class="fas fa-bold"></i></button>
+                            <button class="w-8 h-8 hover:bg-borders hover:text-light rounded transition-colors flex items-center justify-center"><i class="fas fa-italic"></i></button>
+                            <button class="w-8 h-8 hover:bg-borders hover:text-light rounded transition-colors flex items-center justify-center"><i class="fas fa-code"></i></button>
+                            <div class="w-px h-5 bg-borders mx-1"></div>
+                            <button class="w-8 h-8 hover:bg-borders hover:text-light rounded transition-colors flex items-center justify-center"><i class="fas fa-list-ul"></i></button>
+                            <button class="w-8 h-8 hover:bg-borders hover:text-light rounded transition-colors flex items-center justify-center"><i class="fas fa-list-ol"></i></button>
+                            <div class="w-px h-5 bg-borders mx-1"></div>
+                            <button class="w-8 h-8 hover:bg-borders hover:text-light rounded transition-colors flex items-center justify-center"><i class="fas fa-image"></i></button>
+                        </div>
+                        
+                        <!-- Editable area -->
+                        <div class="p-5 text-sm leading-relaxed text-light outline-none min-h-[150px] editor-content bg-canvas/30" contenteditable="true" placeholder="Describe the problem, input/output formats, and constraints...">
+                            <h4 class="text-lg font-semibold mb-2 text-white">Problem Statement</h4>
+                            <p class="mb-4">Write a C program that acts as a simple calculator. The program should take an operator (+, -, *, /) and two operands (floating-point numbers) as input from the user, and print the result of the operation formatted to two decimal places.</p>
+                            
+                            <h4 class="text-lg font-semibold mb-2 text-white">Requirements</h4>
+                            <ul class="list-disc pl-5 mb-4 space-y-1 text-muted">
+                                <li>Use a <code class="bg-surface border border-borders px-1 py-0.5 rounded text-light font-mono text-xs">switch</code> statement to handle the different operators.</li>
+                                <li>Handle division by zero gracefully (print exactly "Error: Division by zero").</li>
+                                <li>Input format: <code class="bg-surface border border-borders px-1 py-0.5 rounded text-light font-mono text-xs">[operator] [operand1] [operand2]</code></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    <!-- 2. Environment Setup -->
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-semibold text-muted uppercase tracking-wider flex items-center gap-2"><i class="fas fa-cogs text-primary"></i> 2. Environment</h3>
+                        <div class="bg-surface/50 border border-borders rounded-lg p-5">
+                            <div class="space-y-4 text-sm">
+                                <div>
+                                    <label class="block text-muted mb-1.5 font-medium">Programming Language</label>
+                                    <div class="relative">
+                                        <select class="w-full bg-canvas border border-borders rounded-md px-3 py-2 text-light outline-none focus:border-primary appearance-none cursor-pointer">
+                                            <option>C (GCC 9.4)</option>
+                                            <option>C++ (G++ 9.4)</option>
+                                            <option>SQL (PostgreSQL 14)</option>
+                                            <option>Python 3.10</option>
+                                        </select>
+                                        <i class="fas fa-chevron-down absolute right-3 top-3 text-muted pointer-events-none text-xs"></i>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-muted mb-1.5 font-medium">Time Limit (ms)</label>
+                                        <div class="relative">
+                                            <input type="number" value="1000" class="w-full bg-canvas border border-borders rounded-md px-3 py-2 text-light outline-none focus:border-primary">
+                                            <span class="absolute right-3 top-2 text-muted text-xs">ms</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-muted mb-1.5 font-medium">Memory (MB)</label>
+                                        <div class="relative">
+                                            <input type="number" value="256" class="w-full bg-canvas border border-borders rounded-md px-3 py-2 text-light outline-none focus:border-primary">
+                                            <span class="absolute right-3 top-2 text-muted text-xs">MB</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 3. Test Cases -->
+                    <div class="space-y-3 flex flex-col">
+                        <h3 class="text-xs font-semibold text-muted uppercase tracking-wider flex justify-between items-center h-[20px]">
+                            <span class="flex items-center gap-2"><i class="fas fa-check-double text-success"></i> 3. Test Cases</span>
+                            <button class="text-primary text-xs normal-case font-medium hover:underline">+ Add Case</button>
+                        </h3>
+                        <div class="bg-surface/50 border border-borders rounded-lg p-1.5 flex-1 flex flex-col gap-1.5">
+                            <!-- Case 1 -->
+                            <div class="group bg-canvas border border-borders rounded p-3 flex gap-3 relative hover:border-primary/50 transition-colors">
+                                <div class="w-6 flex flex-col items-center gap-2 pt-1 text-muted group-hover:text-light transition-colors">
+                                    <i class="fas fa-grip-vertical cursor-grab"></i>
+                                </div>
+                                <div class="flex-1 grid grid-cols-2 gap-3">
+                                    <div>
+                                        <div class="text-[10px] text-muted uppercase tracking-wider mb-1">Input (STDIN)</div>
+                                        <div class="font-mono text-xs text-light bg-surface p-1.5 rounded border border-borders/50">+ 5.5 2.0</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-[10px] text-muted uppercase tracking-wider mb-1">Expected (STDOUT)</div>
+                                        <div class="font-mono text-xs text-light bg-surface p-1.5 rounded border border-borders/50">7.50</div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-2 items-end justify-between">
+                                    <div class="flex items-center gap-1.5 bg-success/10 text-success text-[10px] font-bold px-1.5 py-0.5 rounded border border-success/20">
+                                        <i class="fas fa-eye"></i> VISIBLE
+                                    </div>
+                                    <button class="text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-trash-alt text-xs"></i></button>
+                                </div>
+                            </div>
+
+                            <!-- Case 2 -->
+                            <div class="group bg-canvas border border-borders rounded p-3 flex gap-3 relative hover:border-primary/50 transition-colors">
+                                <div class="w-6 flex flex-col items-center gap-2 pt-1 text-muted group-hover:text-light transition-colors">
+                                    <i class="fas fa-grip-vertical cursor-grab"></i>
+                                </div>
+                                <div class="flex-1 grid grid-cols-2 gap-3">
+                                    <div>
+                                        <div class="text-[10px] text-muted uppercase tracking-wider mb-1">Input (STDIN)</div>
+                                        <div class="font-mono text-xs text-light bg-surface p-1.5 rounded border border-borders/50">/ 10 0</div>
+                                    </div>
+                                    <div>
+                                        <div class="text-[10px] text-muted uppercase tracking-wider mb-1">Expected (STDOUT)</div>
+                                        <div class="font-mono text-xs text-light bg-surface p-1.5 rounded border border-borders/50">Error: Division by zero</div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-2 items-end justify-between">
+                                    <div class="flex items-center gap-1.5 bg-warning/10 text-warning text-[10px] font-bold px-1.5 py-0.5 rounded border border-warning/20">
+                                        <i class="fas fa-eye-slash"></i> HIDDEN
+                                    </div>
+                                    <button class="text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-trash-alt text-xs"></i></button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. Starter Code & Solution -->
+                <div class="space-y-3 h-[400px] flex flex-col">
+                    <h3 class="text-xs font-semibold text-muted uppercase tracking-wider flex justify-between items-center">
+                        <span class="flex items-center gap-2"><i class="fas fa-code text-primary"></i> 4. Code Editor</span>
+                        <div class="flex bg-surface rounded border border-borders overflow-hidden h-7">
+                            <button class="px-4 text-xs font-medium bg-primary/20 text-primary border-r border-borders">Starter Code</button>
+                            <button class="px-4 text-xs font-medium text-muted hover:text-light transition-colors">Reference Solution</button>
+                        </div>
+                    </h3>
+                    
+                    <div class="flex-1 bg-[#1E1E1E] border border-borders rounded-lg flex flex-col overflow-hidden font-mono text-[13px] shadow-sm relative">
+                        <!-- Editor Header -->
+                        <div class="flex items-center justify-between px-4 py-2 bg-surface border-b border-borders text-xs">
+                            <div class="flex items-center gap-2 text-light font-medium">
+                                <i class="fab fa-cuttlefish text-blue-400"></i> main.c
+                            </div>
+                            <div class="text-muted">
+                                Provides the initial boilerplate for students.
+                            </div>
+                        </div>
+                        <!-- Editor Area -->
+                        <div class="p-4 flex-1 overflow-y-auto leading-relaxed outline-none" contenteditable="true" spellcheck="false">
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">1</span><span class="text-[#C586C0]">#include</span> <span class="text-[#CE9178]">&lt;stdio.h&gt;</span></div>
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">2</span></div>
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">3</span><span class="text-[#569CD6]">int</span> <span class="text-[#DCDCAA]">main</span>() {</div>
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">4</span>    <span class="text-[#569CD6]">char</span> operator;</div>
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">5</span>    <span class="text-[#569CD6]">double</span> num1, num2;</div>
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">6</span></div>
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">7</span>    <span class="text-[#6A9955]">// Write your calculator logic below</span></div>
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">8</span>    <span class="text-[#6A9955]">// Remember to use a switch statement!</span></div>
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">9</span>    </div>
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">10</span>    </div>
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">11</span>    <span class="text-[#C586C0]">return</span> <span class="text-[#B5CEA8]">0</span>;</div>
+                            <div class="flex"><span class="text-[#858585] w-10 inline-block select-none border-r border-[#333] mr-4 text-right pr-2">12</span>}</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Right Sidebar: Metadata & Settings -->
+        <aside class="border-l border-borders bg-surface overflow-y-auto hidden lg:flex flex-col shadow-[-4px_0_12px_rgba(0,0,0,0.1)] z-0">
+            <div class="p-4 border-b border-borders bg-surface sticky top-0 z-10 flex items-center gap-2">
+                <i class="fas fa-sliders-h text-muted"></i>
+                <h2 class="font-semibold text-xs uppercase tracking-wider text-muted">Metadata & Settings</h2>
+            </div>
+
+            <div class="p-5 space-y-8">
+                <!-- Learning Objectives -->
+                <div>
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-muted mb-3 flex justify-between items-center">
+                        Learning Objectives
+                        <button class="text-primary hover:text-light transition-colors" title="Add Objective"><i class="fas fa-plus"></i></button>
+                    </h3>
+                    <ul class="space-y-2">
+                        <li class="bg-canvas/50 border border-borders rounded p-2.5 text-xs flex justify-between items-start gap-2 group hover:border-borders/80 transition-colors">
+                            <span class="leading-relaxed">Understand switch statement syntax and execution flow.</span>
+                            <button class="text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5"><i class="fas fa-times"></i></button>
+                        </li>
+                        <li class="bg-canvas/50 border border-borders rounded p-2.5 text-xs flex justify-between items-start gap-2 group hover:border-borders/80 transition-colors">
+                            <span class="leading-relaxed">Handle edge cases like division by zero appropriately.</span>
+                            <button class="text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity mt-0.5"><i class="fas fa-times"></i></button>
+                        </li>
+                        <li class="border border-dashed border-borders/70 rounded p-2 flex items-center bg-transparent focus-within:border-primary/50 transition-colors">
+                            <input type="text" placeholder="Type new objective..." class="bg-transparent text-xs outline-none w-full text-light placeholder-muted/50">
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Resources -->
+                <div class="border-t border-borders/50 pt-8">
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-muted mb-3 flex justify-between items-center">
+                        Resources
+                        <button class="text-primary hover:text-light transition-colors" title="Upload Resource"><i class="fas fa-upload"></i></button>
+                    </h3>
+                    <ul class="space-y-2">
+                        <li class="bg-canvas/50 border border-borders rounded p-2 text-xs flex items-center gap-3 group cursor-pointer hover:border-primary/30 transition-colors">
+                            <div class="w-7 h-7 rounded bg-red-500/10 text-red-400 flex items-center justify-center shrink-0 border border-red-500/20">
+                                <i class="fas fa-file-pdf"></i>
+                            </div>
+                            <div class="flex-1 truncate">
+                                <div class="font-medium text-light truncate mb-0.5">Switch_Cheat_Sheet.pdf</div>
+                                <div class="text-[10px] text-muted">1.2 MB</div>
+                            </div>
+                            <button class="text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-trash-alt text-xs"></i></button>
+                        </li>
+                        <li class="bg-canvas/50 border border-borders rounded p-2 text-xs flex items-center gap-3 group cursor-pointer hover:border-primary/30 transition-colors">
+                            <div class="w-7 h-7 rounded bg-blue-500/10 text-blue-400 flex items-center justify-center shrink-0 border border-blue-500/20">
+                                <i class="fas fa-link"></i>
+                            </div>
+                            <div class="flex-1 truncate">
+                                <div class="font-medium text-light truncate mb-0.5">C Reference: Switch</div>
+                                <div class="text-[10px] text-muted">External URL</div>
+                            </div>
+                            <button class="text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fas fa-trash-alt text-xs"></i></button>
+                        </li>
+                    </ul>
+                    <div class="mt-3 bg-canvas/30 border border-dashed border-borders/70 rounded-lg p-5 text-center text-xs text-muted hover:bg-borders/20 hover:border-primary/50 transition-colors cursor-pointer group">
+                        <i class="fas fa-cloud-upload-alt text-xl mb-2 block group-hover:text-primary transition-colors"></i>
+                        Drag & Drop files or <span class="text-primary hover:underline">Browse</span>
+                    </div>
+                </div>
+
+                <!-- Grading & Publication Settings -->
+                <div class="border-t border-borders/50 pt-8">
+                    <h3 class="text-xs font-semibold uppercase tracking-wider text-muted mb-4">Grading & Options</h3>
+                    <div class="space-y-4">
+                        <label class="flex items-start gap-3 text-sm cursor-pointer group">
+                            <input type="checkbox" checked class="accent-primary w-4 h-4 mt-0.5 rounded bg-canvas border-borders cursor-pointer">
+                            <div>
+                                <div class="font-medium text-light group-hover:text-primary transition-colors">Auto-grade Output</div>
+                                <div class="text-xs text-muted mt-0.5">Evaluates student code against defined test cases.</div>
+                            </div>
+                        </label>
+                        <label class="flex items-start gap-3 text-sm cursor-pointer group">
+                            <input type="checkbox" class="accent-primary w-4 h-4 mt-0.5 rounded bg-canvas border-borders cursor-pointer">
+                            <div>
+                                <div class="font-medium text-light group-hover:text-primary transition-colors">Manual Review Required</div>
+                                <div class="text-xs text-muted mt-0.5">Faculty must approve code style/approach.</div>
+                            </div>
+                        </label>
+                        
+                        <div class="flex items-center justify-between pt-2">
+                            <span class="text-sm font-medium">Points Awarded</span>
+                            <div class="relative">
+                                <input type="number" value="10" class="w-20 bg-canvas border border-borders rounded px-2 py-1.5 text-sm text-light font-bold outline-none focus:border-primary text-center">
+                                <i class="fas fa-star text-warning absolute right-2 top-2.5 text-[10px] pointer-events-none"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            
+            <div class="mt-auto p-4 border-t border-borders bg-canvas/50 text-xs text-muted flex items-center justify-between shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+                <div class="flex items-center gap-1.5"><i class="fas fa-check-circle text-success text-[10px]"></i> Saved just now</div>
+                <button class="hover:text-light transition-colors"><i class="fas fa-history mr-1"></i> History</button>
+            </div>
+        </aside>
+
+    </main>
+
+</body>
+</html>
