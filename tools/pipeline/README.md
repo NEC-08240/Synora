@@ -50,7 +50,8 @@ On start, the server takes an exclusive lock on `.agents/pipeline/jobs/.owner.lo
 ## Run
 
 ```bash
-# Run every test module (389 tests in 32 modules when last run, on Windows with Python 3.14).
+# Run every test module (467 tests, 1 skipped, OK on `main` 2026-10-24, Windows, Python 3.14).
+# The skipped test is the real-Lead attachment test, opt-in with SYNORA_REAL_LEAD_TESTS=1.
 # PowerShell:  python -m unittest (Get-ChildItem tools/pipeline/test_*.py | % { "tools.pipeline.$($_.BaseName)" })
 # bash:        python -m unittest $(ls tools/pipeline/test_*.py | sed 's|/|.|g; s|\.py$||')
 # On a Linux Gateway-only host six Worker-side tests fail for environmental reasons: see tools/pipeline/deploy/README.md.

@@ -266,8 +266,9 @@ eap_stale_workers and safely resets unfinished ASSIGNED/RUNNING jobs back to QUE
 
 ## Persistent Engineering Lead
 
-Status: implemented locally on `feature/persistent-lead`. Not deployed. Production needs the Gateway's scope column
-(migrated automatically on start), a Worker update, and the decisions listed under "Open items" below.
+Status: merged to `main` (PR #19; fix in PR #20). Deployed: the Gateway runs `f371792` with the `scope_json` column, and
+Johan's Worker runs the same commit with the Lead enabled. Single-user use only; multi-teammate use is not approved (see
+Readiness). The current layer versions are in "Layer status" at the end of this document.
 
 ### Architecture
 
@@ -392,8 +393,8 @@ credential, but it is not written to tracked files.
 - **Per-developer job limit.** The Gateway allows one active job per developer. A developer's Lead request and
   implementation job therefore cannot be in flight together.
 - **Production migration.** The Gateway adds a nullable `scope_json` column to the `jobs` table on start. The change is
-  additive; existing rows keep a NULL scope, and a Lead job without scope is refused. It takes effect only when the
-  Gateway is restarted with the new code.
+  additive; existing rows keep a NULL scope, and a Lead job without scope is refused. Applied on the Gateway (column
+  present on 2026-10-24, verified read-only).
 - **Production concurrency.** Each additional Worker identity needs an administrator enrollment (`add-worker`) and its
   own daemon. None was enrolled.
 - **Not done:** live event streaming, Remote Control, automatic session rotation, automatic dispatch of Lead decisions
@@ -401,7 +402,32 @@ credential, but it is not written to tracked files.
 
 ### Readiness
 
-- **Single-user Lead for Johan:** ready for a supervised canary on the feature branch's code, once it has been reviewed
-  and merged, and with the deployment steps below.
+- **Single-user Lead for Johan:** deployed on `f371792` (Gateway and Worker). The Lead state was `ACTIVE` on 2026-10-24.
 - **Multi-teammate Lead:** not ready. The shared-conversation gate above is open, credentials in unrecognised formats can
   persist in the transcript, and the owner has not accepted either residual risk.
+
+## Layer status (2026-10-24)
+
+The version that each layer runs, checked on that date. The order follows the data path.
+
+| Layer | Version | Check | Status |
+|---|---|---|---|
+| GitHub `main` | `0019eb5` (PR #23). Runtime code identical to `f371792` | `git ls-remote origin main` | Protected: see [PR review and merge](../github/pr-review-and-merge.md#github-governance) |
+| Documentation | Updated in the infra-sync PR (see [recovery runbook](../operations/recovery-runbook.md)) | this file | Current with the layers in this table |
+| Agent Bridge (Gateway, bridge, path checks) | `f371792` on the host and the Worker | `/health` on the host; `worker-runtime` HEAD | Deployed |
+| EC2 Gateway | `f371792`, `synora-gateway` active, Caddy active | Deploy README Part A | Deployed |
+| Johan's Worker | `f371792` detached, clean, scheduled task `Synora Worker` | Deploy README Part C | Running (verified 2026-10-24) |
+| Persistent Engineering Lead | `ACTIVE`, one session, on the Worker | `lead_state.json` `state` field | Deployed, single-user |
+
+**Scope enforcement on `main` (verified by grep, 2026-10-24):**
+
+- The Gateway stores each job's module and branch scope from the authenticated developer's registry entry, and checks
+  the branch.
+- The Lead enforces module scope: it refuses a job without scope, and each turn carries the approved modules.
+- **Bridge jobs (`docs`, `code`, `review`) do not check module scope on `main`.** `WRITE_SCOPE` limits the path in code,
+  but no module check runs against the registry scope. The bridge and Worker checks that do this (`scope_violations`,
+  the control-plane denylist in `path_scope.py`) exist only in **PR #22**.
+
+**Not on `main`:** the Engineering Manager authorization (`tools/pipeline/path_scope.py`, the control-plane denylist,
+`scope_violations` in the bridge) and `docs/architecture/developer-authorization.md` are in **PR #22**, which is open and
+unmerged. They are not deployed. Do not describe them as deployed.
