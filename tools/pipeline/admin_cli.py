@@ -55,6 +55,26 @@ def add_developer(registry_path, developer_id, name, github, public_key, role="d
     registry.save(path)
 
 
+def update_developer_scope(registry_path, developer_id, modules, branches):
+    """Change only a developer's modules and branches. Identity, key, role and status are kept.
+
+    The new entry is validated by the same rules as enrolment, and the file is rewritten only if every check passes.
+    """
+    for module in modules:
+        if module != "*" and "*" in module:
+            raise ValueError(f"Module scope {module!r} is not valid: scopes are directory prefixes such as 'docs/', not patterns.")
+    path = Path(registry_path)
+    registry = TeamRegistry.load(path)
+    current = registry.get(developer_id)  # raises DeveloperNotFound for an unknown developer
+    registry.update(DeveloperEntry(
+        developer_id=current.developer_id, developer_name=current.developer_name,
+        github_username=current.github_username, role=current.role, status=current.status,
+        public_key_ed25519=current.public_key_ed25519, assigned_modules=tuple(modules),
+        allowed_branches=tuple(branches), rate_limits=current.rate_limits,
+    ))
+    registry.save(path)
+
+
 def add_worker(registry_path, worker_id, public_key):
     WorkerRegistry(str(registry_path)).enroll(worker_id, public_key)
 
@@ -94,6 +114,12 @@ def main(argv=None):
     p.add_argument("--modules", default="docs/", help="Comma-separated directory prefixes the developer may touch, e.g. docs/,frontend/")
     p.add_argument("--branches", default="feature/*", help="Comma-separated branch patterns the developer may use.")
 
+    p = sub.add_parser("update-developer-scope", help="Change a developer's modules and branches only.")
+    p.add_argument("--registry", required=True)
+    p.add_argument("--developer-id", required=True)
+    p.add_argument("--modules", required=True, help="Comma-separated directory prefixes ('docs/') or exact files ('README.md').")
+    p.add_argument("--branches", required=True, help="Comma-separated branch patterns the developer may use.")
+
     p = sub.add_parser("add-worker", help="Enrol the Worker by public key.")
     p.add_argument("--registry", required=True)
     p.add_argument("--worker-id", required=True)
@@ -113,6 +139,9 @@ def main(argv=None):
         elif args.command == "add-developer":
             add_developer(args.registry, args.developer_id, args.name, args.github, args.public_key, args.role, _split(args.modules), _split(args.branches))
             print(f"Enrolled developer {args.developer_id!r} in {args.registry}. Restart the Gateway to load it.")
+        elif args.command == "update-developer-scope":
+            update_developer_scope(args.registry, args.developer_id, _split(args.modules), _split(args.branches))
+            print(f"Updated scope for developer {args.developer_id!r} in {args.registry}. Restart the Gateway to load it.")
         elif args.command == "add-worker":
             add_worker(args.registry, args.worker_id, args.public_key)
             print(f"Enrolled worker {args.worker_id!r} in {args.registry}. Restart the Gateway to load it.")

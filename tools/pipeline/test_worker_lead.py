@@ -71,6 +71,7 @@ DOCS_JOB = {
     "task_type": "docs",
     "branch": "feature/rajaneesh/notes",
     "base_commit": None,
+    "scope": {"modules": ["docs/"], "branches": ["feature/rajaneesh/*"]},
 }
 
 
@@ -94,6 +95,18 @@ class WorkerLeadRoutingTest(unittest.TestCase):
         worker.run_job_payload(DOCS_JOB)
         self.assertEqual(lead.turns, [])
         self.assertEqual(len(self.bridge.created), 1)
+
+    def test_bridge_job_without_module_scope_is_refused_before_any_work(self):
+        worker = self.worker(RecordingLead())
+        no_scope = {k: v for k, v in DOCS_JOB.items() if k != "scope"}
+        with self.assertRaises(ValueError):
+            worker.run_job_payload(no_scope)
+        self.assertEqual(self.bridge.created, [])
+
+    def test_bridge_job_receives_the_requesters_module_scope(self):
+        worker = self.worker(RecordingLead())
+        worker.run_job_payload(DOCS_JOB)
+        self.assertEqual(self.bridge.created[0]["module_scope"], ["docs/"])
 
     def test_lead_job_is_refused_when_no_lead_is_configured(self):
         worker = self.worker(lead=None)
