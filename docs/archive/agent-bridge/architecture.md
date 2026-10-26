@@ -1,3 +1,4 @@
+﻿> **Archived: historical reference only.** Agent Bridge has been retired from the Synora development workflow. The team now works through GitHub Issues and Pull Requests, Claude Code, and Antigravity. This document is kept for reference and does not describe active infrastructure. Retiring the workflow does not mean the Agent Bridge AWS infrastructure has been decommissioned; this repository cleanup did not change it.
 # Synora Agent Bridge: architecture
 
 Status: Phase B verified end to end. Phase C step 1 hardens it. Repair loops are not implemented. Tooling lives in `tools/pipeline/`, separate from `frontend/`, `backend/`, `database/`, and `prototypes/`.
