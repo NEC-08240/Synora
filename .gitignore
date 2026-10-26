@@ -36,8 +36,6 @@ Thumbs.db
 *.tmp
 *.temp
 
-# Agent bridge job records and worktrees (local only)
-.agents/pipeline/
 __pycache__/
 
 # Local runtime databases and test keys (deployment safety)
