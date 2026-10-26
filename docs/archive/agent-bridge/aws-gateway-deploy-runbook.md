@@ -1,3 +1,4 @@
+> **Archived: historical reference only.** Agent Bridge is retired from the Synora development workflow. These files are retained as historical/reference documentation. The AWS infrastructure was not decommissioned or changed as part of this repository cleanup.
 # Synora Agent Gateway: deployment
 
 This file has two parts. **Part A** records the deployment that actually exists. **Part B** is the disaster-recovery
