@@ -1,0 +1,606 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2530" height="2119" viewBox="0 0 2530 2119" font-family="Segoe UI, Arial, sans-serif">
+<rect width="2530" height="2119" fill="#fff"/>
+<text x="1265.0" y="40" font-size="32" font-weight="700" text-anchor="middle">Synora V1 Entity-Relationship Diagram (Microsoft SQL Server, 20 entities)</text>
+<text x="1265.0" y="70" font-size="16" text-anchor="middle" fill="#475569">Grouped by DFD data store D1-D5. Source: docs/database/database-design.md. Red = cardinality (1, 0..1, 0..*). Dashed = ownership/audit FK to Users. PK primary key, FK foreign key, UK unique constraint.</text>
+<rect x="20" y="100" width="2490" height="258" rx="10" fill="#ecfdf5" stroke="#0f766e" stroke-width="1.5" opacity="0.6"/>
+<rect x="20" y="478" width="2490" height="237" rx="10" fill="#eef2ff" stroke="#4338ca" stroke-width="1.5" opacity="0.6"/>
+<rect x="20" y="779" width="2490" height="576" rx="10" fill="#fffbeb" stroke="#b45309" stroke-width="1.5" opacity="0.6"/>
+<rect x="20" y="1447" width="2490" height="321" rx="10" fill="#fff1f2" stroke="#be123c" stroke-width="1.5" opacity="0.6"/>
+<rect x="20" y="1860" width="2490" height="237" rx="10" fill="#f5f3ff" stroke="#6d28d9" stroke-width="1.5" opacity="0.6"/>
+<polyline points="670.0,190.0 800.0,190.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1200.0,190.0 1330.0,190.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1200.0,218.0 1330.0,218.0" fill="none" stroke="#334155" stroke-width="1.6" stroke-dasharray="7 4"/>
+<polyline points="1730.0,190.0 1860.0,190.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1960.0,302.0 1960.0,454.0 470.0,454.0 470.0,524.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1090.9,344.0 1090.9,370.0 2060.0,370.0 2060.0,302.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1127.3,344.0 1127.3,384.0 2160.0,384.0 2160.0,302.0" fill="none" stroke="#334155" stroke-width="1.6" stroke-dasharray="7 4"/>
+<polyline points="670.0,568.0 800.0,568.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1054.5,344.0 1054.5,370.0 1000.0,370.0 1000.0,524.0" fill="none" stroke="#334155" stroke-width="1.6" stroke-dasharray="7 4"/>
+<polyline points="1200.0,568.0 1330.0,568.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1730.0,568.0 1860.0,568.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1000.0,701.0 1000.0,755.0 801.7,755.0 801.7,825.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1018.2,344.0 1018.2,440.0 230.0,440.0 230.0,755.0 668.3,755.0 668.3,825.0" fill="none" stroke="#334155" stroke-width="1.6" stroke-dasharray="7 4"/>
+<polyline points="935.0,869.0 1065.0,869.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1465.0,869.0 1595.0,869.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="763.6,1128.0 763.6,1154.0 1000.0,1154.0 1000.0,1206.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="820.7,1128.0 820.7,1168.0 1530.0,1168.0 1530.0,1206.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="981.8,344.0 981.8,426.0 217.0,426.0 217.0,1423.0 536.7,1423.0 536.7,1493.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="706.4,1128.0 706.4,1182.0 204.0,1182.0 204.0,1409.0 403.3,1409.0 403.3,1493.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="945.5,344.0 945.5,412.0 191.0,412.0 191.0,1395.0 1100.0,1395.0 1100.0,1493.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="649.3,1128.0 649.3,1168.0 178.0,1168.0 178.0,1381.0 1000.0,1381.0 1000.0,1493.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="909.1,344.0 909.1,398.0 165.0,398.0 165.0,1367.0 900.0,1367.0 900.0,1493.0" fill="none" stroke="#334155" stroke-width="1.6" stroke-dasharray="7 4"/>
+<polyline points="1200.0,1537.0 1330.0,1537.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1265.0,981.0 1265.0,1154.0 2300.0,1154.0 2300.0,1381.0 1463.3,1381.0 1463.3,1493.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1795.0,960.0 1795.0,1168.0 2313.0,1168.0 2313.0,1395.0 1596.7,1395.0 1596.7,1493.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1000.0,1754.0 1000.0,1808.0 2060.0,1808.0 2060.0,1649.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1000.0,1341.0 1000.0,1367.0 2060.0,1367.0 2060.0,1493.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="872.7,344.0 872.7,384.0 152.0,384.0 152.0,1836.0 835.0,1836.0 835.0,1906.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1530.0,701.0 1530.0,741.0 139.0,741.0 139.0,1822.0 735.0,1822.0 735.0,1906.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="592.1,1128.0 592.1,1154.0 126.0,1154.0 126.0,1808.0 635.0,1808.0 635.0,1906.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="836.4,344.0 836.4,370.0 113.0,370.0 113.0,1794.0 1331.7,1794.0 1331.7,1906.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="900.0,701.0 900.0,727.0 100.0,727.0 100.0,1780.0 1198.3,1780.0 1198.3,1906.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1163.6,344.0 1163.6,398.0 2326.0,398.0 2326.0,1780.0 1695.0,1780.0 1695.0,1906.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="1100.0,701.0 1100.0,727.0 2339.0,727.0 2339.0,1794.0 1795.0,1794.0 1795.0,1906.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<polyline points="877.9,1128.0 877.9,1182.0 2352.0,1182.0 2352.0,1822.0 1895.0,1822.0 1895.0,1906.0" fill="none" stroke="#334155" stroke-width="1.6"/>
+<rect x="270.0" y="146" width="400" height="93" rx="4" fill="#fff" stroke="#0f766e" stroke-width="2"/>
+<rect x="270.0" y="146" width="400" height="30" rx="4" fill="#0f766e"/>
+<text x="470.0" y="167" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">Roles</text>
+<text x="278.0" y="191" font-size="13" font-weight="700">RoleId</text>
+<text x="405.0" y="191" font-size="11.5" fill="#475569">INT</text>
+<text x="662.0" y="191" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">PK</text>
+<rect x="271.0" y="197" width="398" height="21" fill="#ecfdf5"/>
+<text x="278.0" y="212" font-size="13">RoleName</text>
+<text x="405.0" y="212" font-size="11.5" fill="#475569">NVARCHAR(30)</text>
+<text x="662.0" y="212" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">UK</text>
+<text x="278.0" y="233" font-size="13">Description</text>
+<text x="405.0" y="233" font-size="11.5" fill="#475569">NVARCHAR(255)</text>
+<rect x="800.0" y="146" width="400" height="198" rx="4" fill="#fff" stroke="#0f766e" stroke-width="2"/>
+<rect x="800.0" y="146" width="400" height="30" rx="4" fill="#0f766e"/>
+<text x="1000.0" y="167" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">Users</text>
+<text x="808.0" y="191" font-size="13" font-weight="700">UserId</text>
+<text x="935.0" y="191" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="191" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">PK</text>
+<rect x="801.0" y="197" width="398" height="21" fill="#ecfdf5"/>
+<text x="808.0" y="212" font-size="13">RoleId</text>
+<text x="935.0" y="212" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="212" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">FK</text>
+<text x="808.0" y="233" font-size="13">BatchId</text>
+<text x="935.0" y="233" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="233" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">FK</text>
+<text x="1152.0" y="233" font-size="8.8" fill="#64748b" text-anchor="end">NULL,students only</text>
+<rect x="801.0" y="239" width="398" height="21" fill="#ecfdf5"/>
+<text x="808.0" y="254" font-size="13">Name</text>
+<text x="935.0" y="254" font-size="11.5" fill="#475569">NVARCHAR(100)</text>
+<text x="808.0" y="275" font-size="13">Email</text>
+<text x="935.0" y="275" font-size="11.5" fill="#475569">NVARCHAR(255)</text>
+<text x="1192.0" y="275" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">UK</text>
+<rect x="801.0" y="281" width="398" height="21" fill="#ecfdf5"/>
+<text x="808.0" y="296" font-size="13">PasswordHash</text>
+<text x="935.0" y="296" font-size="11.5" fill="#475569">NVARCHAR(255)</text>
+<text x="808.0" y="317" font-size="13">Status</text>
+<text x="935.0" y="317" font-size="11.5" fill="#475569">NVARCHAR(20)</text>
+<rect x="801.0" y="323" width="398" height="21" fill="#ecfdf5"/>
+<text x="808.0" y="338" font-size="13">CreatedAt</text>
+<text x="935.0" y="338" font-size="11.5" fill="#475569">DATETIME2</text>
+<rect x="1330.0" y="146" width="400" height="156" rx="4" fill="#fff" stroke="#0f766e" stroke-width="2"/>
+<rect x="1330.0" y="146" width="400" height="30" rx="4" fill="#0f766e"/>
+<text x="1530.0" y="167" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">Batches</text>
+<text x="1338.0" y="191" font-size="13" font-weight="700">BatchId</text>
+<text x="1465.0" y="191" font-size="11.5" fill="#475569">INT</text>
+<text x="1722.0" y="191" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">PK</text>
+<rect x="1331.0" y="197" width="398" height="21" fill="#ecfdf5"/>
+<text x="1338.0" y="212" font-size="13">Name</text>
+<text x="1465.0" y="212" font-size="11.5" fill="#475569">NVARCHAR(100)</text>
+<text x="1722.0" y="212" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">UK</text>
+<text x="1338.0" y="233" font-size="13">AcademicYear</text>
+<text x="1465.0" y="233" font-size="11.5" fill="#475569">NVARCHAR(20)</text>
+<rect x="1331.0" y="239" width="398" height="21" fill="#ecfdf5"/>
+<text x="1338.0" y="254" font-size="13">Status</text>
+<text x="1465.0" y="254" font-size="11.5" fill="#475569">NVARCHAR(20)</text>
+<text x="1338.0" y="275" font-size="13">CreatedBy</text>
+<text x="1465.0" y="275" font-size="11.5" fill="#475569">INT</text>
+<text x="1722.0" y="275" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">FK</text>
+<rect x="1331.0" y="281" width="398" height="21" fill="#ecfdf5"/>
+<text x="1338.0" y="296" font-size="13">CreatedAt</text>
+<text x="1465.0" y="296" font-size="11.5" fill="#475569">DATETIME2</text>
+<rect x="1860.0" y="146" width="400" height="156" rx="4" fill="#fff" stroke="#0f766e" stroke-width="2"/>
+<rect x="1860.0" y="146" width="400" height="30" rx="4" fill="#0f766e"/>
+<text x="2060.0" y="167" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">FacultyAssignments</text>
+<text x="1868.0" y="191" font-size="13" font-weight="700">AssignmentId</text>
+<text x="1995.0" y="191" font-size="11.5" fill="#475569">INT</text>
+<text x="2252.0" y="191" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">PK</text>
+<rect x="1861.0" y="197" width="398" height="21" fill="#ecfdf5"/>
+<text x="1868.0" y="212" font-size="13">BatchId</text>
+<text x="1995.0" y="212" font-size="11.5" fill="#475569">INT</text>
+<text x="2252.0" y="212" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">FK</text>
+<text x="2212.0" y="212" font-size="8.8" fill="#64748b" text-anchor="end">UK(BatchId,SubjectId)</text>
+<text x="1868.0" y="233" font-size="13">SubjectId</text>
+<text x="1995.0" y="233" font-size="11.5" fill="#475569">INT</text>
+<text x="2252.0" y="233" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">FK</text>
+<text x="2212.0" y="233" font-size="8.8" fill="#64748b" text-anchor="end">UK(BatchId,SubjectId)</text>
+<rect x="1861.0" y="239" width="398" height="21" fill="#ecfdf5"/>
+<text x="1868.0" y="254" font-size="13">FacultyId</text>
+<text x="1995.0" y="254" font-size="11.5" fill="#475569">INT</text>
+<text x="2252.0" y="254" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">FK</text>
+<text x="1868.0" y="275" font-size="13">AssignedBy</text>
+<text x="1995.0" y="275" font-size="11.5" fill="#475569">INT</text>
+<text x="2252.0" y="275" font-size="11.5" font-weight="700" fill="#0f766e" text-anchor="end">FK</text>
+<rect x="1861.0" y="281" width="398" height="21" fill="#ecfdf5"/>
+<text x="1868.0" y="296" font-size="13">AssignedAt</text>
+<text x="1995.0" y="296" font-size="11.5" fill="#475569">DATETIME2</text>
+<rect x="270.0" y="524" width="400" height="135" rx="4" fill="#fff" stroke="#4338ca" stroke-width="2"/>
+<rect x="270.0" y="524" width="400" height="30" rx="4" fill="#4338ca"/>
+<text x="470.0" y="545" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">Subjects</text>
+<text x="278.0" y="569" font-size="13" font-weight="700">SubjectId</text>
+<text x="405.0" y="569" font-size="11.5" fill="#475569">INT</text>
+<text x="662.0" y="569" font-size="11.5" font-weight="700" fill="#4338ca" text-anchor="end">PK</text>
+<rect x="271.0" y="575" width="398" height="21" fill="#eef2ff"/>
+<text x="278.0" y="590" font-size="13">Title</text>
+<text x="405.0" y="590" font-size="11.5" fill="#475569">NVARCHAR(150)</text>
+<text x="662.0" y="590" font-size="11.5" font-weight="700" fill="#4338ca" text-anchor="end">UK</text>
+<text x="278.0" y="611" font-size="13">Description</text>
+<text x="405.0" y="611" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<rect x="271.0" y="617" width="398" height="21" fill="#eef2ff"/>
+<text x="278.0" y="632" font-size="13">Status</text>
+<text x="405.0" y="632" font-size="11.5" fill="#475569">NVARCHAR(20)</text>
+<text x="278.0" y="653" font-size="13">CreatedAt</text>
+<text x="405.0" y="653" font-size="11.5" fill="#475569">DATETIME2</text>
+<rect x="800.0" y="524" width="400" height="177" rx="4" fill="#fff" stroke="#4338ca" stroke-width="2"/>
+<rect x="800.0" y="524" width="400" height="30" rx="4" fill="#4338ca"/>
+<text x="1000.0" y="545" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">Topics</text>
+<text x="808.0" y="569" font-size="13" font-weight="700">TopicId</text>
+<text x="935.0" y="569" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="569" font-size="11.5" font-weight="700" fill="#4338ca" text-anchor="end">PK</text>
+<rect x="801.0" y="575" width="398" height="21" fill="#eef2ff"/>
+<text x="808.0" y="590" font-size="13">SubjectId</text>
+<text x="935.0" y="590" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="590" font-size="11.5" font-weight="700" fill="#4338ca" text-anchor="end">FK</text>
+<text x="1152.0" y="590" font-size="8.8" fill="#64748b" text-anchor="end">UK(SubjectId,OrderIndex)</text>
+<text x="808.0" y="611" font-size="13">Title</text>
+<text x="935.0" y="611" font-size="11.5" fill="#475569">NVARCHAR(150)</text>
+<rect x="801.0" y="617" width="398" height="21" fill="#eef2ff"/>
+<text x="808.0" y="632" font-size="13">OrderIndex</text>
+<text x="935.0" y="632" font-size="11.5" fill="#475569">INT</text>
+<text x="808.0" y="653" font-size="13">Status</text>
+<text x="935.0" y="653" font-size="11.5" fill="#475569">NVARCHAR(20)</text>
+<rect x="801.0" y="659" width="398" height="21" fill="#eef2ff"/>
+<text x="808.0" y="674" font-size="13">CreatedBy</text>
+<text x="935.0" y="674" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="674" font-size="11.5" font-weight="700" fill="#4338ca" text-anchor="end">FK</text>
+<text x="808.0" y="695" font-size="13">CreatedAt</text>
+<text x="935.0" y="695" font-size="11.5" fill="#475569">DATETIME2</text>
+<rect x="1330.0" y="524" width="400" height="177" rx="4" fill="#fff" stroke="#4338ca" stroke-width="2"/>
+<rect x="1330.0" y="524" width="400" height="30" rx="4" fill="#4338ca"/>
+<text x="1530.0" y="545" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">Lessons</text>
+<text x="1338.0" y="569" font-size="13" font-weight="700">LessonId</text>
+<text x="1465.0" y="569" font-size="11.5" fill="#475569">INT</text>
+<text x="1722.0" y="569" font-size="11.5" font-weight="700" fill="#4338ca" text-anchor="end">PK</text>
+<rect x="1331.0" y="575" width="398" height="21" fill="#eef2ff"/>
+<text x="1338.0" y="590" font-size="13">TopicId</text>
+<text x="1465.0" y="590" font-size="11.5" fill="#475569">INT</text>
+<text x="1722.0" y="590" font-size="11.5" font-weight="700" fill="#4338ca" text-anchor="end">FK</text>
+<text x="1682.0" y="590" font-size="8.8" fill="#64748b" text-anchor="end">UK(TopicId,OrderIndex)</text>
+<text x="1338.0" y="611" font-size="13">Title</text>
+<text x="1465.0" y="611" font-size="11.5" fill="#475569">NVARCHAR(150)</text>
+<rect x="1331.0" y="617" width="398" height="21" fill="#eef2ff"/>
+<text x="1338.0" y="632" font-size="13">ContentBody</text>
+<text x="1465.0" y="632" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<text x="1338.0" y="653" font-size="13">Objectives</text>
+<text x="1465.0" y="653" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<rect x="1331.0" y="659" width="398" height="21" fill="#eef2ff"/>
+<text x="1338.0" y="674" font-size="13">OrderIndex</text>
+<text x="1465.0" y="674" font-size="11.5" fill="#475569">INT</text>
+<text x="1338.0" y="695" font-size="13">Status</text>
+<text x="1465.0" y="695" font-size="11.5" fill="#475569">NVARCHAR(20)</text>
+<rect x="1860.0" y="524" width="400" height="156" rx="4" fill="#fff" stroke="#4338ca" stroke-width="2"/>
+<rect x="1860.0" y="524" width="400" height="30" rx="4" fill="#4338ca"/>
+<text x="2060.0" y="545" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">LessonResources</text>
+<text x="1868.0" y="569" font-size="13" font-weight="700">ResourceId</text>
+<text x="1995.0" y="569" font-size="11.5" fill="#475569">INT</text>
+<text x="2252.0" y="569" font-size="11.5" font-weight="700" fill="#4338ca" text-anchor="end">PK</text>
+<rect x="1861.0" y="575" width="398" height="21" fill="#eef2ff"/>
+<text x="1868.0" y="590" font-size="13">LessonId</text>
+<text x="1995.0" y="590" font-size="11.5" fill="#475569">INT</text>
+<text x="2252.0" y="590" font-size="11.5" font-weight="700" fill="#4338ca" text-anchor="end">FK</text>
+<text x="2212.0" y="590" font-size="8.8" fill="#64748b" text-anchor="end">UK(LessonId,OrderIndex)</text>
+<text x="1868.0" y="611" font-size="13">ResourceType</text>
+<text x="1995.0" y="611" font-size="11.5" fill="#475569">NVARCHAR(20)</text>
+<rect x="1861.0" y="617" width="398" height="21" fill="#eef2ff"/>
+<text x="1868.0" y="632" font-size="13">Title</text>
+<text x="1995.0" y="632" font-size="11.5" fill="#475569">NVARCHAR(150)</text>
+<text x="1868.0" y="653" font-size="13">Url</text>
+<text x="1995.0" y="653" font-size="11.5" fill="#475569">NVARCHAR(500)</text>
+<rect x="1861.0" y="659" width="398" height="21" fill="#eef2ff"/>
+<text x="1868.0" y="674" font-size="13">OrderIndex</text>
+<text x="1995.0" y="674" font-size="11.5" fill="#475569">INT</text>
+<rect x="535.0" y="825" width="400" height="303" rx="4" fill="#fff" stroke="#b45309" stroke-width="2"/>
+<rect x="535.0" y="825" width="400" height="30" rx="4" fill="#b45309"/>
+<text x="735.0" y="846" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">Activities</text>
+<text x="543.0" y="870" font-size="13" font-weight="700">ActivityId</text>
+<text x="670.0" y="870" font-size="11.5" fill="#475569">INT</text>
+<text x="927.0" y="870" font-size="11.5" font-weight="700" fill="#b45309" text-anchor="end">PK</text>
+<rect x="536.0" y="876" width="398" height="21" fill="#fffbeb"/>
+<text x="543.0" y="891" font-size="13">TopicId</text>
+<text x="670.0" y="891" font-size="11.5" fill="#475569">INT</text>
+<text x="927.0" y="891" font-size="11.5" font-weight="700" fill="#b45309" text-anchor="end">FK</text>
+<text x="543.0" y="912" font-size="13">Title</text>
+<text x="670.0" y="912" font-size="11.5" fill="#475569">NVARCHAR(150)</text>
+<rect x="536.0" y="918" width="398" height="21" fill="#fffbeb"/>
+<text x="543.0" y="933" font-size="13">Instructions</text>
+<text x="670.0" y="933" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<text x="543.0" y="954" font-size="13">ActivityType</text>
+<text x="670.0" y="954" font-size="11.5" fill="#475569">NVARCHAR(20)</text>
+<rect x="536.0" y="960" width="398" height="21" fill="#fffbeb"/>
+<text x="543.0" y="975" font-size="13">IsGraded</text>
+<text x="670.0" y="975" font-size="11.5" fill="#475569">BIT</text>
+<text x="543.0" y="996" font-size="13">MaxScore</text>
+<text x="670.0" y="996" font-size="11.5" fill="#475569">DECIMAL(5,2)</text>
+<rect x="536.0" y="1002" width="398" height="21" fill="#fffbeb"/>
+<text x="543.0" y="1017" font-size="13">StarterCode</text>
+<text x="670.0" y="1017" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<text x="543.0" y="1038" font-size="13">Hints</text>
+<text x="670.0" y="1038" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<rect x="536.0" y="1044" width="398" height="21" fill="#fffbeb"/>
+<text x="543.0" y="1059" font-size="13">TimeLimitMs</text>
+<text x="670.0" y="1059" font-size="11.5" fill="#475569">INT</text>
+<text x="543.0" y="1080" font-size="13">Status</text>
+<text x="670.0" y="1080" font-size="11.5" fill="#475569">NVARCHAR(20)</text>
+<rect x="536.0" y="1086" width="398" height="21" fill="#fffbeb"/>
+<text x="543.0" y="1101" font-size="13">CreatedBy</text>
+<text x="670.0" y="1101" font-size="11.5" fill="#475569">INT</text>
+<text x="927.0" y="1101" font-size="11.5" font-weight="700" fill="#b45309" text-anchor="end">FK</text>
+<text x="543.0" y="1122" font-size="13">CreatedAt</text>
+<text x="670.0" y="1122" font-size="11.5" fill="#475569">DATETIME2</text>
+<rect x="1065.0" y="825" width="400" height="156" rx="4" fill="#fff" stroke="#b45309" stroke-width="2"/>
+<rect x="1065.0" y="825" width="400" height="30" rx="4" fill="#b45309"/>
+<text x="1265.0" y="846" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">QuizQuestions</text>
+<text x="1073.0" y="870" font-size="13" font-weight="700">QuestionId</text>
+<text x="1200.0" y="870" font-size="11.5" fill="#475569">INT</text>
+<text x="1457.0" y="870" font-size="11.5" font-weight="700" fill="#b45309" text-anchor="end">PK</text>
+<rect x="1066.0" y="876" width="398" height="21" fill="#fffbeb"/>
+<text x="1073.0" y="891" font-size="13">ActivityId</text>
+<text x="1200.0" y="891" font-size="11.5" fill="#475569">INT</text>
+<text x="1457.0" y="891" font-size="11.5" font-weight="700" fill="#b45309" text-anchor="end">FK</text>
+<text x="1417.0" y="891" font-size="8.8" fill="#64748b" text-anchor="end">UK(ActivityId,OrderIndex)</text>
+<text x="1073.0" y="912" font-size="13">QuestionText</text>
+<text x="1200.0" y="912" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<rect x="1066.0" y="918" width="398" height="21" fill="#fffbeb"/>
+<text x="1073.0" y="933" font-size="13">Explanation</text>
+<text x="1200.0" y="933" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<text x="1073.0" y="954" font-size="13">Points</text>
+<text x="1200.0" y="954" font-size="11.5" fill="#475569">DECIMAL(5,2)</text>
+<rect x="1066.0" y="960" width="398" height="21" fill="#fffbeb"/>
+<text x="1073.0" y="975" font-size="13">OrderIndex</text>
+<text x="1200.0" y="975" font-size="11.5" fill="#475569">INT</text>
+<rect x="1595.0" y="825" width="400" height="135" rx="4" fill="#fff" stroke="#b45309" stroke-width="2"/>
+<rect x="1595.0" y="825" width="400" height="30" rx="4" fill="#b45309"/>
+<text x="1795.0" y="846" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">QuizOptions</text>
+<text x="1603.0" y="870" font-size="13" font-weight="700">OptionId</text>
+<text x="1730.0" y="870" font-size="11.5" fill="#475569">INT</text>
+<text x="1987.0" y="870" font-size="11.5" font-weight="700" fill="#b45309" text-anchor="end">PK</text>
+<text x="1947.0" y="870" font-size="8.8" fill="#64748b" text-anchor="end">UK(QuestionId,OptionId)</text>
+<rect x="1596.0" y="876" width="398" height="21" fill="#fffbeb"/>
+<text x="1603.0" y="891" font-size="13">QuestionId</text>
+<text x="1730.0" y="891" font-size="11.5" fill="#475569">INT</text>
+<text x="1987.0" y="891" font-size="11.5" font-weight="700" fill="#b45309" text-anchor="end">FK</text>
+<text x="1947.0" y="891" font-size="8.8" fill="#64748b" text-anchor="end">UK(QuestionId,OptionId)</text>
+<text x="1603.0" y="912" font-size="13">OptionText</text>
+<text x="1730.0" y="912" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<rect x="1596.0" y="918" width="398" height="21" fill="#fffbeb"/>
+<text x="1603.0" y="933" font-size="13">IsCorrect</text>
+<text x="1730.0" y="933" font-size="11.5" fill="#475569">BIT</text>
+<text x="1987.0" y="933" font-size="8.8" fill="#64748b" text-anchor="end">one correct per question</text>
+<text x="1603.0" y="954" font-size="13">OrderIndex</text>
+<text x="1730.0" y="954" font-size="11.5" fill="#475569">INT</text>
+<rect x="800.0" y="1206" width="400" height="135" rx="4" fill="#fff" stroke="#b45309" stroke-width="2"/>
+<rect x="800.0" y="1206" width="400" height="30" rx="4" fill="#b45309"/>
+<text x="1000.0" y="1227" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">TestCases</text>
+<text x="808.0" y="1251" font-size="13" font-weight="700">TestCaseId</text>
+<text x="935.0" y="1251" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="1251" font-size="11.5" font-weight="700" fill="#b45309" text-anchor="end">PK</text>
+<rect x="801.0" y="1257" width="398" height="21" fill="#fffbeb"/>
+<text x="808.0" y="1272" font-size="13">ActivityId</text>
+<text x="935.0" y="1272" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="1272" font-size="11.5" font-weight="700" fill="#b45309" text-anchor="end">FK</text>
+<text x="1152.0" y="1272" font-size="8.8" fill="#64748b" text-anchor="end">UK(ActivityId,OrderIndex)</text>
+<text x="808.0" y="1293" font-size="13">InputData</text>
+<text x="935.0" y="1293" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<rect x="801.0" y="1299" width="398" height="21" fill="#fffbeb"/>
+<text x="808.0" y="1314" font-size="13">ExpectedOutput</text>
+<text x="935.0" y="1314" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<text x="808.0" y="1335" font-size="13">OrderIndex</text>
+<text x="935.0" y="1335" font-size="11.5" fill="#475569">INT</text>
+<rect x="1330.0" y="1206" width="400" height="93" rx="4" fill="#fff" stroke="#b45309" stroke-width="2"/>
+<rect x="1330.0" y="1206" width="400" height="30" rx="4" fill="#b45309"/>
+<text x="1530.0" y="1227" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">SqlTaskSpecs</text>
+<text x="1338.0" y="1251" font-size="13" font-weight="700">ActivityId</text>
+<text x="1465.0" y="1251" font-size="11.5" fill="#475569">INT</text>
+<text x="1722.0" y="1251" font-size="11.5" font-weight="700" fill="#b45309" text-anchor="end">PK, FK</text>
+<text x="1682.0" y="1251" font-size="8.8" fill="#64748b" text-anchor="end">1:0..1</text>
+<rect x="1331.0" y="1257" width="398" height="21" fill="#fffbeb"/>
+<text x="1338.0" y="1272" font-size="13">SetupScript</text>
+<text x="1465.0" y="1272" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<text x="1338.0" y="1293" font-size="13">ExpectedResult</text>
+<text x="1465.0" y="1293" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<text x="1722.0" y="1293" font-size="8.8" fill="#64748b" text-anchor="end">ISJSON</text>
+<rect x="270.0" y="1493" width="400" height="135" rx="4" fill="#fff" stroke="#be123c" stroke-width="2"/>
+<rect x="270.0" y="1493" width="400" height="30" rx="4" fill="#be123c"/>
+<text x="470.0" y="1514" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">PracticeDrafts</text>
+<text x="278.0" y="1538" font-size="13" font-weight="700">DraftId</text>
+<text x="405.0" y="1538" font-size="11.5" fill="#475569">INT</text>
+<text x="662.0" y="1538" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">PK</text>
+<rect x="271.0" y="1544" width="398" height="21" fill="#fff1f2"/>
+<text x="278.0" y="1559" font-size="13">StudentId</text>
+<text x="405.0" y="1559" font-size="11.5" fill="#475569">INT</text>
+<text x="662.0" y="1559" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">FK</text>
+<text x="622.0" y="1559" font-size="8.8" fill="#64748b" text-anchor="end">UK(StudentId,ActivityId)</text>
+<text x="278.0" y="1580" font-size="13">ActivityId</text>
+<text x="405.0" y="1580" font-size="11.5" fill="#475569">INT</text>
+<text x="662.0" y="1580" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">FK</text>
+<text x="622.0" y="1580" font-size="8.8" fill="#64748b" text-anchor="end">UK(StudentId,ActivityId)</text>
+<rect x="271.0" y="1586" width="398" height="21" fill="#fff1f2"/>
+<text x="278.0" y="1601" font-size="13">Content</text>
+<text x="405.0" y="1601" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<text x="278.0" y="1622" font-size="13">UpdatedAt</text>
+<text x="405.0" y="1622" font-size="11.5" fill="#475569">DATETIME2</text>
+<rect x="800.0" y="1493" width="400" height="261" rx="4" fill="#fff" stroke="#be123c" stroke-width="2"/>
+<rect x="800.0" y="1493" width="400" height="30" rx="4" fill="#be123c"/>
+<text x="1000.0" y="1514" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">Submissions</text>
+<text x="808.0" y="1538" font-size="13" font-weight="700">SubmissionId</text>
+<text x="935.0" y="1538" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="1538" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">PK</text>
+<rect x="801.0" y="1544" width="398" height="21" fill="#fff1f2"/>
+<text x="808.0" y="1559" font-size="13">StudentId</text>
+<text x="935.0" y="1559" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="1559" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">FK</text>
+<text x="1152.0" y="1559" font-size="8.8" fill="#64748b" text-anchor="end">UK(ActivityId,StudentId,AttemptNo)</text>
+<text x="808.0" y="1580" font-size="13">ActivityId</text>
+<text x="935.0" y="1580" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="1580" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">FK</text>
+<text x="1152.0" y="1580" font-size="8.8" fill="#64748b" text-anchor="end">UK(ActivityId,StudentId,AttemptNo)</text>
+<rect x="801.0" y="1586" width="398" height="21" fill="#fff1f2"/>
+<text x="808.0" y="1601" font-size="13">AttemptNo</text>
+<text x="935.0" y="1601" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="1601" font-size="8.8" fill="#64748b" text-anchor="end">UK(ActivityId,StudentId,AttemptNo)</text>
+<text x="808.0" y="1622" font-size="13">SubmittedContent</text>
+<text x="935.0" y="1622" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<rect x="801.0" y="1628" width="398" height="21" fill="#fff1f2"/>
+<text x="808.0" y="1643" font-size="13">Status</text>
+<text x="935.0" y="1643" font-size="11.5" fill="#475569">NVARCHAR(20)</text>
+<text x="808.0" y="1664" font-size="13">Score</text>
+<text x="935.0" y="1664" font-size="11.5" fill="#475569">DECIMAL(5,2)</text>
+<rect x="801.0" y="1670" width="398" height="21" fill="#fff1f2"/>
+<text x="808.0" y="1685" font-size="13">Feedback</text>
+<text x="935.0" y="1685" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<text x="808.0" y="1706" font-size="13">GradedBy</text>
+<text x="935.0" y="1706" font-size="11.5" fill="#475569">INT</text>
+<text x="1192.0" y="1706" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">FK</text>
+<text x="1152.0" y="1706" font-size="8.8" fill="#64748b" text-anchor="end">NULL = auto grade</text>
+<rect x="801.0" y="1712" width="398" height="21" fill="#fff1f2"/>
+<text x="808.0" y="1727" font-size="13">GradedAt</text>
+<text x="935.0" y="1727" font-size="11.5" fill="#475569">DATETIME2</text>
+<text x="808.0" y="1748" font-size="13">SubmittedAt</text>
+<text x="935.0" y="1748" font-size="11.5" fill="#475569">DATETIME2</text>
+<rect x="1330.0" y="1493" width="400" height="93" rx="4" fill="#fff" stroke="#be123c" stroke-width="2"/>
+<rect x="1330.0" y="1493" width="400" height="30" rx="4" fill="#be123c"/>
+<text x="1530.0" y="1514" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">SubmissionAnswers</text>
+<text x="1338.0" y="1538" font-size="13" font-weight="700">SubmissionId</text>
+<text x="1465.0" y="1538" font-size="11.5" fill="#475569">INT</text>
+<text x="1722.0" y="1538" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">PK, FK</text>
+<rect x="1331.0" y="1544" width="398" height="21" fill="#fff1f2"/>
+<text x="1338.0" y="1559" font-size="13" font-weight="700">QuestionId</text>
+<text x="1465.0" y="1559" font-size="11.5" fill="#475569">INT</text>
+<text x="1722.0" y="1559" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">PK, FK</text>
+<text x="1338.0" y="1580" font-size="13">OptionId</text>
+<text x="1465.0" y="1580" font-size="11.5" fill="#475569">INT</text>
+<text x="1722.0" y="1580" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">FK</text>
+<text x="1682.0" y="1580" font-size="8.8" fill="#64748b" text-anchor="end">composite FK (QuestionId,OptionId)</text>
+<rect x="1860.0" y="1493" width="400" height="156" rx="4" fill="#fff" stroke="#be123c" stroke-width="2"/>
+<rect x="1860.0" y="1493" width="400" height="30" rx="4" fill="#be123c"/>
+<text x="2060.0" y="1514" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">TestCaseResults</text>
+<text x="1868.0" y="1538" font-size="13" font-weight="700">ResultId</text>
+<text x="1995.0" y="1538" font-size="11.5" fill="#475569">INT</text>
+<text x="2252.0" y="1538" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">PK</text>
+<rect x="1861.0" y="1544" width="398" height="21" fill="#fff1f2"/>
+<text x="1868.0" y="1559" font-size="13">SubmissionId</text>
+<text x="1995.0" y="1559" font-size="11.5" fill="#475569">INT</text>
+<text x="2252.0" y="1559" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">FK</text>
+<text x="2212.0" y="1559" font-size="8.8" fill="#64748b" text-anchor="end">UK(SubmissionId,TestCaseId)</text>
+<text x="1868.0" y="1580" font-size="13">TestCaseId</text>
+<text x="1995.0" y="1580" font-size="11.5" fill="#475569">INT</text>
+<text x="2252.0" y="1580" font-size="11.5" font-weight="700" fill="#be123c" text-anchor="end">FK</text>
+<text x="2212.0" y="1580" font-size="8.8" fill="#64748b" text-anchor="end">UK(SubmissionId,TestCaseId)</text>
+<rect x="1861.0" y="1586" width="398" height="21" fill="#fff1f2"/>
+<text x="1868.0" y="1601" font-size="13">Passed</text>
+<text x="1995.0" y="1601" font-size="11.5" fill="#475569">BIT</text>
+<text x="1868.0" y="1622" font-size="13">ActualOutput</text>
+<text x="1995.0" y="1622" font-size="11.5" fill="#475569">NVARCHAR(MAX)</text>
+<rect x="1861.0" y="1628" width="398" height="21" fill="#fff1f2"/>
+<text x="1868.0" y="1643" font-size="13">ExecutionTimeMs</text>
+<text x="1995.0" y="1643" font-size="11.5" fill="#475569">INT</text>
+<rect x="535.0" y="1906" width="400" height="156" rx="4" fill="#fff" stroke="#6d28d9" stroke-width="2"/>
+<rect x="535.0" y="1906" width="400" height="30" rx="4" fill="#6d28d9"/>
+<text x="735.0" y="1927" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">LearningActivity</text>
+<text x="543.0" y="1951" font-size="13" font-weight="700">EventId</text>
+<text x="670.0" y="1951" font-size="11.5" fill="#475569">BIGINT</text>
+<text x="927.0" y="1951" font-size="11.5" font-weight="700" fill="#6d28d9" text-anchor="end">PK</text>
+<rect x="536.0" y="1957" width="398" height="21" fill="#f5f3ff"/>
+<text x="543.0" y="1972" font-size="13">StudentId</text>
+<text x="670.0" y="1972" font-size="11.5" fill="#475569">INT</text>
+<text x="927.0" y="1972" font-size="11.5" font-weight="700" fill="#6d28d9" text-anchor="end">FK</text>
+<text x="543.0" y="1993" font-size="13">EventType</text>
+<text x="670.0" y="1993" font-size="11.5" fill="#475569">NVARCHAR(30)</text>
+<rect x="536.0" y="1999" width="398" height="21" fill="#f5f3ff"/>
+<text x="543.0" y="2014" font-size="13">LessonId</text>
+<text x="670.0" y="2014" font-size="11.5" fill="#475569">INT</text>
+<text x="927.0" y="2014" font-size="11.5" font-weight="700" fill="#6d28d9" text-anchor="end">FK</text>
+<text x="887.0" y="2014" font-size="8.8" fill="#64748b" text-anchor="end">NULL</text>
+<text x="543.0" y="2035" font-size="13">ActivityId</text>
+<text x="670.0" y="2035" font-size="11.5" fill="#475569">INT</text>
+<text x="927.0" y="2035" font-size="11.5" font-weight="700" fill="#6d28d9" text-anchor="end">FK</text>
+<text x="887.0" y="2035" font-size="8.8" fill="#64748b" text-anchor="end">NULL</text>
+<rect x="536.0" y="2041" width="398" height="21" fill="#f5f3ff"/>
+<text x="543.0" y="2056" font-size="13">OccurredAt</text>
+<text x="670.0" y="2056" font-size="11.5" fill="#475569">DATETIME2</text>
+<rect x="1065.0" y="1906" width="400" height="135" rx="4" fill="#fff" stroke="#6d28d9" stroke-width="2"/>
+<rect x="1065.0" y="1906" width="400" height="30" rx="4" fill="#6d28d9"/>
+<text x="1265.0" y="1927" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">StudentProgress</text>
+<text x="1073.0" y="1951" font-size="13" font-weight="700">ProgressId</text>
+<text x="1200.0" y="1951" font-size="11.5" fill="#475569">INT</text>
+<text x="1457.0" y="1951" font-size="11.5" font-weight="700" fill="#6d28d9" text-anchor="end">PK</text>
+<rect x="1066.0" y="1957" width="398" height="21" fill="#f5f3ff"/>
+<text x="1073.0" y="1972" font-size="13">StudentId</text>
+<text x="1200.0" y="1972" font-size="11.5" fill="#475569">INT</text>
+<text x="1457.0" y="1972" font-size="11.5" font-weight="700" fill="#6d28d9" text-anchor="end">FK</text>
+<text x="1417.0" y="1972" font-size="8.8" fill="#64748b" text-anchor="end">UK(StudentId,TopicId)</text>
+<text x="1073.0" y="1993" font-size="13">TopicId</text>
+<text x="1200.0" y="1993" font-size="11.5" fill="#475569">INT</text>
+<text x="1457.0" y="1993" font-size="11.5" font-weight="700" fill="#6d28d9" text-anchor="end">FK</text>
+<text x="1417.0" y="1993" font-size="8.8" fill="#64748b" text-anchor="end">UK(StudentId,TopicId)</text>
+<rect x="1066.0" y="1999" width="398" height="21" fill="#f5f3ff"/>
+<text x="1073.0" y="2014" font-size="13">AggregateScorePct</text>
+<text x="1200.0" y="2014" font-size="11.5" fill="#475569">DECIMAL(5,2)</text>
+<text x="1073.0" y="2035" font-size="13">LastUpdatedAt</text>
+<text x="1200.0" y="2035" font-size="11.5" fill="#475569">DATETIME2</text>
+<rect x="1595.0" y="1906" width="400" height="177" rx="4" fill="#fff" stroke="#6d28d9" stroke-width="2"/>
+<rect x="1595.0" y="1906" width="400" height="30" rx="4" fill="#6d28d9"/>
+<text x="1795.0" y="1927" font-size="17" font-weight="700" fill="#fff" text-anchor="middle">Recommendations</text>
+<text x="1603.0" y="1951" font-size="13" font-weight="700">RecommendationId</text>
+<text x="1730.0" y="1951" font-size="11.5" fill="#475569">INT</text>
+<text x="1987.0" y="1951" font-size="11.5" font-weight="700" fill="#6d28d9" text-anchor="end">PK</text>
+<rect x="1596.0" y="1957" width="398" height="21" fill="#f5f3ff"/>
+<text x="1603.0" y="1972" font-size="13">StudentId</text>
+<text x="1730.0" y="1972" font-size="11.5" fill="#475569">INT</text>
+<text x="1987.0" y="1972" font-size="11.5" font-weight="700" fill="#6d28d9" text-anchor="end">FK</text>
+<text x="1603.0" y="1993" font-size="13">TopicId</text>
+<text x="1730.0" y="1993" font-size="11.5" fill="#475569">INT</text>
+<text x="1987.0" y="1993" font-size="11.5" font-weight="700" fill="#6d28d9" text-anchor="end">FK</text>
+<rect x="1596.0" y="1999" width="398" height="21" fill="#f5f3ff"/>
+<text x="1603.0" y="2014" font-size="13">ActivityId</text>
+<text x="1730.0" y="2014" font-size="11.5" fill="#475569">INT</text>
+<text x="1987.0" y="2014" font-size="11.5" font-weight="700" fill="#6d28d9" text-anchor="end">FK</text>
+<text x="1947.0" y="2014" font-size="8.8" fill="#64748b" text-anchor="end">NULL</text>
+<text x="1603.0" y="2035" font-size="13">RuleCode</text>
+<text x="1730.0" y="2035" font-size="11.5" fill="#475569">NVARCHAR(50)</text>
+<rect x="1596.0" y="2041" width="398" height="21" fill="#f5f3ff"/>
+<text x="1603.0" y="2056" font-size="13">Reason</text>
+<text x="1730.0" y="2056" font-size="11.5" fill="#475569">NVARCHAR(255)</text>
+<text x="1603.0" y="2077" font-size="13">CreatedAt</text>
+<text x="1730.0" y="2077" font-size="11.5" fill="#475569">DATETIME2</text>
+<text x="675.0" y="184.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="795.0" y="184.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="end" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="735.0" y="208.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">has role</text>
+<text x="1205.0" y="184.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1325.0" y="184.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="end" stroke="#fff" stroke-width="4" paint-order="stroke">0..1</text>
+<text x="1265.0" y="208.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">student belongs</text>
+<text x="1265.0" y="221.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">to (BatchId)</text>
+<text x="1205.0" y="212.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1325.0" y="212.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="end" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1265.0" y="236.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">created by</text>
+<text x="1735.0" y="184.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1855.0" y="184.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="end" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1795.0" y="208.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">taught in</text>
+<text x="1964.0" y="315.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="474.0" y="518.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1215.0" y="451.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">taught as</text>
+<text x="1094.9" y="357.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="2064.0" y="315.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1575.5" y="367.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">faculty</text>
+<text x="1575.5" y="380.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">(FacultyId)</text>
+<text x="1131.3" y="357.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="2164.0" y="315.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1643.6" y="381.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">assigned by</text>
+<text x="675.0" y="562.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="795.0" y="562.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="end" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="735.0" y="586.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">contains</text>
+<text x="1058.5" y="357.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1004.0" y="518.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1027.3" y="367.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">authored by</text>
+<text x="1205.0" y="562.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1325.0" y="562.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="end" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1265.0" y="586.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">contains</text>
+<text x="1735.0" y="562.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1855.0" y="562.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="end" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1795.0" y="586.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">owns (cascade)</text>
+<text x="1004.0" y="714.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="805.7" y="819.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="900.8" y="752.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">contains</text>
+<text x="1022.2" y="357.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="672.3" y="819.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="624.1" y="437.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">authored by</text>
+<text x="940.0" y="863.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1060.0" y="863.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="end" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1000.0" y="887.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">owns (cascade)</text>
+<text x="1470.0" y="863.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1590.0" y="863.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="end" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1530.0" y="887.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">owns (cascade)</text>
+<text x="767.6" y="1141.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1004.0" y="1200.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="881.8" y="1151.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">owns (cascade)</text>
+<text x="824.7" y="1141.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1534.0" y="1200.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..1</text>
+<text x="1175.4" y="1165.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">owns (cascade)</text>
+<text x="985.8" y="357.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="540.7" y="1487.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="599.4" y="423.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">saves</text>
+<text x="710.4" y="1141.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="407.3" y="1487.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="455.2" y="1179.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">draft for</text>
+<text x="949.5" y="357.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1104.0" y="1487.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="568.2" y="409.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">submits</text>
+<text x="653.3" y="1141.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1004.0" y="1487.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="413.6" y="1165.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">attempted in</text>
+<text x="913.1" y="357.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..1</text>
+<text x="904.0" y="1487.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="537.0" y="395.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">graded by</text>
+<text x="537.0" y="408.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">(GradedBy)</text>
+<text x="1205.0" y="1531.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1325.0" y="1531.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="end" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1265.0" y="1555.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">owns (cascade)</text>
+<text x="1269.0" y="994.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1467.3" y="1487.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1782.5" y="1151.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">answered in</text>
+<text x="1799.0" y="973.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1600.7" y="1487.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="2054.0" y="1165.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">chosen in</text>
+<text x="2054.0" y="1178.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">(QuestionId,</text>
+<text x="2054.0" y="1191.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">OptionId)</text>
+<text x="1004.0" y="1767.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="2064.0" y="1662.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1530.0" y="1805.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">owns (cascade)</text>
+<text x="1004.0" y="1354.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="2064.0" y="1487.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1530.0" y="1364.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">evaluated in</text>
+<text x="876.7" y="357.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="839.0" y="1900.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="512.4" y="381.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">generates</text>
+<text x="1534.0" y="714.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..1</text>
+<text x="739.0" y="1900.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="834.5" y="738.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">context</text>
+<text x="596.1" y="1141.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..1</text>
+<text x="639.0" y="1900.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="359.1" y="1151.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">context</text>
+<text x="840.4" y="357.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1335.7" y="1900.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="474.7" y="367.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">has</text>
+<text x="904.0" y="714.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1202.3" y="1900.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="500.0" y="724.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">measured</text>
+<text x="1167.6" y="357.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1699.0" y="1900.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1744.8" y="395.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">advised</text>
+<text x="1104.0" y="714.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">1</text>
+<text x="1799.0" y="1900.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1719.5" y="724.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">weak topic</text>
+<text x="881.9" y="1141.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..1</text>
+<text x="1899.0" y="1900.0" font-size="12.5" font-weight="700" fill="#b91c1c" text-anchor="start" stroke="#fff" stroke-width="4" paint-order="stroke">0..*</text>
+<text x="1614.9" y="1179.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">suggested</text>
+<text x="1614.9" y="1192.0" font-size="11" fill="#0f172a" text-anchor="middle" stroke="#fff" stroke-width="4" paint-order="stroke">practice</text>
+<text x="36" y="130" font-size="22" font-weight="700" fill="#0f766e" stroke="#fff" stroke-width="4" paint-order="stroke">D1 User Data</text>
+<text x="36" y="508" font-size="22" font-weight="700" fill="#4338ca" stroke="#fff" stroke-width="4" paint-order="stroke">D2 Course Content</text>
+<text x="36" y="809" font-size="22" font-weight="700" fill="#b45309" stroke="#fff" stroke-width="4" paint-order="stroke">D3 Assessment Data</text>
+<text x="36" y="1477" font-size="22" font-weight="700" fill="#be123c" stroke="#fff" stroke-width="4" paint-order="stroke">D4 Submission Data</text>
+<text x="36" y="1890" font-size="22" font-weight="700" fill="#6d28d9" stroke="#fff" stroke-width="4" paint-order="stroke">D5 Analytics Data</text>
+</svg>

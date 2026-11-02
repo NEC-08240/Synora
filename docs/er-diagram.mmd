@@ -1,0 +1,217 @@
+---
+title: Synora V1 ER Diagram (Microsoft SQL Server, 20 entities, D1-D5)
+config:
+  layout: elk
+  elk:
+    mergeEdges: false
+---
+erDiagram
+    %% ===== D1 User Data =====
+    Roles {
+        INT RoleId PK
+        NVARCHAR(30) RoleName UK
+        NVARCHAR(255) Description
+    }
+    Users {
+        INT UserId PK
+        INT RoleId FK
+        INT BatchId FK "NULL, students only"
+        NVARCHAR(100) Name
+        NVARCHAR(255) Email UK
+        NVARCHAR(255) PasswordHash
+        NVARCHAR(20) Status
+        DATETIME2 CreatedAt
+    }
+    Batches {
+        INT BatchId PK
+        NVARCHAR(100) Name UK
+        NVARCHAR(20) AcademicYear
+        NVARCHAR(20) Status
+        INT CreatedBy FK
+        DATETIME2 CreatedAt
+    }
+    FacultyAssignments {
+        INT AssignmentId PK
+        INT BatchId FK "UK(BatchId, SubjectId)"
+        INT SubjectId FK "UK(BatchId, SubjectId)"
+        INT FacultyId FK
+        INT AssignedBy FK
+        DATETIME2 AssignedAt
+    }
+    %% ===== D2 Course Content =====
+    Subjects {
+        INT SubjectId PK
+        NVARCHAR(150) Title UK
+        NVARCHAR(MAX) Description
+        NVARCHAR(20) Status
+        DATETIME2 CreatedAt
+    }
+    Topics {
+        INT TopicId PK
+        INT SubjectId FK "UK(SubjectId, OrderIndex)"
+        NVARCHAR(150) Title
+        INT OrderIndex
+        NVARCHAR(20) Status
+        INT CreatedBy FK
+        DATETIME2 CreatedAt
+    }
+    Lessons {
+        INT LessonId PK
+        INT TopicId FK "UK(TopicId, OrderIndex)"
+        NVARCHAR(150) Title
+        NVARCHAR(MAX) ContentBody
+        NVARCHAR(MAX) Objectives
+        INT OrderIndex
+        NVARCHAR(20) Status
+    }
+    LessonResources {
+        INT ResourceId PK
+        INT LessonId FK "UK(LessonId, OrderIndex)"
+        NVARCHAR(20) ResourceType
+        NVARCHAR(150) Title
+        NVARCHAR(500) Url
+        INT OrderIndex
+    }
+    %% ===== D3 Assessment Data =====
+    Activities {
+        INT ActivityId PK
+        INT TopicId FK
+        NVARCHAR(150) Title
+        NVARCHAR(MAX) Instructions
+        NVARCHAR(20) ActivityType
+        BIT IsGraded
+        DECIMAL(5,2) MaxScore
+        NVARCHAR(MAX) StarterCode
+        NVARCHAR(MAX) Hints
+        INT TimeLimitMs
+        NVARCHAR(20) Status
+        INT CreatedBy FK
+        DATETIME2 CreatedAt
+    }
+    QuizQuestions {
+        INT QuestionId PK
+        INT ActivityId FK "UK(ActivityId, OrderIndex)"
+        NVARCHAR(MAX) QuestionText
+        NVARCHAR(MAX) Explanation
+        DECIMAL(5,2) Points
+        INT OrderIndex
+    }
+    QuizOptions {
+        INT OptionId PK "UK(QuestionId, OptionId)"
+        INT QuestionId FK "UK(QuestionId, OptionId)"
+        NVARCHAR(MAX) OptionText
+        BIT IsCorrect "one correct per question"
+        INT OrderIndex
+    }
+    TestCases {
+        INT TestCaseId PK
+        INT ActivityId FK "UK(ActivityId, OrderIndex)"
+        NVARCHAR(MAX) InputData
+        NVARCHAR(MAX) ExpectedOutput
+        INT OrderIndex
+    }
+    SqlTaskSpecs {
+        INT ActivityId PK, FK "1:0..1"
+        NVARCHAR(MAX) SetupScript
+        NVARCHAR(MAX) ExpectedResult "ISJSON"
+    }
+    %% ===== D4 Submission Data =====
+    PracticeDrafts {
+        INT DraftId PK
+        INT StudentId FK "UK(StudentId, ActivityId)"
+        INT ActivityId FK "UK(StudentId, ActivityId)"
+        NVARCHAR(MAX) Content
+        DATETIME2 UpdatedAt
+    }
+    Submissions {
+        INT SubmissionId PK
+        INT StudentId FK "UK(ActivityId, StudentId, AttemptNo)"
+        INT ActivityId FK "UK(ActivityId, StudentId, AttemptNo)"
+        INT AttemptNo "UK(ActivityId, StudentId, AttemptNo)"
+        NVARCHAR(MAX) SubmittedContent
+        NVARCHAR(20) Status
+        DECIMAL(5,2) Score
+        NVARCHAR(MAX) Feedback
+        INT GradedBy FK "NULL = auto grade"
+        DATETIME2 GradedAt
+        DATETIME2 SubmittedAt
+    }
+    SubmissionAnswers {
+        INT SubmissionId PK, FK
+        INT QuestionId PK, FK
+        INT OptionId FK "composite FK (QuestionId, OptionId)"
+    }
+    TestCaseResults {
+        INT ResultId PK
+        INT SubmissionId FK "UK(SubmissionId, TestCaseId)"
+        INT TestCaseId FK "UK(SubmissionId, TestCaseId)"
+        BIT Passed
+        NVARCHAR(MAX) ActualOutput
+        INT ExecutionTimeMs
+    }
+    %% ===== D5 Analytics Data =====
+    LearningActivity {
+        BIGINT EventId PK
+        INT StudentId FK
+        NVARCHAR(30) EventType
+        INT LessonId FK "NULL"
+        INT ActivityId FK "NULL"
+        DATETIME2 OccurredAt
+    }
+    StudentProgress {
+        INT ProgressId PK
+        INT StudentId FK "UK(StudentId, TopicId)"
+        INT TopicId FK "UK(StudentId, TopicId)"
+        DECIMAL(5,2) AggregateScorePct
+        DATETIME2 LastUpdatedAt
+    }
+    Recommendations {
+        INT RecommendationId PK
+        INT StudentId FK
+        INT TopicId FK
+        INT ActivityId FK "NULL"
+        NVARCHAR(50) RuleCode
+        NVARCHAR(255) Reason
+        DATETIME2 CreatedAt
+    }
+
+    %% ===== D1 relationships =====
+    Roles ||--o{ Users : "has role"
+    Batches |o--o{ Users : "student belongs to (BatchId)"
+    Users ||--o{ Batches : "created by"
+    Batches ||--o{ FacultyAssignments : "taught in"
+    Subjects ||--o{ FacultyAssignments : "taught as"
+    Users ||--o{ FacultyAssignments : "faculty (FacultyId)"
+    Users ||--o{ FacultyAssignments : "assigned by"
+    %% ===== D2 =====
+    Subjects ||--o{ Topics : contains
+    Users ||--o{ Topics : "authored by"
+    Topics ||--o{ Lessons : contains
+    Lessons ||--o{ LessonResources : "owns (cascade)"
+    %% ===== D3 =====
+    Topics ||--o{ Activities : contains
+    Users ||--o{ Activities : "authored by"
+    Activities ||--o{ QuizQuestions : "owns (cascade)"
+    QuizQuestions ||--o{ QuizOptions : "owns (cascade)"
+    Activities ||--o{ TestCases : "owns (cascade)"
+    Activities ||--o| SqlTaskSpecs : "owns (cascade)"
+    %% ===== D4 =====
+    Users ||--o{ PracticeDrafts : saves
+    Activities ||--o{ PracticeDrafts : "draft for"
+    Users ||--o{ Submissions : submits
+    Activities ||--o{ Submissions : "attempted in"
+    Users |o--o{ Submissions : "graded by (GradedBy)"
+    Submissions ||--o{ SubmissionAnswers : "owns (cascade)"
+    QuizQuestions ||--o{ SubmissionAnswers : "answered in"
+    QuizOptions ||--o{ SubmissionAnswers : "chosen in (QuestionId, OptionId)"
+    Submissions ||--o{ TestCaseResults : "owns (cascade)"
+    TestCases ||--o{ TestCaseResults : "evaluated in"
+    %% ===== D5 =====
+    Users ||--o{ LearningActivity : generates
+    Lessons |o--o{ LearningActivity : "context"
+    Activities |o--o{ LearningActivity : "context"
+    Users ||--o{ StudentProgress : has
+    Topics ||--o{ StudentProgress : measured
+    Users ||--o{ Recommendations : "advised"
+    Topics ||--o{ Recommendations : "weak topic"
+    Activities |o--o{ Recommendations : "suggested practice"

@@ -439,4 +439,12 @@ Multiple cascade paths check: each table is reachable by cascade through at most
 
 ## 10. ER Diagram
 
-**Not created.** The ER diagram is deferred until the ER readiness blockers in section 9 are resolved and the owner approves.
+Created (owner-approved). Files:
+
+- `docs/er-diagram.png` is the rendered diagram, grouped by data store D1-D5.
+- `docs/er-diagram.svg` is the vector version for printing.
+- `docs/er-diagram.mmd` is the editable source (Mermaid `erDiagram` text, the single source of entities, columns and relationships).
+- `docs/tools/gen_er.py` regenerates the SVG from the `.mmd`. `docs/tools/check_er.py` verifies the `.mmd` against sections 2 and 4 of this file.
+- `docs/er-consistency-audit.md` records the Database / DFD / ER audit.
+
+The ER diagram introduces no schema change. If this file changes, update the `.mmd` and re-run both tools.
