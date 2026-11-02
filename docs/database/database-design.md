@@ -422,18 +422,17 @@ Multiple cascade paths check: each table is reachable by cascade through at most
 
 1. **Faculty authoring scope.** Topics and Activities are shared across batches. A faculty member may author content for a subject if they hold at least one FacultyAssignments row for that subject. Grading and monitoring are limited to their assigned batch. *Needs owner confirmation.*
 2. **Subjects are maintained by the Administrator.** The three V1 subjects are seeded. The Administrator can archive them but cannot add new subjects without a scope change.
-3. **PracticeDrafts belongs to Submission Data (D4).** The DFD does not currently show a draft-save flow. *Needs DFD update.*
+3. **PracticeDrafts belongs to Submission Data (D4).** The canonical DFD (`docs/dfd.png`) shows the draft-save flow from 3.0 into D4.
 4. **Attempts for Practice activities.** Practice submissions are kept in Submissions for attempt tracking (§5.2). They are not graded (`IsGraded = 0`).
 
 ---
 
-## 9. Required Companion Changes (not yet applied)
+## 9. Required Companion Changes
 
-- **DFD canonical export** at `docs/dfd.png`. The file does not exist. The repo has `docs/DFD/DFD.jpeg` (photo, 4 stores, different process names), `Synora_DFD.docx` (5 processes and 5 store names), and root `Hand_Drawable_Level1_DFD.png`. The canonical DFD must use D1–D5 from section 2, add the draft-save flow into D4, and show the Administrator's batch and faculty assignment flows into D1.
+- **DFD canonical export** (done): `docs/dfd.png` (source `docs/dfd.svg`) uses D1-D5 from section 2. Older artifacts (`docs/DFD/DFD.jpeg`, `Synora_DFD.docx`) are kept as historical and are superseded. See `docs/dfd-consistency-audit.md`.
 - **Synopsis PDF** names PostgreSQL in §3.3, §4.1, §6.3, §7.4, §8.1, §9.1. The PDF is binary and cannot be edited in place.
 - **Synopsis PPTX** (`docs/academic/SYNORA Live Smart Edification PPT.pptx`) names PostgreSQL on slides 1, 5, 6, and 16.
-- **README.md** line 47 lists PostgreSQL.
-- **prototypes/scr-03-interactive-learning/index.html** line 161 has the option label "SQL (PostgreSQL)".
+- **README.md** and the SCR-03 prototype SQL option label (done): now Microsoft SQL Server / T-SQL.
 - **CLAUDE_HANDOFF.md** §9.1 still lists the old 15-entity design.
 
 ---
