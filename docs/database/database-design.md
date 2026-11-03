@@ -447,6 +447,8 @@ Created (owner-approved). Files:
 - `docs/tools/gen_er.py` regenerates the SVG from the `.mmd`. `docs/tools/check_er.py` verifies the `.mmd` against sections 2 and 4 of this file.
 - `docs/er-consistency-audit.md` records the Database / DFD / ER audit.
 - `docs/er-diagram-academic.{mmd,svg,png}` is a simplified presentation variant for the guide (keys and main attributes only), built by `docs/tools/gen_er_academic.py` and checked by `docs/tools/check_er_academic.py`; audit in `docs/er-academic-consistency-audit.md`.
+- `docs/er-diagram-chen.{svg,png,json}` is the **Chen-notation ER diagram for the report and presentation** (rectangles = entities, ovals = attributes, diamonds = relationships, 1/N cardinalities), built by `docs/tools/gen_er_chen.py` and checked by `docs/tools/check_er_chen.py`; audit in `docs/er-chen-consistency-audit.md`. The earlier `er-diagram-academic.*` is a table-style variant and is kept.
+- `docs/database/ssms-diagram-layout.md` gives the manual table placement for the SSMS Database Diagram (implementation diagram).
 
 The ER diagram introduces no schema change. If this file changes, update the `.mmd` and re-run both tools.
 
