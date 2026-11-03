@@ -1,11 +1,11 @@
 # Synora Database Design (Microsoft SQL Server)
 
 ## Overview
-This document defines the V1 relational schema for Synora Live Smart Edification on **Microsoft SQL Server**, the official V1 database engine. It implements the owner-locked decisions for V1 and is the source for the DFD data-store mapping, the ER diagram (not yet created), and later DDL (not yet written).
+This document defines the V1 relational schema for Synora Live Smart Edification on **Microsoft SQL Server**, the official V1 database engine. It implements the owner-locked decisions for V1 and is the source for the DFD data-store mapping, the ER diagram, and the T-SQL DDL in `database/schema.sql`.
 
 Scope: C Programming, C++ Programming, and DBMS/SQL, with roles Student, Faculty, and Administrator. The schema is a clean V1 academic schema, not an enterprise LMS.
 
-Status: **design locked, ER diagram and DDL not yet created.**
+Status: **design locked; ER diagram and SQL Server DDL created.**
 
 ---
 
@@ -449,3 +449,12 @@ Created (owner-approved). Files:
 - `docs/er-diagram-academic.{mmd,svg,png}` is a simplified presentation variant for the guide (keys and main attributes only), built by `docs/tools/gen_er_academic.py` and checked by `docs/tools/check_er_academic.py`; audit in `docs/er-academic-consistency-audit.md`.
 
 The ER diagram introduces no schema change. If this file changes, update the `.mmd` and re-run both tools.
+
+## 11. SQL Server Implementation
+
+- `database/schema.sql` creates database `SynoraV1`, the 20 tables, constraints and indexes, plus the 3 roles and 3 subjects (re-runnable, non-destructive).
+- `database/validate_schema.sql` checks the live database against this design and runs rolled-back negative tests.
+- `docs/tools/check_sql_schema.py` compares live columns, types and nullability with section 4.
+- `docs/database/ssms-setup.md` is the SSMS procedure; `docs/database/sql-server-consistency-audit.md` records the audit.
+
+Every CHECK in the DDL comes from this document. Rules that need other rows (student has role Student, faculty has role Faculty, SQL spec only for SQL activities, `Users.BatchId` only for students) stay in the backend, as stated in sections 5 and 8.
