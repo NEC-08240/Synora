@@ -14,7 +14,15 @@ from xml.sax.saxutils import escape as esc
 
 sys.path.insert(0, str(Path(__file__).parent))
 from gen_er import STORES, parse  # noqa: E402
-from gen_er_academic import ACADEMIC, DASHED, render_png, short_label  # noqa: E402
+from gen_er_academic import DASHED, render_png, short_label  # noqa: E402
+
+# Conceptual view: PK plus 1-2 descriptive attributes. FK columns are NOT drawn (the relationship carries them).
+SIMPLE = {"Roles": ["RoleName"], "Users": ["Name", "Email"], "Batches": ["Name"], "FacultyAssignments": [],
+          "Subjects": ["Title"], "Topics": ["Title"], "Lessons": ["Title"], "LessonResources": ["ResourceType"],
+          "Activities": ["Title", "ActivityType"], "QuizQuestions": ["QuestionText"], "QuizOptions": ["OptionText"],
+          "TestCases": ["ExpectedOutput"], "SqlTaskSpecs": ["ExpectedResult"], "PracticeDrafts": ["Content"],
+          "Submissions": ["AttemptNo", "Score"], "SubmissionAnswers": [], "TestCaseResults": ["Passed"],
+          "LearningActivity": ["EventType"], "StudentProgress": ["AggregateScorePct"], "Recommendations": ["RuleCode"]}
 
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "docs"
@@ -29,18 +37,24 @@ FK_COLS = ["RoleId", "BatchId", "CreatedBy", "BatchId", "SubjectId", "FacultyId"
            "QuestionId", "QuestionId+OptionId", "SubmissionId", "TestCaseId", "StudentId", "LessonId",
            "ActivityId", "StudentId", "TopicId", "StudentId", "TopicId", "ActivityId"]
 NULLABLE = {1, 21, 28, 29, 34}
-OVAL_H, GAP, FS = 24, 26, 10.5
+OVAL_H, GAP, FS = 22, 14, 11.5
 
 
 def attrs_of(ents, name):
     """PK attrs first, then the academic non-key attributes."""
     rows = ents[name]
     pk = [a for _t, a, k, _n in rows if k and "PK" in k]
-    return pk, [a for a in ACADEMIC[name] if a not in pk]
+    return pk, [a for a in SIMPLE[name] if a not in pk]
+
+
+def shown(ents, name):
+    """Ovals to draw: composite PK collapses into one oval so the diagram has no FK-looking attributes."""
+    pk, other = attrs_of(ents, name)
+    return [(" + ".join(pk), True)] + [(a, False) for a in other]
 
 
 def ow(text):
-    return max(70, len(text) * 6.4 + 18)
+    return max(60, len(text) * 6.7 + 14)
 
 
 def build(ents, rels):
@@ -51,12 +65,12 @@ def build(ents, rels):
         ports[b]["W"] += 1
     meta, kids = {}, []
     for n in ents:
-        pk, other = attrs_of(ents, n)
-        al = [(a, True) for a in pk] + [(a, False) for a in other]
+        pk = attrs_of(ents, n)[0]
+        al = shown(ents, n)
         top, bot = al[: (len(al) + 1) // 2], al[(len(al) + 1) // 2:]
         roww = lambda r: sum(ow(a) for a, _ in r) + 8 * max(len(r) - 1, 0)  # noqa: E731
-        w = max(120, len(n) * 8 + 24, roww(top), roww(bot))
-        band = max(46, 22 * max(ports[n]["E"], ports[n]["W"]) + 10)
+        w = max(100, len(n) * 8.6 + 18, roww(top), roww(bot))
+        band = max(50, 20 * max(ports[n]["E"], ports[n]["W"]) + 12)
         h = OVAL_H + GAP + band + (GAP + OVAL_H if bot else 0)
         y0 = OVAL_H + GAP
         meta[n] = dict(w=w, h=h, band=band, y0=y0, top=top, bot=bot, pk=pk)
@@ -81,7 +95,7 @@ def build(ents, rels):
 
     for i, (a, _l, _r, b, lab) in enumerate(rels):
         t = short_label(lab)
-        dw, dh = max(92, len(t) * 6.2 + 44), 64
+        dw, dh = max(80, len(t) * 6.6 + 40), 48
         dia.append({"id": f"d{i}", "width": dw, "height": dh, "layoutOptions": {
             "elk.partitioning.partition": str(STORE_IDX[STORE_OF[a][0]])}})
         pa, pb = port(a, "E", f"pa{i}"), port(b, "W", f"pb{i}")
@@ -91,12 +105,12 @@ def build(ents, rels):
 
 
 def base_opts():
-    return {"elk.algorithm": "layered", "elk.edgeRouting": "ORTHOGONAL", "elk.spacing.nodeNode": "30",
-            "elk.layered.spacing.nodeNodeBetweenLayers": "50", "elk.spacing.edgeNode": "14",
+    return {"elk.algorithm": "layered", "elk.edgeRouting": "ORTHOGONAL", "elk.spacing.nodeNode": "14",
+            "elk.layered.spacing.nodeNodeBetweenLayers": "26", "elk.spacing.edgeNode": "14",
             "elk.spacing.edgeEdge": "10", "elk.layered.spacing.edgeEdgeBetweenLayers": "10",
             "elk.layered.spacing.edgeNodeBetweenLayers": "14", "elk.direction": "RIGHT",
             "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP", "elk.layered.thoroughness": "30",
-            "elk.padding": "[top=70,left=20,bottom=20,right=20]"}
+            "elk.padding": "[top=95,left=12,bottom=12,right=12]"}
 
 
 def run_elk(graph, variants):
@@ -145,14 +159,14 @@ def quality(lay):
                     hits += 1
     w, h = lay["width"], lay["height"]
     length = sum(abs(a[0] - b[0]) + abs(a[1] - b[1]) for sg in edges.values() for a, b in sg)
-    return cr * 10 + hits * 1000 + length / 40 + w * h / 4e4, cr, hits
+    return cr * 25 + hits * 1000 + length / 40 + w * h / 8e3 + abs(w / h - 1.6) * 1500, cr, hits
 
 
 def variants():
     out = []
     for part in ("true", "false"):
         for place in ("NETWORK_SIMPLEX", "BRANDES_KOEPF"):
-            for seed in range(1, 31):
+            for seed in range(1, 26):
               for lay in ("NETWORK_SIMPLEX", "LONGEST_PATH"):
                 out.append({"elk.layered.layering.strategy": lay,"elk.partitioning.activate": part, "elk.layered.nodePlacement.strategy": place,
                             "elk.randomSeed": str(seed)})
@@ -165,16 +179,19 @@ def render_svg(lay, meta, rels, ents, path):
          f'font-family="Segoe UI, Arial, sans-serif"><rect width="100%" height="100%" fill="#fff"/>',
          f'<text x="20" y="28" font-size="20" font-weight="700" fill="#111">Synora V1 — Entity-Relationship Diagram '
          f'(Chen notation): 20 entities, 35 relationships</text>']
+    zones = ["D1 User & Access", "D2 Course Content", "D3 Assessment", "D4 Submission", "D5 Analytics"]
+    zx = 20
+    for z in range(5):  # colour key; layout is relationship-driven, so zones are shown by colour, not bands
+        o.append(f'<rect x="{zx}" y="62" width="16" height="16" fill="{STORES[z][2]}" stroke="{STORES[z][1]}" stroke-width="2"/>'
+                 f'<text x="{zx + 22}" y="75" font-size="14" font-weight="700" fill="{STORES[z][1]}">{esc(zones[z])}</text>')
+        zx += 60 + len(zones[z]) * 8
     lx = 20
-    for title, col, _tint, _r in STORES:  # store legend
-        o.append(f'<rect x="{lx}" y="40" width="14" height="14" fill="{col}"/><text x="{lx + 19}" y="52" '
-                 f'font-size="12" fill="#222">{esc(title)}</text>')
-        lx += 12 + len(title) * 6.6 + 24
-    o.append(f'<g font-size="11" fill="#222"><rect x="{lx + 10}" y="38" width="30" height="16" fill="none" '
-             f'stroke="#222"/><text x="{lx + 44}" y="51">entity</text><ellipse cx="{lx + 100}" cy="46" rx="16" ry="8" '
-             f'fill="none" stroke="#222"/><text x="{lx + 122}" y="51">attribute (<tspan text-decoration="underline">'
-             f'underlined</tspan> = PK)</text><path d="M{lx + 290} 46 l16 -9 l16 9 l-16 9 z" fill="none" stroke="#222"/>'
-             f'<text x="{lx + 328}" y="51">relationship (FK shown below)</text></g>')
+    o.append(f'<g font-size="12" fill="#222"><rect x="{lx}" y="38" width="30" height="16" fill="#fff" stroke="#222"/>'
+             f'<text x="{lx + 38}" y="51">entity</text><ellipse cx="{lx + 100}" cy="46" rx="16" ry="8" fill="#fff" stroke="#222"/>'
+             f'<text x="{lx + 122}" y="51">attribute (<tspan text-decoration="underline">underlined</tspan> = primary key)</text>'
+             f'<path d="M{lx + 340} 46 l16 -9 l16 9 l-16 9 z" fill="#fff" stroke="#222"/><text x="{lx + 378}" y="51">relationship</text>'
+             f'<text x="{lx + 470}" y="51">1 / N = cardinality</text><line x1="{lx + 600}" y1="46" x2="{lx + 640}" y2="46" '
+             f'stroke="#555" stroke-dasharray="5 3"/><text x="{lx + 648}" y="51">created / authored / assigned / graded by</text></g>')
     ox = 0
     nodes = {c["id"]: c for c in lay["children"]}
     # edges first
@@ -214,17 +231,16 @@ def render_svg(lay, meta, rels, ents, path):
                          f'{esc(a)}</text>')
                 cx += w + 8
         o.append(f'<rect x="{x:.1f}" y="{ry:.1f}" width="{m["w"]}" height="{rh:.1f}" fill="{tint}" stroke="{col}" '
-                 f'stroke-width="2"/><text x="{x + m["w"] / 2:.1f}" y="{ry + rh / 2 + 4:.1f}" font-size="14" '
+                 f'stroke-width="2"/><text x="{x + m["w"] / 2:.1f}" y="{ry + rh / 2 + 4:.1f}" font-size="15" '
                  f'font-weight="700" text-anchor="middle" fill="#111">{esc(n)}</text><text x="{x + m["w"] - 4:.1f}" '
-                 f'y="{ry + 11:.1f}" font-size="9" text-anchor="end" fill="{col}" font-weight="700">{STORE_OF[n][0]}</text>')
+                 f'y="{ry + 11:.1f}" font-size="10" text-anchor="end" fill="{col}" font-weight="700">{STORE_OF[n][0]}</text>')
     for i, (a, _l, _r, b, lab) in enumerate(rels):
         nd = nodes[f"d{i}"]
-        cx, cy, w = nd["x"] + nd["width"] / 2, nd["y"] + 26, nd["width"]
-        o.append(f'<path d="M{cx - w / 2:.1f} {cy:.1f} L{cx:.1f} {cy - 26:.1f} L{cx + w / 2:.1f} {cy:.1f} '
-                 f'L{cx:.1f} {cy + 26:.1f} Z" fill="#fff" stroke="#222" stroke-width="1.3"/>'
-                 f'<text x="{cx:.1f}" y="{cy + 3.5:.1f}" font-size="10.5" text-anchor="middle" fill="#111">'
-                 f'{esc(short_label(lab))}</text><text x="{cx:.1f}" y="{cy + 40:.1f}" font-size="9" '
-                 f'text-anchor="middle" fill="#666">FK {esc(FK_COLS[i])}{" (null)" if i in NULLABLE else ""}</text>')
+        cx, cy, w = nd["x"] + nd["width"] / 2, nd["y"] + 24, nd["width"]
+        o.append(f'<path d="M{cx - w / 2:.1f} {cy:.1f} L{cx:.1f} {cy - 24:.1f} L{cx + w / 2:.1f} {cy:.1f} '
+                 f'L{cx:.1f} {cy + 24:.1f} Z" fill="#fff" stroke="#222" stroke-width="1.3"/>'
+                 f'<text x="{cx:.1f}" y="{cy + 3.5:.1f}" font-size="11.5" text-anchor="middle" fill="#111">'
+                 f'{esc(short_label(lab))}</text>')
     o.append("</svg>")
     path.write_text("\n".join(o), encoding="utf-8")
     return W, H
