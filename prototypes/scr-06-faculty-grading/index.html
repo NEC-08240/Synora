@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Faculty Grading & Monitoring | Synora</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        canvas: '#0A1128',
+                        surface: '#1C2541',
+                        borders: '#2A375A',
+                        primary: '#00E5FF',
+                        success: '#00E676',
+                        warning: '#FFD600',
+                        light: '#F8F9FA',
+                        muted: '#8D99AE',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0A1128; }
+        ::-webkit-scrollbar-thumb { background: #2A375A; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-canvas text-light h-screen overflow-hidden flex flex-col">
+
+    <!-- Top Bar -->
+    <header class="h-14 border-b border-borders bg-surface flex items-center justify-between px-4 shrink-0 shadow-sm z-10 relative">
+        <div class="flex items-center gap-6">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-canvas font-bold text-lg">S</div>
+                <span class="font-bold text-lg tracking-wide hidden sm:block">SYNORA <span class="text-xs font-normal text-muted ml-1 border border-borders px-1.5 py-0.5 rounded bg-canvas">Faculty</span></span>
+            </div>
+            <nav class="hidden md:flex gap-1 text-sm">
+                <a href="#" class="px-3 py-1.5 rounded hover:bg-canvas text-muted transition-colors">Dashboard</a>
+                <a href="#" class="px-3 py-1.5 rounded hover:bg-canvas text-muted transition-colors">Authoring</a>
+                <a href="#" class="px-3 py-1.5 rounded bg-canvas text-light font-medium border border-borders">Grading</a>
+            </nav>
+        </div>
+        <div class="flex items-center gap-4">
+            <div class="w-8 h-8 rounded-full border border-borders overflow-hidden">
+                <img src="https://i.pravatar.cc/100?img=11" alt="Profile" class="w-full h-full object-cover">
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 overflow-hidden flex">
+
+        <!-- Left Sidebar: Submission List -->
+        <aside class="w-[300px] border-r border-borders bg-[#0F172A] flex flex-col shrink-0">
+            <div class="p-4 border-b border-borders bg-surface">
+                <h2 class="font-semibold text-xs uppercase tracking-wider text-muted mb-3">Submissions</h2>
+                <div class="space-y-2 text-sm">
+                    <select class="w-full bg-canvas border border-borders rounded px-2 py-1.5 text-light outline-none">
+                        <option>CS101: Intro to C</option>
+                    </select>
+                    <select class="w-full bg-canvas border border-borders rounded px-2 py-1.5 text-light outline-none">
+                        <option>Task: Calculator Mini</option>
+                    </select>
+                    <div class="relative">
+                        <i class="fas fa-search absolute left-3 top-2 text-muted text-xs"></i>
+                        <input type="text" placeholder="Search student..." class="w-full bg-canvas border border-borders rounded pl-8 pr-2 py-1.5 text-light outline-none">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex-1 overflow-y-auto p-2 space-y-1">
+                <!-- Submission Card - Active -->
+                <div class="bg-primary/10 border border-primary rounded p-3 cursor-pointer relative">
+                    <div class="flex justify-between items-start mb-1">
+                        <div class="font-medium text-light text-sm">Alex Johnson</div>
+                        <div class="w-2 h-2 rounded-full bg-warning mt-1"></div>
+                    </div>
+                    <div class="text-xs text-muted">Submitted 2 hours ago</div>
+                    <div class="mt-2 flex items-center justify-between text-xs">
+                        <span class="text-success font-mono">Auto: 8/10</span>
+                        <span class="bg-warning/20 text-warning px-1.5 py-0.5 rounded border border-warning/30">Needs Review</span>
+                    </div>
+                </div>
+
+                <!-- Submission Card -->
+                <div class="hover:bg-surface/60 border border-transparent hover:border-borders rounded p-3 cursor-pointer transition-colors">
+                    <div class="flex justify-between items-start mb-1">
+                        <div class="font-medium text-light text-sm">Maria Garcia</div>
+                        <div class="w-2 h-2 rounded-full bg-success mt-1"></div>
+                    </div>
+                    <div class="text-xs text-muted">Submitted 5 hours ago</div>
+                    <div class="mt-2 flex items-center justify-between text-xs">
+                        <span class="text-success font-mono">Auto: 10/10</span>
+                        <span class="bg-success/20 text-success px-1.5 py-0.5 rounded border border-success/30">Graded (9.5)</span>
+                    </div>
+                </div>
+                
+                <!-- Submission Card -->
+                <div class="hover:bg-surface/60 border border-transparent hover:border-borders rounded p-3 cursor-pointer transition-colors">
+                    <div class="flex justify-between items-start mb-1">
+                        <div class="font-medium text-light text-sm">James Smith</div>
+                        <div class="w-2 h-2 rounded-full bg-red-500 mt-1"></div>
+                    </div>
+                    <div class="text-xs text-muted text-red-400">Late Submission</div>
+                    <div class="mt-2 flex items-center justify-between text-xs">
+                        <span class="text-red-400 font-mono">Auto: 2/10</span>
+                        <span class="bg-warning/20 text-warning px-1.5 py-0.5 rounded border border-warning/30">Needs Review</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Review Area -->
+        <section class="flex-1 flex flex-col min-w-0">
+            <!-- Header -->
+            <div class="px-6 py-4 border-b border-borders bg-surface/30 flex justify-between items-center shrink-0">
+                <div>
+                    <h1 class="text-xl font-bold text-light">Alex Johnson</h1>
+                    <div class="text-sm text-muted mt-1 flex items-center gap-2">
+                        <span>Task: Calculator Mini</span>
+                        <i class="fas fa-circle text-[4px]"></i>
+                        <span>Submitted Oct 12, 14:30</span>
+                        <i class="fas fa-circle text-[4px]"></i>
+                        <span class="text-warning">Pending Review</span>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button class="px-3 py-1.5 rounded border border-borders hover:bg-borders/50 text-sm text-muted"><i class="fas fa-chevron-left"></i> Prev</button>
+                    <button class="px-3 py-1.5 rounded border border-borders hover:bg-borders/50 text-sm text-muted">Next <i class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+
+            <div class="flex-1 flex overflow-hidden">
+                <!-- Code & Results (Left part of main) -->
+                <div class="flex-1 flex flex-col border-r border-borders bg-canvas overflow-y-auto">
+                    <!-- Tabs -->
+                    <div class="flex border-b border-borders px-4 bg-surface/50">
+                        <button class="px-4 py-2 text-sm font-medium border-b-2 border-primary text-light">Student Code (main.c)</button>
+                        <button class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-muted hover:text-light">Auto-Grade Log</button>
+                    </div>
+                    
+                    <!-- Code Editor View -->
+                    <div class="flex-1 p-4 font-mono text-sm leading-relaxed overflow-y-auto bg-[#1E1E1E]">
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">1</span><span class="text-[#C586C0]">#include</span> <span class="text-[#CE9178]">&lt;stdio.h&gt;</span></div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">2</span></div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">3</span><span class="text-[#569CD6]">int</span> <span class="text-[#DCDCAA]">main</span>() {</div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">4</span>    <span class="text-[#569CD6]">char</span> op;</div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">5</span>    <span class="text-[#569CD6]">double</span> a, b;</div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">6</span>    <span class="text-[#DCDCAA]">scanf</span>(<span class="text-[#CE9178]">"%c %lf %lf"</span>, &op, &a, &b);</div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">7</span>    </div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">8</span>    <span class="text-[#C586C0]">switch</span>(op) {</div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">9</span>        <span class="text-[#C586C0]">case</span> <span class="text-[#CE9178]">'+'</span>: <span class="text-[#DCDCAA]">printf</span>(<span class="text-[#CE9178]">"%.2lf"</span>, a + b); <span class="text-[#C586C0]">break</span>;</div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">10</span>        <span class="text-[#C586C0]">case</span> <span class="text-[#CE9178]">'-'</span>: <span class="text-[#DCDCAA]">printf</span>(<span class="text-[#CE9178]">"%.2lf"</span>, a - b); <span class="text-[#C586C0]">break</span>;</div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">11</span>        <span class="text-[#C586C0]">case</span> <span class="text-[#CE9178]">'*'</span>: <span class="text-[#DCDCAA]">printf</span>(<span class="text-[#CE9178]">"%.2lf"</span>, a * b); <span class="text-[#C586C0]">break</span>;</div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">12</span>        <span class="text-[#C586C0]">case</span> <span class="text-[#CE9178]">'/'</span>: </div>
+                        <div class="flex bg-red-900/30 border-l-2 border-red-500"><span class="text-[#858585] w-10 text-right pr-4 select-none">13</span>            <span class="text-[#6A9955]">// Missing division by zero check here!</span></div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">14</span>            <span class="text-[#DCDCAA]">printf</span>(<span class="text-[#CE9178]">"%.2lf"</span>, a / b); <span class="text-[#C586C0]">break</span>;</div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">15</span>    }</div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">16</span>    <span class="text-[#C586C0]">return</span> <span class="text-[#B5CEA8]">0</span>;</div>
+                        <div class="flex"><span class="text-[#858585] w-10 text-right pr-4 select-none">17</span>}</div>
+                    </div>
+                </div>
+
+                <!-- Grading Panel (Right part of main) -->
+                <div class="w-[350px] bg-surface overflow-y-auto flex flex-col shrink-0">
+                    <div class="p-5 border-b border-borders">
+                        <h3 class="text-sm font-semibold uppercase tracking-wider text-muted mb-4">Auto-Grade Results</h3>
+                        <div class="space-y-2">
+                            <div class="flex items-center justify-between text-sm bg-canvas border border-borders rounded px-3 py-2">
+                                <span class="flex items-center gap-2"><i class="fas fa-check-circle text-success"></i> Test 1: Addition</span>
+                                <span class="font-mono text-xs text-muted">22ms</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm bg-red-500/10 border border-red-500/30 rounded px-3 py-2">
+                                <span class="flex items-center gap-2 text-red-400"><i class="fas fa-times-circle"></i> Test 2: Div Zero</span>
+                                <span class="font-mono text-xs text-muted text-red-400">Failed</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-5 flex-1">
+                        <h3 class="text-sm font-semibold uppercase tracking-wider text-muted mb-4">Manual Review</h3>
+                        
+                        <!-- Rubric -->
+                        <div class="space-y-3 mb-6">
+                            <label class="flex items-start gap-2 text-sm cursor-pointer group">
+                                <input type="checkbox" checked class="mt-1 accent-primary bg-canvas border-borders">
+                                <span>Code Style & Indentation (1 pt)</span>
+                            </label>
+                            <label class="flex items-start gap-2 text-sm cursor-pointer group">
+                                <input type="checkbox" class="mt-1 accent-primary bg-canvas border-borders">
+                                <span class="text-red-400">Handled Edge Cases (1 pt)</span>
+                            </label>
+                        </div>
+
+                        <!-- Grade Input -->
+                        <div class="bg-canvas border border-borders rounded p-4 mb-6 text-center">
+                            <div class="text-xs text-muted uppercase tracking-wider mb-2">Final Score</div>
+                            <div class="flex items-center justify-center gap-2">
+                                <input type="number" value="8" class="w-16 bg-surface border-b-2 border-primary text-2xl font-bold text-center outline-none text-light py-1">
+                                <span class="text-2xl text-muted">/ 10</span>
+                            </div>
+                        </div>
+
+                        <!-- Feedback -->
+                        <div class="mb-6">
+                            <label class="text-xs font-semibold uppercase tracking-wider text-muted mb-2 block">Feedback to Student</label>
+                            <textarea class="w-full bg-canvas border border-borders rounded p-3 text-sm text-light outline-none focus:border-primary h-32 placeholder-muted/50" placeholder="Great start, but..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="p-4 border-t border-borders bg-surface/80">
+                        <button class="w-full py-2 rounded bg-primary text-canvas font-semibold shadow-[0_0_10px_rgba(0,229,255,0.2)] hover:shadow-[0_0_15px_rgba(0,229,255,0.4)] transition-all">
+                            Publish Grade
+                        </button>
+                        <button class="w-full py-2 rounded border border-borders text-muted mt-2 hover:bg-canvas transition-colors">
+                            Save Draft
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In | Synora</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        canvas: '#0A1128',
+                        surface: '#1C2541',
+                        borders: '#2A375A',
+                        primary: '#00E5FF',
+                        success: '#00E676',
+                        warning: '#FFD600',
+                        light: '#F8F9FA',
+                        muted: '#8D99AE',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .bg-grid {
+            background-size: 40px 40px;
+            background-image: linear-gradient(to right, rgba(42, 55, 90, 0.2) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(42, 55, 90, 0.2) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="bg-canvas text-light h-screen overflow-hidden flex items-center justify-center relative bg-grid">
+
+    <!-- Abstract glowing elements -->
+    <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[100px] pointer-events-none"></div>
+    <div class="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+    <div class="w-full max-w-md p-8 relative z-10">
+        
+        <!-- Logo -->
+        <div class="flex flex-col items-center justify-center mb-8">
+            <div class="w-14 h-14 rounded-lg bg-primary flex items-center justify-center text-canvas font-bold text-3xl shadow-[0_0_20px_rgba(0,229,255,0.4)] mb-4">
+                S
+            </div>
+            <h1 class="text-2xl font-bold tracking-wider">SYNORA</h1>
+            <p class="text-sm text-muted mt-1">Unified Access Gateway</p>
+        </div>
+
+        <!-- Auth Card -->
+        <div class="bg-surface/80 backdrop-blur-xl border border-borders rounded-xl p-8 shadow-2xl">
+            <form class="space-y-5">
+                <div>
+                    <label class="block text-sm font-medium text-muted mb-1.5">Email or Username</label>
+                    <div class="relative">
+                        <i class="fas fa-user absolute left-3 top-3 text-muted text-sm pointer-events-none"></i>
+                        <input type="text" class="w-full bg-canvas border border-borders rounded-lg pl-9 pr-4 py-2.5 text-light outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="Enter your credentials">
+                    </div>
+                </div>
+                
+                <div>
+                    <div class="flex justify-between items-center mb-1.5">
+                        <label class="block text-sm font-medium text-muted">Password</label>
+                        <a href="#" class="text-xs text-primary hover:underline">Forgot password?</a>
+                    </div>
+                    <div class="relative">
+                        <i class="fas fa-lock absolute left-3 top-3 text-muted text-sm pointer-events-none"></i>
+                        <input type="password" class="w-full bg-canvas border border-borders rounded-lg pl-9 pr-4 py-2.5 text-light outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all" placeholder="••••••••">
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="remember" class="accent-primary w-4 h-4 rounded bg-canvas border-borders cursor-pointer">
+                    <label for="remember" class="text-sm text-muted cursor-pointer">Remember me for 30 days</label>
+                </div>
+
+                <button type="button" class="w-full py-3 mt-4 rounded-lg bg-primary text-canvas font-bold shadow-[0_0_15px_rgba(0,229,255,0.2)] hover:shadow-[0_0_20px_rgba(0,229,255,0.5)] transition-all">
+                    Sign In
+                </button>
+            </form>
+
+            <div class="mt-6 pt-6 border-t border-borders text-center">
+                <p class="text-xs text-muted">
+                    Need technical assistance? <br>
+                    Contact <a href="#" class="text-primary hover:underline">IT Support</a>.
+                </p>
+            </div>
+        </div>
+
+    </div>
+
+</body>
+</html>
