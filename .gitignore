@@ -35,3 +35,12 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+__pycache__/
+
+# Local runtime databases and test keys (deployment safety)
+*.db
+*.sqlite
+*.sqlite3
+*.key
+*.pem
