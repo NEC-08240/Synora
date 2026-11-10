@@ -19,15 +19,14 @@ export function signToken(user) {
   });
 }
 
-/** Loads the current user from the cookie; 401 if absent, invalid, or not Active. */
-export async function requireAuth(req, res, next) {
-  const token = req.cookies?.[COOKIE_NAME];
-  if (!token) return next(unauthorized());
+/** Verifies a JWT and re-reads the user; returns null if invalid or not Active. */
+export async function userFromToken(token) {
+  if (!token) return null;
   let payload;
   try {
     payload = jwt.verify(token, config.jwtSecret);
   } catch {
-    return next(unauthorized('Session expired or invalid'));
+    return null;
   }
   // Re-read the user so suspension/archival takes effect immediately, not at token expiry.
   const user = await queryOne(
@@ -36,7 +35,13 @@ export async function requireAuth(req, res, next) {
       WHERE u.UserId = @id`,
     { id: Number(payload.sub) },
   );
-  if (!user || user.Status !== 'Active') return next(unauthorized('Account is not active'));
+  return user && user.Status === 'Active' ? user : null;
+}
+
+/** Loads the current user from the cookie; 401 if absent, invalid, or not Active. */
+export async function requireAuth(req, res, next) {
+  const user = await userFromToken(req.cookies?.[COOKIE_NAME]);
+  if (!user) return next(unauthorized('Session expired, invalid, or account not active'));
   req.user = user;
   next();
 }

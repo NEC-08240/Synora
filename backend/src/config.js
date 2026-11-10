@@ -21,5 +21,11 @@ export const config = Object.freeze({
   }),
   jwtSecret: process.env.JWT_SECRET,
   jwtTtlSeconds: 8 * 60 * 60,
+  ai: Object.freeze({
+    // Optional: without a key the AI tutor reports itself unavailable instead of failing silently.
+    apiKey: process.env.GEMINI_API_KEY ?? '',
+    model: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash-live-001',
+    sessionTtlSeconds: 5 * 60,
+  }),
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(',').map((s) => s.trim()),
 });

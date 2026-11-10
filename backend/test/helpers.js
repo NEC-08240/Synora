@@ -4,6 +4,7 @@
  */
 import { createApp } from '../src/app.js';
 import { closePool } from '../src/db.js';
+import { attachAiRelay } from '../src/ai/relay.js';
 
 export const DEMO_PASSWORD = process.env.SEED_PASSWORD ?? 'Synora@2026';
 export const ACCOUNTS = {
@@ -20,6 +21,7 @@ export async function startServer() {
   server = await new Promise((resolve) => {
     const s = createApp().listen(0, () => resolve(s));
   });
+  attachAiRelay(server);
   baseUrl = `http://127.0.0.1:${server.address().port}`;
   return baseUrl;
 }
