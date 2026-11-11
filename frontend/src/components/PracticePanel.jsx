@@ -20,11 +20,16 @@ export default function PracticePanel() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api('GET', '/execute/status').then(setStatus).catch(() => setStatus({ code: false, sql: false }));
+    let ignore = false;
+    api('GET', '/execute/status')
+      .then((s) => { if (!ignore) setStatus(s); })
+      .catch(() => { if (!ignore) setStatus({ code: false, sql: false }); });
+    return () => { ignore = true; };
   }, []);
 
   const isSql = language === 'sql';
-  const available = status ? (isSql ? status.sql : status.code) : true;
+  // Run stays disabled until the runner status is known, so a click cannot race the status check.
+  const available = status ? (isSql ? status.sql : status.code) : false;
 
   const run = async () => {
     setBusy(true);
@@ -58,7 +63,7 @@ export default function PracticePanel() {
           {busy ? 'Running…' : 'Run'}
         </button>
       </div>
-      {!available && (
+      {status && !available && (
         <p role="status" className="border-b border-border px-3 py-2 text-xs text-warning">
           The {LABELS[language]} runner is not configured on this server.
         </p>

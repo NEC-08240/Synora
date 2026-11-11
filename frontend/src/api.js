@@ -7,6 +7,15 @@ export class ApiError extends Error {
   }
 }
 
+// 401 on these paths is a normal outcome (bad password, no session yet), so it never triggers the handler.
+const QUIET_401_PATHS = new Set(['/auth/login', '/auth/me']);
+let unauthorizedHandler = null;
+
+/** AuthProvider registers a handler that clears the signed-in user when the session expires. */
+export function setUnauthorizedHandler(handler) {
+  unauthorizedHandler = handler;
+}
+
 export async function api(method, path, body) {
   const res = await fetch(`/api/v1${path}`, {
     method,
@@ -17,7 +26,10 @@ export async function api(method, path, body) {
   const text = await res.text();
   let data = null;
   try { data = text ? JSON.parse(text) : null; } catch { if (res.ok) throw new ApiError(res.status, { error: 'Invalid server response' }); }
-  if (!res.ok) throw new ApiError(res.status, data);
+  if (!res.ok) {
+    if (res.status === 401 && !QUIET_401_PATHS.has(path)) unauthorizedHandler?.();
+    throw new ApiError(res.status, data);
+  }
   return data;
 }
 
