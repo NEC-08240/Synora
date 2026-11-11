@@ -60,7 +60,7 @@ export const config = Object.freeze({
   }),
   jwtSecret: process.env.JWT_SECRET,
   jwtTtlSeconds: 8 * 60 * 60,
-  bcryptRounds: 10,
+  bcryptRounds: 10, // mirrors the cost used for stored hashes in routes/users.js
   // Requests per minute per user (or per IP when anonymous).
   rateLimits: Object.freeze({
     execute: parseIntEnv(process.env.RATE_LIMIT_EXECUTE_PER_MIN, 30, 'RATE_LIMIT_EXECUTE_PER_MIN'),

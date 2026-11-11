@@ -2,8 +2,10 @@
  * Failed-sign-in tracking with three scopes: (ip, email) pairs, a per-email counter, and a per-IP counter.
  *
  * Tradeoff: the per-email scope lets an attacker deliberately lock a known victim out for LOCK_MS
- * (the "slow a known victim" attack). We accept that because it is short, never permanent, and the
- * alternative (no per-email scope) lets an attacker rotate IPs to brute-force one password indefinitely.
+ * (the "slow a known victim" attack). Each lock is short (LOCK_MS), but an attacker can renew it with one
+ * failure per window, so a known victim can be kept out of sign-in for as long as the attacker keeps trying.
+ * We accept that because the alternative (no per-email scope) lets an attacker rotate IPs to brute-force one
+ * password indefinitely.
  * The per-IP scope can likewise lock out a shared classroom NAT after 30 failures across all accounts.
  *
  * shortcut: in-process memory only; move to a shared store before running multiple API instances.
