@@ -75,8 +75,9 @@ Base URL: `/api/v1`. All request and response bodies are JSON. Implemented in `b
 
 | Method | Path | Roles | Body / Response |
 |---|---|---|---|
-| POST | `/execute/code` | Student, Faculty | `{ language: "c"\|"cpp", source, stdin? }` → `{ stdout, stderr, exitCode, timedOut, durationMs }` |
-| POST | `/execute/sql` | Student, Faculty | `{ sql, setupScript? }` → `{ columns, rows, rowCount, error? }` run in the isolated sandbox database, never `SynoraV1` |
+| GET | `/execute/status` | Student, Faculty | → `{ code, sql }` runner availability |
+| POST | `/execute/code` | Student, Faculty | `{ language: "c"\|"cpp", source, stdin? }` → `{ stdout, stderr, exitCode, timedOut, compileError, durationMs }` via a Piston-compatible runner (503 if unconfigured) |
+| POST | `/execute/sql` | Student, Faculty | `{ sql, setupScript? }` → `{ columns, rows, rowCount, truncated, error }` run in `SynoraV1_Sandbox` inside a rolled-back transaction, never `SynoraV1`. See docs/technical/practice-execution.md |
 
 ## Out of scope for the November milestone (Phase 5, Dec–Jan)
 
