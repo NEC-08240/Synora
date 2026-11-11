@@ -29,14 +29,14 @@ Branch: `feature/v1-core-foundation` (from `docs/canonical-dfd` + merged `origin
 | 3.4 User management (admin CRUD, status) | Sep–Oct | NOT STARTED | backend/src/routes/users.js | users.test.js | 3.3 |
 | 3.5 Batches + FacultyAssignments (subject/batch allocation) | Sep–Oct | NOT STARTED | backend/src/routes/{batches,assignments}.js | tests | 3.3 |
 | 3.6 Seed data (roles, subjects, topics, demo users) | Sep–Oct | NOT STARTED | database/seed.sql | validate_schema.sql | schema.sql |
-| 3.7 Frontend scaffold (Vite, React, Tailwind tokens, router, auth context) | Sep–Oct | NOT STARTED | frontend/ | vitest | — |
-| 3.8 SCR-01 Auth & Gateway (real login) | Sep–Oct | NOT STARTED | frontend/src/pages/Login.jsx | — | 3.2, 3.7 |
+| 3.7 Frontend scaffold (Vite, React, Tailwind tokens, router, auth context) | Sep–Oct | IMPLEMENTED | frontend/ (vite.config.js, src/api.js, src/auth.jsx, src/App.jsx, src/index.css) | frontend/test/api.test.js 3 pass; oxlint clean; vite build ok; login + subjects via dev proxy (curl) | — |
+| 3.8 SCR-01 Auth & Gateway (real login) | Sep–Oct | IMPLEMENTED | frontend/src/pages/Login.jsx | builds; login API verified via dev proxy; not yet clicked through in a browser | 3.2, 3.7 |
 | 4.1 Lessons/Topics API (faculty CRUD, student read, LessonViewed event) | Oct–Nov | NOT STARTED | backend/src/routes/{subjects,lessons}.js | tests | 3.3 |
-| 4.2 SCR-02 Student Learning Hub + SCR-03 Workspace (lesson nav + content) | Oct–Nov | NOT STARTED | frontend/src/pages | — | 4.1 |
+| 4.2 SCR-02 Student Learning Hub + SCR-03 Workspace (lesson nav + content) | Oct–Nov | IMPLEMENTED | frontend/src/pages/Hub.jsx, Workspace.jsx, Manage.jsx, components/Shell.jsx, TutorPanel.jsx | builds; not yet clicked through in a browser | 4.1 |
 | 4.3 AI session: backend-mediated Gemini Live config, WS relay, AIQuery event, no transcript persistence | Nov | IMPLEMENTED | backend/src/ai/{sessions,relay}.js, wired in app.js/server.js | backend/test/ai.test.js (4 pass, fake Gemini upstream) | GEMINI_API_KEY (live verify blocked without it) |
 | 4.4 C/C++ execution proxy (Piston-compatible executor, limits, timeouts) | Nov | IMPLEMENTED | backend/src/practice/{code,routes}.js, docs/technical/practice-execution.md | backend/test/practice.test.js (fake Piston runner) | EXECUTOR_URL; live run blocked until a Piston container is available |
 | 4.5 SQL sandbox (separate DB + low-priv login, SetupScript, rollback-only) | Nov | VERIFIED | backend/src/practice/sql.js, database/sandbox_setup.sql | backend/test/practice.test.js (real SynoraV1_Sandbox DB) | result compare vs ExpectedResult deferred to Assessment (Dec) |
-| 4.6 SCR-03 practice panel (editor, run, output) | Nov | NOT STARTED | frontend | — | 4.4, 4.5 |
+| 4.6 SCR-03 practice panel (editor, run, output) | Nov | IMPLEMENTED | frontend/src/components/PracticePanel.jsx | SQL run verified through dev proxy (curl); C/C++ blocked without Piston; not yet clicked through in a browser | 4.4, 4.5 |
 | R.1 Run/demo instructions + known limitations | Nov | NOT STARTED | README.md, docs/project/november-report.md | — | all above |
 
 ## Decisions log
