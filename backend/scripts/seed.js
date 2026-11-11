@@ -1,14 +1,26 @@
 /**
  * Idempotent development seed: reference data (Roles, Subjects), one demo batch,
  * one demo user per role, faculty allocations and a small published lesson tree.
- * Run: node --env-file=.env scripts/seed.js   (uses DB_NAME from the env file)
- * Demo passwords are development-only; see README "Demo accounts".
+ * Run: ALLOW_SEED=1 SEED_PASSWORD=<12+ chars> node --env-file=.env scripts/seed.js
+ * (uses DB_NAME from the env file). Demo passwords are development-only; see README "Demo accounts".
  */
 import process from 'node:process';
+import { pathToFileURL } from 'node:url';
 import bcrypt from 'bcryptjs';
 import { query, queryOne, closePool } from '../src/db.js';
 
-const DEMO_PASSWORD = process.env.SEED_PASSWORD ?? 'Synora@2026';
+const MIN_SEED_PASSWORD_LENGTH = 12;
+
+/**
+ * Safety gate, pure (no DB access) so it can be unit-tested. Throws when seeding must not run.
+ */
+export function assertSeedAllowed(env) {
+  if (env.NODE_ENV === 'production') throw new Error('refusing to seed production');
+  if (env.ALLOW_SEED !== '1') throw new Error('refusing to seed: set ALLOW_SEED=1 to confirm the target database is disposable');
+  if (!env.SEED_PASSWORD || env.SEED_PASSWORD.length < MIN_SEED_PASSWORD_LENGTH) {
+    throw new Error(`SEED_PASSWORD is required and must be at least ${MIN_SEED_PASSWORD_LENGTH} characters`);
+  }
+}
 
 const ROLES = [
   ['Student', 'Learns, practises and submits activities'],
@@ -49,6 +61,10 @@ async function ensure(selectSql, insertSql, params) {
 }
 
 async function main() {
+  assertSeedAllowed(process.env);
+  console.log(`Seeding target database ${process.env.DB_NAME} on ${process.env.DB_SERVER}`);
+  const demoPassword = process.env.SEED_PASSWORD;
+
   for (const [name, description] of ROLES) {
     await ensure(
       `SELECT RoleId AS Id FROM dbo.Roles WHERE RoleName = @name`,
@@ -65,7 +81,7 @@ async function main() {
     );
   }
 
-  const hash = await bcrypt.hash(DEMO_PASSWORD, 10);
+  const hash = await bcrypt.hash(demoPassword, 10);
   const userIds = {};
   for (const [role, name, email] of USERS) {
     userIds[role] = await ensure(
@@ -124,8 +140,12 @@ async function main() {
   console.log(`Seed complete for ${process.env.DB_NAME}:`, counts);
 }
 
-try {
-  await main();
-} finally {
-  await closePool();
+// Run only when executed directly, so tests can import assertSeedAllowed without seeding.
+const isDirectRun = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isDirectRun) {
+  try {
+    await main();
+  } finally {
+    await closePool();
+  }
 }

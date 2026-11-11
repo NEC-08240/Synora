@@ -1,12 +1,17 @@
 # Dependencies
 node_modules/
 
-# Environment variables
+# Environment variables (every env file is ignored except the example)
 .env
-.env.local
-.env.*.local
-.env.test
+.env.*
 !.env.example
+
+# Local tooling secrets and SQL Server data/backup files
+.npmrc
+*.mdf
+*.ldf
+*.bak
+*.bacpac
 
 # Logs
 logs/

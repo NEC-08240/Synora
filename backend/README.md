@@ -10,10 +10,16 @@
    USE SynoraV1; CREATE USER synora_app FOR LOGIN synora_app;
    ALTER ROLE db_datareader ADD MEMBER synora_app; ALTER ROLE db_datawriter ADD MEMBER synora_app;
    ```
-4. `cp .env.example .env` and fill in `DB_PASSWORD` and a random `JWT_SECRET`.
-5. `npm install && npm run seed && npm run dev` → http://localhost:4000/api/v1/health
+4. `cp .env.example .env` and fill in `DB_PASSWORD`, a random `JWT_SECRET`, and `SEED_PASSWORD` (12+ characters, no default).
+5. `npm install`, then seed the demo data (see below), then `npm run dev` → http://localhost:4000/api/v1/health
 
-## Demo accounts (created by `npm run seed`, password `Synora@2026`)
+Seeding is guarded: `scripts/seed.js` refuses to run when `NODE_ENV=production`, and refuses unless `ALLOW_SEED=1` is set. Only seed a disposable database. The target `DB_NAME` is printed before any write:
+
+```
+ALLOW_SEED=1 npm run seed
+```
+
+## Demo accounts (created by `npm run seed`; password is the `SEED_PASSWORD` you set)
 
 | Role | Email |
 |------|-------|
@@ -31,6 +37,7 @@ sed "s/SynoraV1/SynoraV1_Test/g" ../database/schema.sql | sqlcmd -S localhost -E
 cp .env .env.test   # set DB_NAME=SynoraV1_Test and PORT=0
 # SQL sandbox tests need the separate sandbox DB (see docs/technical/practice-execution.md):
 sqlcmd -S localhost -E -i ../database/sandbox_setup.sql   # then set SANDBOX_DB_* in .env.test
+# .env.test also needs SEED_PASSWORD (12+ chars) and ALLOW_SEED=1
 npm run seed:test && npm test
 ```
 
