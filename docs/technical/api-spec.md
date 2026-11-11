@@ -21,7 +21,7 @@ Base URL: `/api/v1`. All request and response bodies are JSON. Implemented in `b
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/auth/login` | `{ email, password }` | `200 { user }` + cookie; `401` on bad credentials (same message for unknown email and wrong password) |
+| POST | `/auth/login` | `{ email, password }` | `200 { user }` + cookie; `401` on bad credentials (same message for unknown email and wrong password); `429` after 5 failed attempts for the same address + email, for 15 minutes |
 | POST | `/auth/logout` | – | `204`, clears cookie |
 | GET | `/auth/me` | – | `200 { user }` |
 

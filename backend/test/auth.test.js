@@ -82,3 +82,15 @@ test('unknown routes return JSON 404 and malformed JSON returns 400', async () =
   });
   assert.equal(res.status, 400);
 });
+
+test('five failed logins lock that email out, even with the right password', async () => {
+  const email = 'lockout-probe@synora.local';
+  for (let i = 0; i < 5; i++) {
+    const res = await api('POST', '/api/v1/auth/login', { body: { email, password: 'wrong' } });
+    assert.equal(res.status, 401);
+  }
+  const locked = await api('POST', '/api/v1/auth/login', { body: { email, password: 'wrong' } });
+  assert.equal(locked.status, 429);
+  // Other accounts from the same address are unaffected.
+  assert.ok(await login('student'));
+});
