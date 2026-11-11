@@ -27,5 +27,23 @@ export const config = Object.freeze({
     model: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash-live-001',
     sessionTtlSeconds: 5 * 60,
   }),
+  practice: Object.freeze({
+    // Piston-compatible executor (https://github.com/engineer-man/piston). Empty = code runner unavailable.
+    executorUrl: (process.env.EXECUTOR_URL ?? '').replace(/\/$/, ''),
+    runTimeoutMs: Number(process.env.EXECUTOR_RUN_TIMEOUT_MS ?? 3000),
+    compileTimeoutMs: Number(process.env.EXECUTOR_COMPILE_TIMEOUT_MS ?? 10000),
+    // Separate sandbox database + low-privilege login for student SQL. Never the app DB (handoff section 9.3).
+    sandboxDb: process.env.SANDBOX_DB_NAME
+      ? Object.freeze({
+          server: process.env.SANDBOX_DB_SERVER ?? process.env.DB_SERVER,
+          port: Number(process.env.SANDBOX_DB_PORT ?? process.env.DB_PORT ?? 1433),
+          database: process.env.SANDBOX_DB_NAME,
+          user: process.env.SANDBOX_DB_USER,
+          password: process.env.SANDBOX_DB_PASSWORD,
+        })
+      : null,
+    sqlTimeoutMs: 5000,
+    maxRows: 200,
+  }),
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(',').map((s) => s.trim()),
 });

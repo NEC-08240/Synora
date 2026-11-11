@@ -4,12 +4,13 @@ import { config } from './config.js';
 import { HttpError } from './http.js';
 import { isForeignKeyViolation, isUniqueViolation } from './db.js';
 import { authRouter } from './auth/routes.js';
-import { requireAuth } from './auth/middleware.js';
+import { requireAuth, requireRole } from './auth/middleware.js';
 import { usersRouter } from './routes/users.js';
 import { batchesRouter } from './routes/batches.js';
 import { assignmentsRouter } from './routes/assignments.js';
 import { contentRouter } from './routes/content.js';
 import { aiRouter } from './ai/sessions.js';
+import { executeRouter } from './practice/routes.js';
 
 export function createApp() {
   const app = express();
@@ -35,6 +36,7 @@ export function createApp() {
   app.use('/api/v1/batches', requireAuth, batchesRouter);
   app.use('/api/v1/assignments', requireAuth, assignmentsRouter);
   app.use('/api/v1/ai', requireAuth, aiRouter);
+  app.use('/api/v1/execute', requireAuth, requireRole('Student', 'Faculty'), executeRouter);
   app.use('/api/v1', requireAuth, contentRouter);
 
   app.use((req, res) => res.status(404).json({ error: 'Route not found' }));

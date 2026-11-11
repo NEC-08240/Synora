@@ -34,8 +34,8 @@ Branch: `feature/v1-core-foundation` (from `docs/canonical-dfd` + merged `origin
 | 4.1 Lessons/Topics API (faculty CRUD, student read, LessonViewed event) | Oct–Nov | NOT STARTED | backend/src/routes/{subjects,lessons}.js | tests | 3.3 |
 | 4.2 SCR-02 Student Learning Hub + SCR-03 Workspace (lesson nav + content) | Oct–Nov | NOT STARTED | frontend/src/pages | — | 4.1 |
 | 4.3 AI session: backend-mediated Gemini Live config, WS relay, AIQuery event, no transcript persistence | Nov | IMPLEMENTED | backend/src/ai/{sessions,relay}.js, wired in app.js/server.js | backend/test/ai.test.js (4 pass, fake Gemini upstream) | GEMINI_API_KEY (live verify blocked without it) |
-| 4.4 C/C++ execution proxy (external executor, limits, timeouts) | Nov | NOT STARTED | backend/src/practice | tests (mocked) | executor service URL; docker not installed locally |
-| 4.5 SQL sandbox (separate DB/instance, SetupScript, result compare) | Nov | NOT STARTED | backend/src/practice | tests | separate sandbox DB on SQL Server |
+| 4.4 C/C++ execution proxy (Piston-compatible executor, limits, timeouts) | Nov | IMPLEMENTED | backend/src/practice/{code,routes}.js, docs/technical/practice-execution.md | backend/test/practice.test.js (fake Piston runner) | EXECUTOR_URL; live run blocked until a Piston container is available |
+| 4.5 SQL sandbox (separate DB + low-priv login, SetupScript, rollback-only) | Nov | VERIFIED | backend/src/practice/sql.js, database/sandbox_setup.sql | backend/test/practice.test.js (real SynoraV1_Sandbox DB) | result compare vs ExpectedResult deferred to Assessment (Dec) |
 | 4.6 SCR-03 practice panel (editor, run, output) | Nov | NOT STARTED | frontend | — | 4.4, 4.5 |
 | R.1 Run/demo instructions + known limitations | Nov | NOT STARTED | README.md, docs/project/november-report.md | — | all above |
 
