@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import { config } from '../config.js';
 import { query, queryOne } from '../db.js';
 import { badRequest, notFound } from '../http.js';
 import { idParam, validate } from '../validate.js';
@@ -11,7 +12,7 @@ usersRouter.use(requireRole('Administrator'));
 
 const ROLES = ['Student', 'Faculty', 'Administrator'];
 const STATUSES = ['Active', 'Suspended', 'Archived'];
-const BCRYPT_ROUNDS = 10;
+const BCRYPT_ROUNDS = config.bcryptRounds;
 const MIN_PASSWORD = 8;
 
 const SELECT_USER = `

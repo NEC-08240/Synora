@@ -9,7 +9,7 @@
     "dev": "node --env-file=.env --watch src/server.js",
     "seed": "node --env-file=.env scripts/seed.js",
     "seed:test": "node --env-file=.env.test scripts/seed.js",
-    "test": "node --env-file=.env.test --test \"test/**/*.test.js\""
+    "test": "node --env-file=.env.test --test --test-concurrency=1 \"test/**/*.test.js\""
   },
   "engines": {
     "node": ">=22"

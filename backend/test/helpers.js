@@ -2,11 +2,16 @@
  * Integration test helpers. Tests run against the database named in .env.test
  * (SynoraV1_Test, created from database/schema.sql and seeded with `npm run seed:test`).
  */
+import { randomBytes } from 'node:crypto';
+import bcrypt from 'bcryptjs';
 import { createApp } from '../src/app.js';
-import { closePool } from '../src/db.js';
+import { config } from '../src/config.js';
+import { closePool, query } from '../src/db.js';
 import { attachAiRelay } from '../src/ai/relay.js';
 
-export const DEMO_PASSWORD = process.env.SEED_PASSWORD ?? 'Synora@2026';
+// Per-process random password: no hardcoded credential in tests. startServer() sets the demo
+// accounts to it, so test files must run one at a time (see `--test-concurrency=1` in package.json).
+export const DEMO_PASSWORD = randomBytes(18).toString('base64url');
 export const ACCOUNTS = {
   admin: 'admin@synora.local',
   faculty: 'faculty@synora.local',
@@ -16,8 +21,19 @@ export const ACCOUNTS = {
 let server;
 let baseUrl;
 
+async function resetDemoPasswords() {
+  const hash = await bcrypt.hash(DEMO_PASSWORD, config.bcryptRounds);
+  await query('UPDATE dbo.Users SET PasswordHash = @hash WHERE Email IN (@admin, @faculty, @student)', {
+    hash,
+    admin: ACCOUNTS.admin,
+    faculty: ACCOUNTS.faculty,
+    student: ACCOUNTS.student,
+  });
+}
+
 export async function startServer() {
   if (server) return baseUrl;
+  await resetDemoPasswords();
   server = await new Promise((resolve) => {
     const s = createApp().listen(0, () => resolve(s));
   });
