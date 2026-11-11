@@ -74,6 +74,7 @@ test('relay streams text from a Gemini-shaped upstream and validates client fram
   const seen = {};
   fake.on('connection', (ws, req) => {
     seen.url = req.url;
+    seen.apiKeyHeader = req.headers['x-goog-api-key'];
     ws.on('message', (data) => {
       const msg = JSON.parse(data.toString());
       if (msg.setup) {
@@ -101,7 +102,8 @@ test('relay streams text from a Gemini-shaped upstream and validates client fram
     });
   });
 
-  assert.equal(seen.url, '/?key=test-key', 'key is sent to upstream, never to the client');
+  assert.equal(seen.url, '/', 'key is not in the upstream URL');
+  assert.equal(seen.apiKeyHeader, 'test-key', 'key is sent to upstream in a header, never to the client');
   assert.equal(seen.setup.generationConfig.responseModalities[0], 'TEXT');
   assert.match(seen.setup.systemInstruction.parts[0].text, /Arjun Menon/);
   // The client's bad frame races the upstream 'ready'; check the streamed sequence without it.
