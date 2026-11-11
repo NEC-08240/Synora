@@ -94,9 +94,10 @@ test('relay streams text from a Gemini-shaped upstream and validates client fram
   const { body } = await api('POST', '/api/v1/ai/sessions', { cookie: student, body: {} });
   const messages = await connect(`ws://127.0.0.1:${relayServer.address().port}${body.wsPath}`, student, (ws) => {
     ws.send('not json');
-    ws.send(JSON.stringify({ type: 'user_text', text: 'hello world' }));
     ws.addEventListener('message', (e) => {
-      if (JSON.parse(e.data).type === 'turn_complete') ws.close();
+      const { type } = JSON.parse(e.data);
+      if (type === 'ready') ws.send(JSON.stringify({ type: 'user_text', text: 'hello world' }));
+      if (type === 'turn_complete') ws.close();
     });
   });
 

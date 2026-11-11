@@ -33,7 +33,7 @@ Branch: `feature/v1-core-foundation` (from `docs/canonical-dfd` + merged `origin
 | 3.8 SCR-01 Auth & Gateway (real login) | Sep–Oct | NOT STARTED | frontend/src/pages/Login.jsx | — | 3.2, 3.7 |
 | 4.1 Lessons/Topics API (faculty CRUD, student read, LessonViewed event) | Oct–Nov | NOT STARTED | backend/src/routes/{subjects,lessons}.js | tests | 3.3 |
 | 4.2 SCR-02 Student Learning Hub + SCR-03 Workspace (lesson nav + content) | Oct–Nov | NOT STARTED | frontend/src/pages | — | 4.1 |
-| 4.3 AI session: backend-mediated Gemini Live config, WS relay, AIQuery event, no transcript persistence | Nov | IN PROGRESS | backend/src/ai/{sessions,relay}.js, wired in app.js/server.js | backend/test/ai.test.js written but HANGS (process never exits; likely an open ws/http handle in the fake-upstream test). Fix before marking IMPLEMENTED. | GEMINI_API_KEY (live verify blocked without it) |
+| 4.3 AI session: backend-mediated Gemini Live config, WS relay, AIQuery event, no transcript persistence | Nov | IMPLEMENTED | backend/src/ai/{sessions,relay}.js, wired in app.js/server.js | backend/test/ai.test.js (4 pass, fake Gemini upstream) | GEMINI_API_KEY (live verify blocked without it) |
 | 4.4 C/C++ execution proxy (external executor, limits, timeouts) | Nov | NOT STARTED | backend/src/practice | tests (mocked) | executor service URL; docker not installed locally |
 | 4.5 SQL sandbox (separate DB/instance, SetupScript, result compare) | Nov | NOT STARTED | backend/src/practice | tests | separate sandbox DB on SQL Server |
 | 4.6 SCR-03 practice panel (editor, run, output) | Nov | NOT STARTED | frontend | — | 4.4, 4.5 |
