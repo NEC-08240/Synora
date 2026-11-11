@@ -46,3 +46,6 @@ __pycache__/
 *.sqlite3
 *.key
 *.pem
+
+# Claude Code local state and worktrees
+.claude/

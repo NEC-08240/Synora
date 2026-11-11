@@ -44,7 +44,7 @@ Guardrail from handoff section 9.3: student SQL **never** touches `SynoraV1`.
   does persists between requests, so every attempt starts from an empty schema.
 - `requestTimeout` is 5 s. The pool is small (max 4) so a classroom cannot exhaust the server.
 
-`shortcut:` rollback-only transactions give schema isolation but not CPU/memory isolation inside
+rollback-only transactions give schema isolation but not CPU/memory isolation inside
 the SQL Server instance. Upgrade to a per-container SQL Server (Docker `mcr.microsoft.com/mssql/server`)
 if the sandbox is ever exposed beyond the trusted lab network.
 

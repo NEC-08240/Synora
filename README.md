@@ -63,19 +63,19 @@ Synora/
 ├── frontend/
 ├── backend/
 ├── database/
-├── tests/
 └── .github/
+```
 
 ## Running locally
 
-Needs Node.js 24, SQL Server and, for C/C++ runs only, Docker.
+Needs Node.js 22 or newer (developed on 24), SQL Server and, for C/C++ runs only, Docker.
 
 1. **Database.** Run `database/schema.sql`, then `database/sandbox_setup.sql`, as a SQL Server administrator.
    Create the application login described in `backend/README.md`.
 2. **Backend.**
    ```bash
    cd backend
-   cp .env.example .env    # fill in DB_*, JWT_SECRET, SANDBOX_DB_*
+   cp .env.example .env    # fill in DB_*, JWT_SECRET; SANDBOX_DB_* is needed for the SQL practice panel
    npm install
    npm run seed            # demo users, subjects, topics, lessons
    npm run dev             # http://localhost:4000

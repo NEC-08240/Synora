@@ -38,7 +38,7 @@ path breaks npm's `.cmd` shims on Windows.
 
 ## Known limits
 
-- The editor is a plain textarea. `shortcut:` no syntax highlighting; swap in CodeMirror if the review asks for it.
+- The editor is a plain textarea. no syntax highlighting; swap in CodeMirror if the review asks for it.
 - Lesson content renders as plain text, not Markdown or HTML.
 - The practice panel is a free scratchpad; it is not yet tied to activity tasks or submissions.
 - The UI enforces nothing on its own: every permission check lives in the API.

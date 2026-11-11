@@ -71,7 +71,7 @@ Base URL: `/api/v1`. All request and response bodies are JSON. Implemented in `b
 |---|---|---|---|
 | POST | `/ai/sessions` | Student | `201 { sessionId, wsPath, expiresAt, context }` – authorizes a relayed Gemini Live session. Records a `LearningActivity` `AIQuery` event. Transcripts are never persisted. |
 
-## Practical execution (see `practical-execution.md`)
+## Practical execution (see `practice-execution.md`)
 
 | Method | Path | Roles | Body / Response |
 |---|---|---|---|
