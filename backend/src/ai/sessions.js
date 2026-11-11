@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { Router } from 'express';
 import { config } from '../config.js';
 import { query, queryOne } from '../db.js';
-import { badRequest, notFound } from '../http.js';
+import { notFound, tooManyRequests } from '../http.js';
 import { requireRole } from '../auth/middleware.js';
 import { validate } from '../validate.js';
 
@@ -15,11 +15,11 @@ const sessions = new Map(); // sessionId -> { userId, systemInstruction, expires
 
 export const WS_PATH = '/api/v1/ai/ws';
 
+/** Single-use: returns the session only to its owner; a foreign or expired id leaves it intact. */
 export function takeSession(sessionId, userId) {
   const session = sessions.get(sessionId);
-  if (!session) return null;
-  sessions.delete(sessionId); // single use
-  if (session.userId !== userId || session.expiresAt < Date.now()) return null;
+  if (!session || session.userId !== userId || session.expiresAt < Date.now()) return null;
+  sessions.delete(sessionId);
   return session;
 }
 
@@ -63,7 +63,7 @@ aiRouter.post('/sessions', requireRole('Student'), async (req, res, next) => {
       if (s.expiresAt < now) sessions.delete(id);
       else if (s.userId === req.user.UserId) pending += 1;
     }
-    if (pending >= 5 || sessions.size > 1000) return next(badRequest('Too many pending AI sessions, try again shortly'));
+    if (pending >= 5 || sessions.size > 1000) return next(tooManyRequests('Too many pending AI sessions, try again shortly'));
 
     const sessionId = randomUUID();
     const expiresAt = Date.now() + config.ai.sessionTtlSeconds * 1000;
