@@ -112,23 +112,28 @@ export function attachAiRelay(server, options) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
 
   server.on('upgrade', async (req, socket, head) => {
-    const url = new URL(req.url, 'http://localhost');
-    if (url.pathname !== WS_PATH) return socket.destroy();
+    try {
+      const url = new URL(req.url, 'http://localhost');
+      if (url.pathname !== WS_PATH) return socket.destroy();
 
-    const origin = req.headers.origin;
-    if (origin && !config.corsOrigins.includes(origin)) return reject(socket, 403);
-    const user = await userFromToken(parseCookie(req.headers.cookie));
-    if (!user || user.RoleName !== 'Student') return reject(socket, 401);
-    const session = takeSession(url.searchParams.get('session'), user.UserId);
-    if (!session) return reject(socket, 403);
+      const origin = req.headers.origin;
+      if (origin && !config.corsOrigins.includes(origin)) return reject(socket, 403);
+      const user = await userFromToken(parseCookie(req.headers.cookie));
+      if (!user || user.RoleName !== 'Student') return reject(socket, 401);
+      const session = takeSession(url.searchParams.get('session'), user.UserId);
+      if (!session) return reject(socket, 403);
 
-    wss.handleUpgrade(req, socket, head, (ws) => bridge(ws, session, options));
+      wss.handleUpgrade(req, socket, head, (ws) => bridge(ws, session, options));
+    } catch (err) {
+      console.error('ws upgrade failed:', err.message);
+      reject(socket, 500);
+    }
   });
   return wss;
 }
 
 function reject(socket, status) {
-  const text = status === 401 ? 'Unauthorized' : 'Forbidden';
+  const text = { 401: 'Unauthorized', 500: 'Internal Server Error' }[status] ?? 'Forbidden';
   socket.write(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\n\r\n`);
   socket.destroy();
 }

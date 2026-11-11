@@ -15,7 +15,8 @@ export async function api(method, path, body) {
     credentials: 'same-origin',
   });
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { if (res.ok) throw new ApiError(res.status, { error: 'Invalid server response' }); }
   if (!res.ok) throw new ApiError(res.status, data);
   return data;
 }

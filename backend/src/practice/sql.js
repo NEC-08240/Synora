@@ -30,6 +30,8 @@ export async function runSql({ sql: studentSql, setupScript = '' }) {
   await tx.begin();
   try {
     if (setupScript.trim()) await new sql.Request(tx).batch(setupScript);
+    // A student COMMIT would persist changes in the shared sandbox; refuse it up front.
+    if (/commit/i.test(studentSql)) throw new Error('COMMIT is not allowed in the practice sandbox');
     const result = await new sql.Request(tx).batch(studentSql);
     const { maxRows } = config.practice;
     const all = result.recordset ?? [];

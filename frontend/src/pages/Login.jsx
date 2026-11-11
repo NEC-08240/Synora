@@ -25,7 +25,7 @@ export default function Login() {
       const from = u.role === 'Student' ? location.state?.from : null;
       navigate(from ?? homeFor(u.role), { replace: true });
     } catch (err) {
-      setError(err.status === 401 ? 'Invalid email or password.' : err.message);
+      setError(err.status === 401 && !/not active/i.test(err.message) ? 'Invalid email or password.' : err.message);
     } finally {
       setBusy(false);
     }

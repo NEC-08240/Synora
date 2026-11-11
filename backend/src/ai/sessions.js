@@ -57,7 +57,13 @@ aiRouter.post('/sessions', requireRole('Student'), async (req, res, next) => {
       );
       if (!lesson) return next(notFound('Lesson not found'));
     }
-    if (sessions.size > 1000) return next(badRequest('Too many pending AI sessions, try again shortly'));
+    const now = Date.now();
+    let pending = 0;
+    for (const [id, s] of sessions) {
+      if (s.expiresAt < now) sessions.delete(id);
+      else if (s.userId === req.user.UserId) pending += 1;
+    }
+    if (pending >= 5 || sessions.size > 1000) return next(badRequest('Too many pending AI sessions, try again shortly'));
 
     const sessionId = randomUUID();
     const expiresAt = Date.now() + config.ai.sessionTtlSeconds * 1000;

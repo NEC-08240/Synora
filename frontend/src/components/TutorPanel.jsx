@@ -45,7 +45,10 @@ export default function TutorPanel({ lessonId }) {
       const ws = new WebSocket(`${proto}//${window.location.host}${session.wsPath}`);
       socket.current = ws;
       ws.onmessage = (e) => onFrame(JSON.parse(e.data));
-      ws.onclose = () => setState('closed');
+      ws.onclose = () => {
+        setState('closed');
+        setMessages((m) => (m.length ? [...m.slice(0, -1), { ...m[m.length - 1], done: true }] : m));
+      };
       ws.onerror = () => setNotice('Connection to the tutor was lost.');
     } catch (e) {
       setNotice(e.message);

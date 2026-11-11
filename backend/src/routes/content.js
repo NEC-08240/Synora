@@ -45,9 +45,9 @@ const isStudent = (user) => user.RoleName === 'Student';
 /** Students only see Published rows; faculty/admin see every status. */
 const statusFilter = (user, alias) => (isStudent(user) ? `AND ${alias}.Status = N'Published'` : '');
 
-/** 403 unless the user may read this subject (students: allocated to their batch). */
+/** 403 unless the user may read this subject (students: allocated to their batch; faculty: assigned to it). */
 async function assertCanReadSubject(user, subjectId) {
-  if (!isStudent(user)) return;
+  if (!isStudent(user)) return assertCanAuthorSubject(user, subjectId);
   const row = await queryOne(
     `SELECT 1 AS ok FROM dbo.FacultyAssignments WHERE SubjectId = @subjectId AND BatchId = @batchId`,
     { subjectId, batchId: user.BatchId ?? -1 },
@@ -73,7 +73,7 @@ async function loadTopic(topicId) {
 
 async function loadLesson(lessonId) {
   const lesson = await queryOne(
-    `SELECT l.*, t.SubjectId FROM dbo.Lessons l JOIN dbo.Topics t ON t.TopicId = l.TopicId WHERE l.LessonId = @id`,
+    `SELECT l.*, t.SubjectId, t.Status AS TopicStatus FROM dbo.Lessons l JOIN dbo.Topics t ON t.TopicId = l.TopicId WHERE l.LessonId = @id`,
     { id: lessonId },
   );
   if (!lesson) throw notFound('Lesson not found');
@@ -170,7 +170,7 @@ contentRouter.get('/lessons/:id', async (req, res) => {
   const lessonId = idParam(req.params.id, 'lesson id');
   const lesson = await loadLesson(lessonId);
   await assertCanReadSubject(req.user, lesson.SubjectId);
-  if (isStudent(req.user) && lesson.Status !== 'Published') throw notFound('Lesson not found');
+  if (isStudent(req.user) && (lesson.Status !== 'Published' || lesson.TopicStatus !== 'Published')) throw notFound('Lesson not found');
   const resources = await query(`SELECT * FROM dbo.LessonResources WHERE LessonId = @id ORDER BY OrderIndex`, { id: lessonId });
   if (isStudent(req.user)) {
     await query(`INSERT INTO dbo.LearningActivity (StudentId, EventType, LessonId) VALUES (@sid, N'LessonViewed', @lid)`, {
