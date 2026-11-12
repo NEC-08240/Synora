@@ -3,4 +3,4 @@ export function sandboxProblems({ labReason, adminAvailable }) {
   return [labReason, adminAvailable ? false : 'sqlcmd with Windows auth (sysadmin) unavailable'].filter(Boolean);
 }
 
-export const isRequired = (env = process.env) => env.REQUIRE_SANDBOX_TESTS === '1';
+export const isRequired = (env = process.env) => ['1', 'true'].includes(String(env.REQUIRE_SANDBOX_TESTS ?? '').toLowerCase());
