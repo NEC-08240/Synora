@@ -7,7 +7,7 @@ import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import sql from 'mssql';
 import { config } from '../src/config.js';
-import { runSql, closeSandboxPool } from '../src/practice/sql.js';
+import { runSql, closeSandboxPool, findForbiddenStatement } from '../src/practice/sql.js';
 
 const PROTECTED_DBS = ['SynoraV1', 'SynoraV1_Test', 'SynoraV1_Sandbox'];
 // Permission denials only; a missing schema must not pass as a denial.
@@ -63,6 +63,43 @@ async function clearSandbox() {
     WHERE is_ms_shipped = 0 AND type IN ('U', 'V', 'P') AND SCHEMA_NAME(schema_id) IN (N'sbx', N'dbo');
     IF LEN(@sql) > 0 EXEC sp_executesql @sql;`);
 }
+
+describe('statement validator (no database needed)', () => {
+  test('refuses EXEC, sp_/xp_ names, transaction control and SET outside an UPDATE', () => {
+    assert.equal(findForbiddenStatement("EXEC('COM'+'MIT')"), 'EXEC');
+    assert.equal(findForbiddenStatement("master..xp_cmdshell 'dir'"), 'xp_cmdshell');
+    assert.equal(findForbiddenStatement('ROLLBACK; CREATE TABLE x (id INT)'), 'ROLLBACK');
+    assert.equal(findForbiddenStatement('BEGIN TRANSACTION'), 'BEGIN TRANSACTION');
+    assert.equal(findForbiddenStatement('SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('DROP USER bob'), 'DROP USER');
+  });
+
+  test('a second SET in the same statement is refused even without a semicolon', () => {
+    assert.equal(findForbiddenStatement('UPDATE t SET a = 1 SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('UPDATE t SET a = 1; SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('UPDATE t SET a = 1'), null);
+  });
+
+  test('keywords inside comments and string literals are ignored', () => {
+    assert.equal(findForbiddenStatement('/* EXEC xp_cmdshell */ SELECT 1'), null);
+    assert.equal(findForbiddenStatement('SELECT 1 /* a /* nested */ EXEC */'), null);
+    assert.equal(findForbiddenStatement("SELECT 'it''s EXEC' AS s -- COMMIT"), null);
+  });
+
+  test('a column named committed is not a false positive', () => {
+    assert.equal(findForbiddenStatement('SELECT committed FROM t_committed'), null);
+  });
+
+  test('bracketed keyword identifiers are allowed; bracketed sp_/xp_ names are refused', () => {
+    assert.equal(findForbiddenStatement('SELECT [set], [user] FROM t'), null);
+    assert.equal(findForbiddenStatement("[xp_cmdshell] 'x'"), 'xp_cmdshell');
+  });
+
+  test('referential actions ON DELETE/UPDATE SET NULL and SET DEFAULT are allowed', () => {
+    assert.equal(findForbiddenStatement('CREATE TABLE c (a INT REFERENCES p(id) ON DELETE SET NULL)'), null);
+    assert.equal(findForbiddenStatement('CREATE TABLE c (a INT REFERENCES p(id) ON UPDATE SET DEFAULT)'), null);
+  });
+});
 
 describe('SQL sandbox', { skip: skipReason() }, () => {
   before(clearSandbox);
