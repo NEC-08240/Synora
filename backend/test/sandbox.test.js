@@ -5,6 +5,9 @@
  */
 import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import sql from 'mssql';
 import { config } from '../src/config.js';
 import { runSql, closeSandboxPool, findForbiddenStatement } from '../src/practice/sql.js';
@@ -293,5 +296,27 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
         await pool.close();
       }
     });
+  });
+});
+
+// Setup-script assertion: runs sqlcmd as the Windows admin against a throwaway DB (needs sqlcmd + admin; skipped otherwise).
+describe('sandbox_setup.sql dbo-objects assertion', { skip: !process.env.SANDBOX_DB_NAME && 'lab env not set' }, () => {
+  const db = `${process.env.SANDBOX_DB_NAME}_setupchk`;
+  const login = `${db}_l`;
+  const script = fileURLToPath(new URL('../../database/sandbox_setup.sql', import.meta.url));
+  const admin = (args) => spawnSync('sqlcmd', ['-S', process.env.DB_SERVER ?? 'localhost', '-E', '-C', '-b', ...args], { encoding: 'utf8' });
+  const setup = () => admin(['-v', `SANDBOX_DB=${db}`, `SANDBOX_LOGIN=${login}`, `SANDBOX_PASSWORD=${randomBytes(12).toString('hex')}Aa1!`, '-i', script]);
+  const adminOk = spawnSync('sqlcmd', ['-S', 'localhost', '-E', '-C', '-b', '-Q', 'SELECT 1'], { encoding: 'utf8' }).status === 0;
+
+  after(() => {
+    admin(['-Q', `IF DB_ID(N'${db}') IS NOT NULL BEGIN ALTER DATABASE [${db}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${db}]; END; IF SUSER_ID(N'${login}') IS NOT NULL DROP LOGIN [${login}]`]);
+  });
+
+  test('succeeds on an empty database, fails once a dbo object exists', { skip: !adminOk && 'sqlcmd with Windows auth unavailable' }, () => {
+    assert.equal(setup().status, 0, 'empty database passes');
+    assert.equal(admin(['-d', db, '-Q', 'CREATE TABLE dbo.owned (a int)']).status, 0);
+    const second = setup();
+    assert.notEqual(second.status, 0, 'a dbo object makes setup fail under -b');
+    assert.match(second.stdout + second.stderr, /user objects in schema dbo/);
   });
 });

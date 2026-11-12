@@ -21,6 +21,12 @@ IF DB_ID(N'$(SANDBOX_DB)') IS NULL CREATE DATABASE [$(SANDBOX_DB)];
 GO
 USE [$(SANDBOX_DB)];
 GO
+-- Students hold ALTER on schema sbx (owned by dbo), so a trigger they create there runs with ownership
+-- chaining into any dbo object. The sandbox DB must therefore hold NO dbo user objects. Fail closed.
+IF EXISTS (SELECT 1 FROM sys.objects WHERE schema_id = SCHEMA_ID(N'dbo') AND is_ms_shipped = 0)
+   OR EXISTS (SELECT 1 FROM sys.types WHERE schema_id = SCHEMA_ID(N'dbo') AND is_user_defined = 1)
+    THROW 50001, N'Sandbox database has user objects in schema dbo. Use an empty database dedicated to the sandbox.', 1;
+GO
 IF SCHEMA_ID(N'sbx') IS NULL EXEC (N'CREATE SCHEMA [sbx] AUTHORIZATION [dbo]');
 IF DATABASE_PRINCIPAL_ID(N'$(SANDBOX_LOGIN)') IS NULL CREATE USER [$(SANDBOX_LOGIN)] FOR LOGIN [$(SANDBOX_LOGIN)];
 ALTER USER [$(SANDBOX_LOGIN)] WITH DEFAULT_SCHEMA = [sbx];
