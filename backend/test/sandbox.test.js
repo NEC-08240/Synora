@@ -315,6 +315,37 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
   });
 
   // Observed behaviour, not an assumption. A direct pool (max 1) bypasses the validator on purpose.
+  describe('bypass experiments (recorded in practice-execution.md)', () => {
+    const rows = (r) => r.rows;
+    test('##global and #local temp tables do not outlive the run', async () => {
+      const made = await runSql({ sql: 'SELECT 1 AS a INTO ##h5g; SELECT 1 AS b INTO #h5t; SELECT * FROM ##h5g' });
+      assert.equal(made.error, null);
+      const next = await runSql({ sql: "SELECT OBJECT_ID('tempdb..##h5g') AS g, OBJECT_ID('tempdb..#h5t') AS l" });
+      assert.deepEqual(rows(next), [{ g: null, l: null }]);
+    });
+
+    test('a batch-aborting error leaves no object and the next run starts in a clean single transaction', async () => {
+      const failed = await runSql({ sql: "CREATE TABLE sbx.ab (a int); SELECT CAST('x' AS int)" });
+      assert.match(failed.error, /Conversion failed/);
+      const next = await runSql({ sql: "SELECT @@TRANCOUNT AS tc, OBJECT_ID('sbx.ab') AS ab" });
+      // tc = 1 is the next run's own transaction; a leaked open transaction would show 2.
+      assert.deepEqual(rows(next), [{ tc: 1, ab: null }]);
+    });
+
+    test('thousands of result sets are drained without error and the pool stays usable', async () => {
+      const many = Array.from({ length: 2000 }, (_, i) => `SELECT ${i} AS n`).join(';');
+      assert.equal((await runSql({ sql: many })).error, null);
+      assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
+    });
+
+    test('CREATE TRIGGER cannot fire inside a run (must be the first statement) and nothing persists', async () => {
+      const mixed = await runSql({ sql: 'CREATE TABLE sbx.tt (a int); CREATE TRIGGER sbx.ttr ON sbx.tt AFTER INSERT AS SELECT 1' });
+      assert.match(mixed.error, /must be the first statement/);
+      const after = await runSql({ sql: "SELECT OBJECT_ID('sbx.tt') AS t, OBJECT_ID('sbx.ttr') AS tr" });
+      assert.deepEqual(rows(after), [{ t: null, tr: null }]);
+    });
+  });
+
   describe('SET state across pooled connections (validator bypassed)', () => {
     test('SET DATEFIRST on a reused pooled connection: observed value on the next request', async () => {
       const pool = await new sql.ConnectionPool({

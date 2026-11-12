@@ -56,8 +56,8 @@ Set up by `database/sandbox_setup.sql` (idempotent; run with `sqlcmd -v SANDBOX_
 are ignored) and refuses before any database work: `EXEC`/`EXECUTE`, any `sp_`/`xp_` name,
 `COMMIT`, `ROLLBACK`, `BEGIN`/`SAVE TRAN`, `BULK`, `KILL`, `SHUTDOWN`, `RECONFIGURE`, `GRANT`,
 `REVOKE`, `DENY`, `USE`, `OPENROWSET`/`OPENQUERY`/`OPENDATASOURCE`, `CREATE|ALTER|DROP LOGIN|USER`,
-and `SET` (except `ON DELETE|UPDATE SET NULL|DEFAULT`, and a `SET` that directly follows an `UPDATE`
-in the same statement). The validator is a text scan, so it can be wrong in both directions. It is
+and `SET` (except `ON DELETE|UPDATE SET NULL|DEFAULT`, and the `SET` of a real `UPDATE <target> SET`;
+`UPDATE STATISTICS`, cursor `FOR UPDATE`, trigger `AFTER UPDATE` and `IF UPDATE(col)` do not open that permit). The validator is a text scan, so it can be wrong in both directions. It is
 not a security boundary; the permissions above are. A student can still write SQL the validator
 misses, and the database must still refuse it.
 
@@ -107,6 +107,42 @@ misses, and the database must still refuse it.
 
 For production, a per-container SQL Server (Docker `mcr.microsoft.com/mssql/server`) is the
 upgrade path if the sandbox is ever exposed beyond the trusted lab network.
+
+### Verified bypass tests (lab run, SQL Server instance with the sandbox login)
+
+Executed through `runSql` against a disposable lab database (regression tests in `backend/test/sandbox.test.js`):
+
+| Input | Result |
+|---|---|
+| `UPDATE STATISTICS ... SET`, `FOR UPDATE ... SET`, `AFTER UPDATE ... SET` variants | refused (`SET is not allowed`) |
+| `SELECT name FROM master.sys.databases` | accepted; lists only master, tempdb and the sandbox because setup runs `DENY VIEW ANY DATABASE` (without it: every database name on the instance) |
+| `SELECT ... FROM master.sys.sql_logins` | accepted; login names visible, `password_hash` is NULL |
+| three-part names into another database / msdb | denied by permissions |
+| `SELECT * INTO ##g` / `#tmp` | accepted; gone by the next run (rolled back). tempdb growth is bounded only by the 5 s timeout |
+| 2,000,000-row `SELECT INTO #big` | hit the 5 s timeout plus a failed 5 s cancel (about 10 s), rollback failed, pool recycled; next run fine |
+| `CAST('x' AS int)` / `1/0` batch abort | error returned, nothing persisted, next run sees `@@TRANCOUNT = 1` (its own transaction, no leaked one). The runner logs "rollback failed" and recycles the pool because the aborted transaction cannot be rolled back again; noisy but safe |
+| 5000 `SELECT` result sets in one batch | first set returned in about 0.4 s, pool usable afterwards (CPU not measured separately) |
+| `CREATE TRIGGER` after `CREATE TABLE` in the same batch | refused by SQL Server (must be the first statement), so a trigger cannot fire inside a run |
+| `CREATE TRIGGER ... ON sbx.t` alone, with `dbo.victim` present | the trigger statement runs; the leak detector then removes the pre-existing `sbx.t`. Trigger firing against a `dbo` object was **not** demonstrated |
+| plain `SELECT` of a `dbo` table | denied |
+
+`sandbox_setup.sql` refuses (THROW, non-zero under `-b`) a database that already contains `dbo` user objects:
+`sbx` is owned by `dbo`, so a student trigger there could chain ownership into `dbo` objects. Use an empty
+database dedicated to the sandbox. Pooled SET state: the validator refuses all SET outside a real UPDATE, and the
+DATEFIRST observation above shows no carry-over; no session-reset prelude was added.
+
+## Accepted limitations
+
+- **Slot monopolisation.** With `SANDBOX_CONCURRENCY=1` one student looping queries of about 5 s (for example
+  `WAITFOR DELAY '00:00:04'`) keeps the single slot busy and blocks the sandbox for everyone. Impact is
+  availability only. Mitigations in place: per-user execute rate limit (`RATE_LIMIT_EXECUTE_PER_MIN`), the 5 s
+  timeout, and the queue cap (`SANDBOX_QUEUE_MAX`, then 429). A later improvement is per-user fairness in the queue.
+- **In-memory JWT revocation list.** The `jti` denylist lives in process memory: a restart empties it and
+  multiple instances do not share it, so a logged-out or revoked token is honoured again until its natural expiry.
+  A password change still invalidates tokens through the `pv` claim. Upgrade path: a database table or Redis.
+- **TRUST_PROXY** must equal the real number of trusted reverse-proxy hops (`1` behind one proxy; unset with none).
+  Too low makes every client share the proxy's address (per-IP limits and lockout then hit everyone). Too high
+  lets a client forge `X-Forwarded-For` and pick its own IP, bypassing per-IP limits and lockout.
 
 ## Verification
 

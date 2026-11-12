@@ -30,7 +30,8 @@ sed "s/SynoraV1/SynoraV1_Test/g" ../database/schema.sql | sqlcmd -S localhost -E
 # grant synora_app the same roles on SynoraV1_Test, then:
 cp .env .env.test   # set DB_NAME=SynoraV1_Test and PORT=0
 # SQL sandbox tests need the separate sandbox DB (see docs/technical/practice-execution.md):
-sqlcmd -S localhost -E -i ../database/sandbox_setup.sql   # then set SANDBOX_DB_* in .env.test
+sqlcmd -S localhost -E -C -b -v SANDBOX_DB=<db> SANDBOX_LOGIN=<login> SANDBOX_PASSWORD=<pw> -i ../database/sandbox_setup.sql
+# then set SANDBOX_DB_NAME/USER/PASSWORD in .env.test (empty dedicated database; setup refuses dbo objects)
 npm run seed:test && npm test
 ```
 
