@@ -130,8 +130,8 @@ function tokenize(text) {
     } else if (ch === ',') {
       tokens.push({ kind: 'comma' });
       i += 1;
-    } else if (ch === '(') {
-      tokens.push({ kind: 'paren' });
+    } else if (ch === '(' || ch === ')') {
+      tokens.push({ kind: 'paren', value: ch });
       i += 1;
     } else {
       WORD.lastIndex = i;
@@ -156,21 +156,20 @@ function isReferentialAction(tokens, index) {
     && ['NULL', 'DEFAULT'].includes(wordAt(tokens, index + 1));
 }
 
-// Words that put UPDATE in a non-DML position: trigger event lists (AFTER/FOR/INSTEAD OF UPDATE,
-// "INSERT, UPDATE"), cursor FOR UPDATE, FK actions (ON UPDATE), and IF/AND/OR/NOT/WHEN UPDATE(col).
-const NON_DML_BEFORE_UPDATE = new Set(['ON', 'FOR', 'AFTER', 'OF', 'IF', 'AND', 'OR', 'NOT', 'WHEN']);
+// Allow-list: UPDATE starts a DML statement only after one of these. Anything else (BEFORE/AFTER/FOR/ON/
+// OF/IF/AND, a comma in a trigger event list, '(' ...) is a trigger event, cursor clause, FK action or
+// IF UPDATE(col) test and does not open the SET permit. ')' covers WITH c AS (...) UPDATE and IF EXISTS(...) UPDATE.
+// Known false positives, refused on purpose: `IF 1=1 UPDATE ...` and a second UPDATE after a statement
+// that is not separated by ';'.
+const DML_PRECEDERS = new Set(['THEN', 'ELSE', 'BEGIN', 'AS', 'TRY', 'CATCH']);
 
-/** True only for a real `UPDATE <target> SET` statement start, not STATISTICS / FOR UPDATE / trigger events. */
+/** True only when this UPDATE begins a real `UPDATE <target> SET` statement. */
 function isDmlUpdate(tokens, index) {
   const prev = tokens[index - 1];
-  if (prev?.kind === 'word' && NON_DML_BEFORE_UPDATE.has(prev.value.toUpperCase())) {
-    // WHEN directly before UPDATE is CASE WHEN UPDATE(col); MERGE uses THEN UPDATE SET.
-    return false;
-  }
-  if (prev?.kind === 'paren') return false;
-  if (tokens[index - 1]?.kind === 'comma') return false;
+  const startsStatement = prev === undefined || prev.kind === 'semi' || (prev.kind === 'paren' && prev.value === ')')
+    || (prev.kind === 'word' && DML_PRECEDERS.has(prev.value.toUpperCase()));
   const next = tokens[index + 1];
-  return next?.kind !== 'paren' && wordAt(tokens, index + 1) !== 'STATISTICS' && next !== undefined;
+  return startsStatement && next !== undefined && next.kind !== 'paren' && wordAt(tokens, index + 1) !== 'STATISTICS';
 }
 
 /**

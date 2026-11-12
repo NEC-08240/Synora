@@ -100,6 +100,31 @@ describe('statement validator (no database needed)', () => {
     assert.equal(findForbiddenStatement('IF UPDATE(a) SET XACT_ABORT ON'), 'SET');
   });
 
+  test('UPDATE in a non-DML position never opens the SET permit (allow-list)', () => {
+    for (const bad of [
+      'CREATE SECURITY POLICY p ADD BLOCK PREDICATE sbx.f(a) ON sbx.t BEFORE UPDATE SET CONTEXT_INFO 0x01',
+      'CREATE SECURITY POLICY p ADD BLOCK PREDICATE sbx.f(a) ON sbx.t AFTER UPDATE SET CONTEXT_INFO 0x01',
+      'UPDATE t SET a=1 SET DATEFIRST 1',
+      'UPDATE t SET a=1 SET DATEFIRST 1; SELECT 1',
+      'IF 1=1 UPDATE t SET a=1', // known false positive, documented
+      'SELECT 1 UPDATE t SET a=1', // not at a statement start
+    ]) assert.equal(findForbiddenStatement(bad), 'SET', bad);
+  });
+
+  test('UPDATE at a statement start stays allowed (start, ;, THEN/ELSE/BEGIN, CTE, IF EXISTS)', () => {
+    for (const ok of [
+      'UPDATE sbx.t SET a=1',
+      'WITH c AS (SELECT a FROM sbx.t) UPDATE c SET a=1',
+      'UPDATE t SET a=1; UPDATE t SET b=2',
+      'IF EXISTS (SELECT 1 FROM sbx.t) UPDATE sbx.t SET a=1 ELSE UPDATE sbx.t SET a=2',
+      'BEGIN UPDATE t SET a=1 END',
+      "UPDATE t SET updated = 1 WHERE note = 'update set x'",
+      'UPDATE t SET a = 1 OUTPUT inserted.a INTO sbx.log',
+      'CREATE TABLE sbx.c (a INT REFERENCES sbx.p(id) ON UPDATE SET NULL ON DELETE SET DEFAULT)',
+      '-- update\nUPDATE x SET a=1 FROM sbx.t x /* UPDATE SET */',
+    ]) assert.equal(findForbiddenStatement(ok), null, ok);
+  });
+
   test('real UPDATE ... SET forms are still allowed', () => {
     for (const ok of [
       'UPDATE sbx.t SET a=1',
