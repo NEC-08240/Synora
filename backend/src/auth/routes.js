@@ -46,9 +46,10 @@ authRouter.post('/login', async (req, res) => {
   if (!user || !passwordOk) {
     throw unauthorized('Invalid email or password');
   }
+  // Inactive accounts keep their reservation (a failure): only a successful sign-in clears counters.
+  if (user.Status !== 'Active') throw unauthorized('Account is not active');
   clearFailures(req.ip, normalizedEmail);
   refundAttempt(req.ip);
-  if (user.Status !== 'Active') throw unauthorized('Account is not active');
   res.cookie(COOKIE_NAME, signToken(user), cookieOptions);
   res.json({ user: publicUser(user) });
 });

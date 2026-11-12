@@ -54,12 +54,17 @@ Set up by `database/sandbox_setup.sql` (idempotent; run with `sqlcmd -v SANDBOX_
 
 `findForbiddenStatement()` tokenises both `setupScript` and `sql` (comments and string literals
 are ignored) and refuses before any database work: `EXEC`/`EXECUTE`, any `sp_`/`xp_` name,
-`COMMIT`, `ROLLBACK`, `BEGIN`/`SAVE TRAN`, `BULK`, `KILL`, `SHUTDOWN`, `RECONFIGURE`, `GRANT`,
-`REVOKE`, `DENY`, `USE`, `OPENROWSET`/`OPENQUERY`/`OPENDATASOURCE`, `CREATE|ALTER|DROP LOGIN|USER`,
-and `SET` (except `ON DELETE|UPDATE SET NULL|DEFAULT`, and the `SET` of a real `UPDATE <target> SET`;
-`UPDATE STATISTICS`, cursor `FOR UPDATE`, trigger `AFTER UPDATE` and `IF UPDATE(col)` do not open that permit). The validator is a text scan, so it can be wrong in both directions. It is
-not a security boundary; the permissions above are. A student can still write SQL the validator
-misses, and the database must still refuse it.
+`COMMIT`, `ROLLBACK`, `BEGIN`/`SAVE TRAN|TRANSACTION|DISTRIBUTED`, `BULK`, `KILL`, `SHUTDOWN`,
+`RECONFIGURE`, `GRANT`, `REVOKE`, `DENY`, `USE`, `OPENROWSET`/`OPENQUERY`/`OPENDATASOURCE`,
+`CREATE|ALTER|DROP LOGIN|USER`, and `SET`. Two exceptions: the `SET` of a foreign-key action
+(`ON DELETE|UPDATE SET NULL|DEFAULT`), and the first `SET` of an `UPDATE <target> SET`. That permit opens
+only when `UPDATE` begins a statement (start of input, after `;`, `THEN`, `ELSE`, `BEGIN`, `AS`, `TRY`,
+`CATCH`, or a closing `)` as in a CTE or `IF EXISTS(...)`) and is not `UPDATE STATISTICS` or `UPDATE (`;
+it closes at the next `;` or after that one `SET`. A second `SET` (`UPDATE t SET a=1 SET DATEFIRST 1`) is
+refused. Known false positive: `IF 1=1 UPDATE t SET ...` (a condition that does not end in `)`) is refused.
+The validator is a text scan and can be wrong in both directions. It is defense in depth, not a security
+boundary; the database permissions above are the control. A student can write SQL the validator misses, and
+the database must still refuse it.
 
 ### Per-run behaviour
 
@@ -143,6 +148,26 @@ DATEFIRST observation above shows no carry-over; no session-reset prelude was ad
 - **TRUST_PROXY** must equal the real number of trusted reverse-proxy hops (`1` behind one proxy; unset with none).
   Too low makes every client share the proxy's address (per-IP limits and lockout then hit everyone). Too high
   lets a client forge `X-Forwarded-For` and pick its own IP, bypassing per-IP limits and lockout.
+
+- **Victim lockout.** About 20 wrong guesses for an email (per-email scope) lock that account's sign-in for 15
+  minutes from any IP, even with the right password. Renewable by repeating. No admin unlock exists. Mitigations:
+  short lock, per-IP login rate limit, pair/IP scopes. Waiting out the lock or restarting the process clears it.
+- **Faculty authoring conflict.** Topics belong to the subject, so faculty can author only if assigned in every
+  batch that has the subject. Two faculty sharing a subject across batches cannot author until the admin assigns
+  the same faculty to all of those batches (or removes the other assignment). Read access is unaffected.
+- **Lockout tracker eviction.** At 10,000 tracked keys, single-failure unlocked entries are evicted first, so
+  displacing a victim's counter needs thousands of distinct IPs. Flooding with locked entries (hard bound 20,000)
+  makes each overflow rescan the map (O(n)); only the oldest locked entries are dropped past that bound.
+- **Refund can lift an IP lock early.** A correct sign-in returns its reserved per-IP slot, so it can reduce the
+  per-IP count below the lock threshold and end an IP lock before its timer. Accepted; the pair and email scopes
+  still apply to the guessed account.
+- Failure counters are cleared only after the Status check, so suspended accounts no longer reset them.
+
+## Running the sandbox tests in CI
+
+No GitHub Actions workflow exists in this repo. Set `REQUIRE_SANDBOX_TESTS=1` in CI so a missing lab database
+(`SANDBOX_DB_*`), `sqlcmd` or Windows authentication fails the run instead of skipping the sandbox tests.
+Unset, they skip and a warning is printed at start; the skipped count appears in the node test summary.
 
 ## Verification
 

@@ -10,6 +10,7 @@ import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import sql from 'mssql';
 import { config } from '../src/config.js';
+import { sandboxProblems, isRequired } from './sandbox-prereqs.js';
 import { runSql, closeSandboxPool, findForbiddenStatement } from '../src/practice/sql.js';
 
 const PROTECTED_DBS = ['SynoraV1', 'SynoraV1_Test', 'SynoraV1_Sandbox'];
@@ -159,6 +160,25 @@ describe('statement validator (no database needed)', () => {
     assert.equal(findForbiddenStatement('CREATE TABLE c (a INT REFERENCES p(id) ON DELETE SET NULL)'), null);
     assert.equal(findForbiddenStatement('CREATE TABLE c (a INT REFERENCES p(id) ON UPDATE SET DEFAULT)'), null);
   });
+});
+
+const problems = sandboxProblems({ labReason: skipReason(), adminAvailable });
+if (problems.length && !isRequired()) {
+  console.warn(`
+!!! SANDBOX TESTS WILL BE SKIPPED (${problems.join('; ')}). Set REQUIRE_SANDBOX_TESTS=1 to make this a failure.
+`);
+}
+
+test('sandbox test prerequisites are present when REQUIRE_SANDBOX_TESTS=1', () => {
+  if (!isRequired()) return;
+  assert.deepEqual(problems, [], 'REQUIRE_SANDBOX_TESTS=1 but the sandbox tests cannot run');
+});
+
+test('REQUIRE_SANDBOX_TESTS turns a missing prerequisite into a reported problem', () => {
+  assert.equal(isRequired({ REQUIRE_SANDBOX_TESTS: '1' }), true);
+  assert.equal(isRequired({}), false);
+  assert.deepEqual(sandboxProblems({ labReason: 'lab env missing: X', adminAvailable: false }).length, 2);
+  assert.deepEqual(sandboxProblems({ labReason: false, adminAvailable: true }), []);
 });
 
 describe('SQL sandbox', { skip: skipReason() }, () => {
