@@ -57,6 +57,11 @@ async function objectExists(name) {
   return recordset[0].id !== null;
 }
 
+/** Windows-auth sysadmin sqlcmd, used only to create and drop disposable peer/check databases. */
+const sqlcmdAdmin = (args) => spawnSync('sqlcmd', ['-S', process.env.DB_SERVER ?? 'localhost', '-E', '-C', '-b', ...args], { encoding: 'utf8' });
+const adminAvailable = sqlcmdAdmin(['-Q', 'SELECT 1']).status === 0;
+const dropDbSql = (db) => `IF DB_ID(N'${db}') IS NOT NULL BEGIN ALTER DATABASE [${db}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${db}]; END`;
+
 /** Drops every user object in sbx and dbo so each test starts from an empty schema. */
 async function clearSandbox() {
   await asSandbox(`
@@ -200,10 +205,41 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
       assert.match(err.message, DENIED);
     });
 
-    test('cross-database SELECT is denied', async () => {
-      const err = await deniedError('SELECT TOP 1 id FROM SynoraLab_Peer.dbo.secret');
-      assert.ok(err, 'SELECT from another database should be denied');
-      assert.match(err.message, DENIED);
+    describe('against a disposable peer database', { skip: !adminAvailable && 'sqlcmd with Windows auth unavailable' }, () => {
+      const peer = `${process.env.SANDBOX_DB_NAME}_peer`;
+      before(() => {
+        const made = sqlcmdAdmin(['-Q', `${dropDbSql(peer)}; CREATE DATABASE [${peer}]`]);
+        assert.equal(made.status, 0, 'peer database created');
+        assert.equal(sqlcmdAdmin(['-d', peer, '-Q', 'CREATE TABLE dbo.secret (id int); INSERT dbo.secret VALUES (1)']).status, 0);
+      });
+      after(() => { sqlcmdAdmin(['-Q', dropDbSql(peer)]); });
+
+      test('cross-database SELECT is denied (the peer exists, so this is a real permission denial)', async () => {
+        const err = await deniedError(`SELECT TOP 1 id FROM [${peer}].dbo.secret`);
+        assert.ok(err, 'SELECT from another database should be denied');
+        assert.match(err.message, DENIED);
+        assert.doesNotMatch(err.message, /Invalid object name|Cannot open database/i, 'not a missing-object error');
+      });
+
+      test('three-part names into the peer and msdb are denied', async () => {
+        for (const target of [`[${peer}].dbo.secret`, 'msdb.dbo.sysjobs']) {
+          const err = await deniedError(`SELECT TOP 1 * FROM ${target}`);
+          assert.ok(err, `${target} should be denied`);
+          assert.match(err.message, DENIED, target);
+        }
+      });
+    });
+
+    test('master.sys.databases shows only the sandbox, master and tempdb (VIEW ANY DATABASE is denied by setup)', async () => {
+      const { recordset } = await asSandbox('SELECT name FROM master.sys.databases');
+      const names = recordset.map((row) => row.name).sort();
+      assert.deepEqual(names, ['master', 'tempdb', process.env.SANDBOX_DB_NAME].sort());
+    });
+
+    test('master.sys.sql_logins is listable but never reveals password hashes', async () => {
+      // Recorded: the login can read login NAMES (sa, itself); password_hash is NULL without CONTROL SERVER.
+      const { recordset } = await asSandbox('SELECT name, password_hash FROM master.sys.sql_logins');
+      assert.ok(recordset.every((row) => row.password_hash === null));
     });
 
     test('xp_cmdshell is denied', async () => {
@@ -304,12 +340,12 @@ describe('sandbox_setup.sql dbo-objects assertion', { skip: !process.env.SANDBOX
   const db = `${process.env.SANDBOX_DB_NAME}_setupchk`;
   const login = `${db}_l`;
   const script = fileURLToPath(new URL('../../database/sandbox_setup.sql', import.meta.url));
-  const admin = (args) => spawnSync('sqlcmd', ['-S', process.env.DB_SERVER ?? 'localhost', '-E', '-C', '-b', ...args], { encoding: 'utf8' });
+  const admin = sqlcmdAdmin;
   const setup = () => admin(['-v', `SANDBOX_DB=${db}`, `SANDBOX_LOGIN=${login}`, `SANDBOX_PASSWORD=${randomBytes(12).toString('hex')}Aa1!`, '-i', script]);
-  const adminOk = spawnSync('sqlcmd', ['-S', 'localhost', '-E', '-C', '-b', '-Q', 'SELECT 1'], { encoding: 'utf8' }).status === 0;
+  const adminOk = adminAvailable;
 
   after(() => {
-    admin(['-Q', `IF DB_ID(N'${db}') IS NOT NULL BEGIN ALTER DATABASE [${db}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${db}]; END; IF SUSER_ID(N'${login}') IS NOT NULL DROP LOGIN [${login}]`]);
+    admin(['-Q', `${dropDbSql(db)}; IF SUSER_ID(N'${login}') IS NOT NULL DROP LOGIN [${login}]`]);
   });
 
   test('succeeds on an empty database, fails once a dbo object exists', { skip: !adminOk && 'sqlcmd with Windows auth unavailable' }, () => {
