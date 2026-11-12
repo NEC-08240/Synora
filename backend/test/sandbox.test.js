@@ -10,8 +10,9 @@ import { config } from '../src/config.js';
 import { runSql, closeSandboxPool, findForbiddenStatement } from '../src/practice/sql.js';
 
 const PROTECTED_DBS = ['SynoraV1', 'SynoraV1_Test', 'SynoraV1_Sandbox'];
-// Permission denials only; a missing schema must not pass as a denial.
-const DENIED = /permission (was )?denied|not able to access|blocked access/i;
+// Permission denials only. SQL Server reports a denied dbo create as "does not exist or you do not
+// have permission" (Msg 2760); dbo always exists, so that text means denied here.
+const DENIED = /permission (was )?denied|not able to access|blocked access|do not have permission/i;
 const REQUIRED_ENV = ['SANDBOX_DB_NAME', 'SANDBOX_DB_USER', 'SANDBOX_DB_PASSWORD'];
 
 function skipReason() {
