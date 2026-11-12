@@ -29,6 +29,13 @@ export function parseIntEnv(raw, fallback, name) {
   return n;
 }
 
+/** Integer env var that must be at least 1; unset/empty -> fallback. */
+export function parsePositiveIntEnv(raw, fallback, name) {
+  const n = parseIntEnv(raw, fallback, name);
+  if (n < 1) throw new Error(`${name} must be at least 1`);
+  return n;
+}
+
 /** DB_TRUST_SERVER_CERT only exists for a local self-signed SQL Server; never on in production. */
 export function parseTrustServerCertificate(raw, isProduction) {
   const trust = parseBooleanEnv(raw, 'DB_TRUST_SERVER_CERT');
@@ -89,6 +96,11 @@ export const config = Object.freeze({
       : null,
     sqlTimeoutMs: 5000,
     maxRows: 200,
+    // Students share the sbx schema, so sandbox runs are serial by default. Values above 1 are
+    // unsupported: the leak detector would see another run's uncommitted objects.
+    sandboxConcurrency: parsePositiveIntEnv(process.env.SANDBOX_CONCURRENCY, 1, 'SANDBOX_CONCURRENCY'),
+    // Requests waiting for a sandbox slot; beyond this they get 429.
+    sandboxQueueMax: parseIntEnv(process.env.SANDBOX_QUEUE_MAX, 8, 'SANDBOX_QUEUE_MAX'),
   }),
   corsOrigins: (process.env.CORS_ORIGINS ?? 'http://localhost:5173').split(',').map((s) => s.trim()),
 });

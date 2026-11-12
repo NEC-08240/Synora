@@ -239,5 +239,33 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
       assert.equal(await objectExists('sbx.planted'), false);
       assert.ok(warn.mock.calls.some((call) => String(call.arguments[0]).includes('planted')));
     });
+
+    test('a 10-request burst gets at least one 429 (1 running + 8 queued by default)', async () => {
+      const results = await Promise.allSettled(Array.from({ length: 10 }, () =>
+        runSql({ sql: "WAITFOR DELAY '00:00:01'; SELECT 1 AS ok" })));
+      const refused = results.filter((r) => r.status === 'rejected');
+      assert.ok(refused.length >= 1, 'expected at least one request refused by the queue');
+      assert.ok(refused.every((r) => r.reason.status === 429), 'refused requests must be HTTP 429');
+    });
+  });
+
+  // Observed behaviour, not an assumption. A direct pool (max 1) bypasses the validator on purpose.
+  describe('SET state across pooled connections (validator bypassed)', () => {
+    test('SET DATEFIRST on a reused pooled connection: observed value on the next request', async () => {
+      const pool = await new sql.ConnectionPool({
+        ...directConfig,
+        pool: { max: 1, min: 0, idleTimeoutMillis: 30000 },
+      }).connect();
+      try {
+        const first = await pool.request().query('SET DATEFIRST 1; SELECT @@SPID AS spid');
+        const second = await pool.request().query('SELECT @@SPID AS spid, @@DATEFIRST AS d');
+        // Proves the same pooled connection served both requests before reading the SET state.
+        assert.equal(second.recordset[0].spid, first.recordsets[0][0].spid, 'requests must share a connection');
+        // Observed on this server (mssql 12.7.14 + tedious): the SET does not survive the next request.
+        assert.equal(second.recordset[0].d, 7, 'observed: DATEFIRST reset to 7 on the next request');
+      } finally {
+        await pool.close();
+      }
+    });
   });
 });
