@@ -9,57 +9,51 @@ import sql from 'mssql';
 import { config } from '../config.js';
 import { HttpError, tooManyRequests } from '../http.js';
 
+const CONNECT_TIMEOUT_MS = 5000;
 const CLOSE_WARN_MS = 5000;
 // Shortcut: the setup script ships no sbx objects, so the baseline is empty. Upgrade: list any
 // template-owned sbx object names here if the setup ever creates one.
 const SHIPPED_OBJECTS = new Set();
 
-let poolPromise; // Promise<ConnectionPool>; cleared on connect failure and on recycle
-let currentPool; // the connected pool behind poolPromise
-let needsLeakCheck = false; // set when a rollback or cleanup failed; checked before the next run
-
-async function connectSandboxPool(cfg) {
+/**
+ * A brand-new single-connection pool for ONE run, so no SET option, cursor or CONTEXT_INFO from an
+ * earlier run can exist (mssql/tedious never resets pooled sessions). Closed by the caller.
+ */
+async function openRunConnection() {
+  const cfg = config.practice.sandboxDb;
+  if (!cfg) throw new HttpError(503, 'The SQL sandbox is not configured on this server');
   const pool = new sql.ConnectionPool({
     ...cfg,
+    connectionTimeout: CONNECT_TIMEOUT_MS,
     requestTimeout: config.practice.sqlTimeoutMs,
     options: { encrypt: true, trustServerCertificate: config.db.trustServerCertificate },
-    pool: { max: config.practice.sandboxConcurrency, min: 0, idleTimeoutMillis: 30000 },
+    pool: { max: 1, min: 0 },
   });
   try {
-    currentPool = await pool.connect();
-    return currentPool;
+    return await pool.connect();
   } catch (err) {
-    // Do not cache a failed connect: the next request retries (same as db.js connectPool).
-    poolPromise = undefined;
-    await pool.close().catch(() => {});
+    await closeRunConnection(pool, 'connect failed');
     throw err;
   }
 }
 
-function getSandboxPool() {
-  const cfg = config.practice.sandboxDb;
-  if (!cfg) throw new HttpError(503, 'The SQL sandbox is not configured on this server');
-  poolPromise ??= connectSandboxPool(cfg);
-  return poolPromise;
+/**
+ * Never throws and never waits longer than CLOSE_WARN_MS: pool.close() waits for a checked-out connection, so a
+ * wedged one (failed cancel) must not hold the sandbox slot. It is logged and keeps closing in the background.
+ */
+async function closeRunConnection(pool, reason) {
+  let timer;
+  const closing = pool.close().catch((err) => console.error(`sandbox: connection close failed (${reason}): ${err.message}`));
+  const stalled = new Promise((resolve) => {
+    timer = setTimeout(() => {
+      console.error(`sandbox: connection still closing ${CLOSE_WARN_MS} ms after run (${reason})`);
+      resolve();
+    }, CLOSE_WARN_MS);
+  });
+  await Promise.race([closing, stalled]);
+  clearTimeout(timer);
 }
 
-/** Drops a pool that may hold a connection in an open transaction; the next request connects a new one. */
-function recycleSandboxPool(pool, reason) {
-  if (currentPool === pool) {
-    poolPromise = undefined;
-    currentPool = undefined;
-  }
-  console.warn(`sandbox: recycling the connection pool (${reason})`);
-  const timer = setTimeout(
-    () => console.error(`sandbox: pool still closing ${CLOSE_WARN_MS} ms after recycle (${reason})`),
-    CLOSE_WARN_MS,
-  );
-  timer.unref();
-  // Fire-and-forget: pool.close() waits for checked-out connections, so it must not block a request.
-  pool.close()
-    .catch((err) => console.error(`sandbox: pool close failed (${reason}): ${err.message}`))
-    .finally(() => clearTimeout(timer));
-}
 
 export const isSqlSandboxAvailable = () => Boolean(config.practice.sandboxDb);
 
@@ -72,6 +66,7 @@ const TRANSACTION_WORDS = new Set(['TRAN', 'TRANSACTION', 'DISTRIBUTED']);
 const WORD = /[\p{L}_@#][\p{L}\p{N}_@#$]*/uy;
 // SQL Server ends a number where the letters stop fitting it (a bare exponent `1e` counts), so `0xSET` is `0x` then SET.
 const NUMBER = /0x[0-9a-f]*|(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d*)?/iy;
+
 
 /** Index just past the end of a quoted run starting at `start`; a doubled closer is an escape. */
 function endOfQuoted(text, start, closer) {
@@ -324,40 +319,36 @@ async function removeLeakedObjects(pool) {
   }
 }
 
-/** Rolls back, then runs leak cleanup. A failed rollback or cleanup recycles the pool. */
-async function finishRun(pool, tx, run) {
-  if (run.begun) {
-    try {
-      await tx.rollback();
-    } catch (err) {
-      console.error(`sandbox: rollback failed: ${err.message}`);
-      needsLeakCheck = true;
-      recycleSandboxPool(pool, 'rollback failed');
-      return;
-    }
-    if (!(await removeLeakedObjects(pool))) {
-      needsLeakCheck = true;
-      recycleSandboxPool(pool, 'leak cleanup failed');
-      return;
-    }
+const ROLLBACK_SQL = 'IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION';
+
+/**
+ * Rolls back and sweeps leaked objects. Best effort: the caller closes the connection either way, which ends the
+ * session and rolls any open transaction back server-side. The transaction is plain T-SQL on the pool's single
+ * connection (not sql.Transaction, which pins the connection and would make pool.close() wait on it forever).
+ */
+async function finishRun(pool, run) {
+  if (!run.begun) return;
+  try {
+    await pool.request().batch(ROLLBACK_SQL);
+  } catch (err) {
+    console.error(`sandbox: rollback failed: ${err.message}`);
+    return;
   }
-  if (run.aborted) recycleSandboxPool(pool, 'timeout or cancel');
+  await removeLeakedObjects(pool);
 }
 
 async function executeInTransaction(pool, { sql: studentSql, setupScript }) {
-  if (needsLeakCheck) needsLeakCheck = !(await removeLeakedObjects(pool));
-  const tx = new sql.Transaction(pool);
   const run = { begun: false, aborted: false };
   try {
-    await tx.begin();
+    await pool.request().batch('BEGIN TRANSACTION');
     run.begun = true;
     if (setupScript.trim()) {
-      const setup = await streamBatch(new sql.Request(tx), setupScript, { keepRows: false });
+      const setup = await streamBatch(new sql.Request(pool), setupScript, { keepRows: false });
       run.aborted = setup.aborted;
       // SQL errors (syntax, missing table, timeout) are the student's feedback, not a server failure.
       if (setup.error) return failure(setup.error.message);
     }
-    const student = await streamBatch(new sql.Request(tx), studentSql, { keepRows: true });
+    const student = await streamBatch(new sql.Request(pool), studentSql, { keepRows: true });
     run.aborted = student.aborted;
     if (student.error) return failure(student.error.message);
     return {
@@ -371,7 +362,16 @@ async function executeInTransaction(pool, { sql: studentSql, setupScript }) {
     run.aborted = true;
     throw err;
   } finally {
-    await finishRun(pool, tx, run);
+    await finishRun(pool, run);
+  }
+}
+
+async function runOnFreshConnection(studentSql, setupScript) {
+  const pool = await openRunConnection();
+  try {
+    return await executeInTransaction(pool, { sql: studentSql, setupScript });
+  } finally {
+    await closeRunConnection(pool, 'run finished');
   }
 }
 
@@ -379,14 +379,12 @@ async function executeInTransaction(pool, { sql: studentSql, setupScript }) {
 export async function runSql({ sql: studentSql, setupScript = '' }) {
   const forbidden = findForbiddenStatement(setupScript) ?? findForbiddenStatement(studentSql);
   if (forbidden) return failure(`${forbidden} is not allowed in the practice sandbox`);
-  return runQueued(async () => executeInTransaction(await getSandboxPool(), { sql: studentSql, setupScript }));
+  return runQueued(() => runOnFreshConnection(studentSql, setupScript));
 }
 
-export async function closeSandboxPool() {
-  const pending = poolPromise;
-  poolPromise = undefined;
-  currentPool = undefined;
-  if (!pending) return;
-  const pool = await pending.catch(() => null);
-  await pool?.close();
-}
+/** Test seam: same queue and fresh connection, but WITHOUT the validator (to plant session state). */
+export const runSqlUnvalidatedForTests = ({ sql: studentSql, setupScript = '' }) =>
+  runQueued(() => runOnFreshConnection(studentSql, setupScript));
+
+/** Kept for callers; there is no shared pool any more, so nothing to close. */
+export async function closeSandboxPool() {}
