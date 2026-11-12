@@ -8,7 +8,12 @@ import { join } from 'node:path';
 import assert from 'node:assert/strict';
 
 const BASE = process.env.SMOKE_URL ?? 'http://localhost:5173';
-const PASSWORD = process.env.SEED_PASSWORD ?? 'Synora@2026';
+// No default: the demo password must be supplied (the same SEED_PASSWORD used by `npm run seed`).
+const PASSWORD = process.env.SEED_PASSWORD;
+if (!PASSWORD) {
+  console.error('SEED_PASSWORD must be set to the demo-account password (see backend/.env.example).');
+  process.exit(1);
+}
 const DEBUG_PORT = 9333;
 const WAIT_MS = 10_000;
 const BROWSER = process.env.CHROME_PATH ?? [
