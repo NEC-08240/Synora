@@ -107,11 +107,17 @@ describe('statement validator (no database needed)', () => {
       'SELECT 1.5e3SET DATEFIRST 1': 'SET', 'SELECT .5SET DATEFIRST 1': 'SET', 'SELECT 1.SET DATEFIRST 1': 'SET',
       'SELECT 0xUSE master': 'USE', 'SELECT 0xKILL 5': 'KILL', 'SELECT 0xGRANT SELECT ON t TO u': 'GRANT',
       'SELECT 0xSHUTDOWN': 'SHUTDOWN', 'SELECT 0xROLLBACK': 'ROLLBACK', 'SELECT 0xOPENROWSET(1)': 'OPENROWSET',
-      'SELECT 12EXEC x': 'EXEC',
+      'SELECT 1eSET DATEFIRST 3': 'SET', 'SELECT 1.5eSET DATEFIRST 3': 'SET', 'SELECT .5eSET DATEFIRST 3': 'SET', 'SELECT 1e+SET DATEFIRST 3': 'SET',
     };
     for (const [text, word] of Object.entries(cases)) assert.equal(findForbiddenStatement(text), word, text);
-    for (const ok of ['SELECT col1, t2.a1b FROM sbx.t2 AS t2', 'SELECT 1 AS x', 'SELECT 0xDEADBEEF AS h, 1.5e3 AS f, .5 AS d', 'SELECT a1 FROM [t] WHERE b2 = 10']) {
+    for (const ok of ['SELECT col1, t2.a1b FROM sbx.t2 AS t2', 'SELECT 1 AS x', 'SELECT 0xDEADBEEF AS h, 1.5e3 AS f, .5 AS d', 'SELECT a1 FROM [t] WHERE b2 = 10', 'SELECT 12EXEC x']) {
       assert.equal(findForbiddenStatement(ok), null, ok);
+    }
+  });
+
+  test('a line comment ends at a bare CR, U+2028 or U+0085 (server-verified)', () => {
+    for (const sep of ['\r', '\u2028', '\u0085', '\n']) {
+      assert.equal(findForbiddenStatement(`SELECT 1 --x${sep}SET DATEFIRST 5`), 'SET', JSON.stringify(sep));
     }
   });
 

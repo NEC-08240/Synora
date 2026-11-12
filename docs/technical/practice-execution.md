@@ -66,6 +66,8 @@ connection; default cursor scope is also GLOBAL unless the database says otherwi
 Number literals are lexed like SQL Server: `0x`, `1e0`, `1.5e3`, `.5` are consumed as numbers and the keyword
 after them is still seen (`SELECT 0xSET DATEFIRST 3` runs as `SELECT 0x` then `SET`). Identifiers with digits
 (`col1`, `t2`, `a1b`) are unaffected.
+A bare exponent also counts (lab-verified: `SELECT 1eSET DATEFIRST 3`, `1.5eSET`, `.5eSET`, `1e+SET` all ran the SET), while `12EXEC x` is `12E` then alias `XEC` on the server, so it is allowed.
+Line comments (`--`) end at a bare CR, U+0085 and U+2028 as well as LF (lab-verified: the SET after each ran); the tokenizer ends them at all of those and U+2029.
 Known false positives (all refused, rewrite with `;` or a parenthesised condition): `IF 1=1 UPDATE t SET ...`,
 `IF @x IS NULL UPDATE ...`, `WHILE ... UPDATE ...`, `BEGIN ... END UPDATE` without a `;`, and a trigger body
 `AS BEGIN SET NOCOUNT ON ...` (SET is refused there).

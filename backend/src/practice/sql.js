@@ -70,8 +70,8 @@ const SIMPLE_FORBIDDEN = new Set([
 ]);
 const TRANSACTION_WORDS = new Set(['TRAN', 'TRANSACTION', 'DISTRIBUTED']);
 const WORD = /[\p{L}_@#][\p{L}\p{N}_@#$]*/uy;
-// SQL Server ends a number where the letters stop fitting it, so `0xSET` is `0x` then SET.
-const NUMBER = /0x[0-9a-f]*|(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/iy;
+// SQL Server ends a number where the letters stop fitting it (a bare exponent `1e` counts), so `0xSET` is `0x` then SET.
+const NUMBER = /0x[0-9a-f]*|(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d*)?/iy;
 
 /** Index just past the end of a quoted run starting at `start`; a doubled closer is an escape. */
 function endOfQuoted(text, start, closer) {
@@ -116,8 +116,9 @@ function tokenize(text) {
   while (i < text.length) {
     const ch = text[i];
     if (text.startsWith('--', i)) {
-      const newline = text.indexOf('\n', i);
-      i = newline === -1 ? text.length : newline;
+      // The server also ends a comment at a bare CR, U+0085 and U+2028 (lab-verified); stop at all line breaks.
+      const newline = text.slice(i).search(/[\n\r\x85\u2028\u2029]/);
+      i = newline === -1 ? text.length : i + newline;
     } else if (text.startsWith('/*', i)) {
       i = endOfBlockComment(text, i);
     } else if (ch === "'") {
