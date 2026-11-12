@@ -7,3 +7,5 @@
 - Setup now refuses a database that has `dbo` user objects and denies `VIEW ANY DATABASE`. Existing sandbox databases that
   hold `dbo` objects must be emptied or recreated before re-running setup.
 - Run the reset (`database/sandbox_reset.sql`) from a scheduler nightly; see docs/technical/practice-execution.md.
+- tempdb is instance-wide and not capped per login: set a tempdb max size and consider Resource Governor for the sandbox
+  login before exposing the sandbox. `SANDBOX_CONCURRENCY` above 1 now needs `SANDBOX_ALLOW_PARALLEL=1`.

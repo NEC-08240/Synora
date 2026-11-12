@@ -66,6 +66,8 @@ connection; default cursor scope is also GLOBAL unless the database says otherwi
 Number literals are lexed like SQL Server: `0x`, `1e0`, `1.5e3`, `.5` are consumed as numbers and the keyword
 after them is still seen (`SELECT 0xSET DATEFIRST 3` runs as `SELECT 0x` then `SET`). Identifiers with digits
 (`col1`, `t2`, `a1b`) are unaffected.
+A bare exponent also counts (lab-verified: `SELECT 1eSET DATEFIRST 3`, `1.5eSET`, `.5eSET`, `1e+SET` all ran the SET), while `12EXEC x` is `12E` then alias `XEC` on the server, so it is allowed.
+Line comments (`--`) end at a bare CR, U+0085 and U+2028 as well as LF (lab-verified: the SET after each ran); the tokenizer ends them at all of those and U+2029.
 Known false positives (all refused, rewrite with `;` or a parenthesised condition): `IF 1=1 UPDATE t SET ...`,
 `IF @x IS NULL UPDATE ...`, `WHILE ... UPDATE ...`, `BEGIN ... END UPDATE` without a `;`, and a trigger body
 `AS BEGIN SET NOCOUNT ON ...` (SET is refused there).
@@ -78,17 +80,50 @@ the database must still refuse it.
 - Each run is one transaction: `setupScript`, then the student `sql`. Results are streamed and
   never buffered past 200 rows (`config.practice.maxRows`); the 201st row cancels the request and
   sets `truncated: true`.
-- The transaction is always rolled back. After the rollback, the leak detector lists `sbx` user
-  objects (tables, views, procedures, functions, synonyms, sequences, triggers, foreign keys) and
-  drops any that escaped the transaction, with a `console.warn` per object. The baseline is empty
-  (`SHIPPED_OBJECTS`); the setup script ships no `sbx` objects.
-- Timeout (`config.practice.sqlTimeoutMs`, 5 s), cancel, failed rollback or failed leak cleanup
-  **recycles the pool**: the pool is dropped and closed in the background, so no connection stays
-  in an open transaction. The close is never awaited in the request path.
+- **A fresh SQL session per run.** Every run opens its own single-connection pool (connect timeout 5 s), runs
+  `BEGIN TRANSACTION`, the setup and student batches, `ROLLBACK`, the leak sweep, and then closes the pool in a
+  `finally`. No SET option, cursor, CONTEXT_INFO or temp object can reach the next student, because the next
+  student gets a different session (mssql/tedious never resets pooled sessions, which is why a shared pool was
+  not safe if the validator was bypassed). The validator stays as defense in depth.
+- The transaction is plain T-SQL on that connection (not `sql.Transaction`, which pins the connection so that
+  `pool.close()` waits on it). The rollback is always attempted, then the leak detector lists `sbx` user
+  objects (tables, views, procedures, functions, synonyms, sequences, triggers, foreign keys) and drops any
+  that escaped, with a `console.warn` per object. The baseline is empty (`SHIPPED_OBJECTS`).
+- Timeout (`config.practice.sqlTimeoutMs`, 5 s), cancel, SQL error, failed rollback and failed leak sweep all end
+  the same way: the connection is closed, which ends the session and rolls back server-side whatever is
+  still open. Close errors are logged, never thrown. If a close takes longer than 5 s (a wedged cancel) it is
+  logged and the slot is released while the close continues in the background. A connect failure rejects the
+  request (nothing to close beyond the half-open pool).
+- **After a timeout, cancel or connection error the run only closes.** No ROLLBACK or leak sweep is sent, because
+  the connection is already doomed and a second request could open a new connection just to clean up. Closing the
+  socket makes the server roll back. The pool's `error` event is handled (logged, marks the run broken); mssql
+  re-emits connect and acquire failures there and an unhandled one would crash the process. tedious
+  `cancelTimeout` is set explicitly to 5000 ms (its default is also 5000).
+- **Close is bounded, not guaranteed.** `pool.close()` does not guarantee that the server-side session is gone
+  (we never `KILL`). The run waits up to 10 s (`limits.closeHardMs`), then abandons the close: the slot is
+  released and the close is counted as stalled. While more than 3 closes are stalled, new runs get `503`; the
+  counter drops when a close finally settles. A close that never settles keeps the sandbox refusing after four
+  such events until the process restarts (fail closed). No `destroy` is attempted (private tarn API; in a
+  trial it prevented the close from ever settling).
+- Waiting requests give up with `429` after 30 s (`limits.queueWaitMs`); the leak sweep has a 15 s overall
+  deadline (`limits.sweepDeadlineMs`), after which the run returns and the sweep is abandoned (logged).
+- Cost: one login handshake per run (tens of milliseconds on a local server, not measured separately; the
+  sandbox suite's simple runs finish in well under 100 ms). The old pool recycle code and the
+  `needsLeakCheck` flag are gone: a bad connection is never reused, so there is nothing to recycle, and the leak
+  sweep after every rollback replaces the deferred check.
 - Runs are **serial by default** (`SANDBOX_CONCURRENCY=1`), because students share the `sbx` schema
   and overlapping runs would see each other's uncommitted objects. Up to `SANDBOX_QUEUE_MAX`
-  (default 8) requests wait in memory; the next one gets `429`. Changing `SANDBOX_CONCURRENCY`
-  above 1 is not supported.
+  (default 8) requests wait in memory; the next one gets `429`. `SANDBOX_CONCURRENCY` above 1 is unsafe
+  (one run's uncommitted `sbx` DDL blocks another run's catalog reads and leak sweep) and the server refuses to
+  start unless `SANDBOX_ALLOW_PARALLEL=1` is also set, which logs a warning.
+- Not done: cancelling after a later recordset starts (the 200-row cap applies per result set, so thousands of
+  result sets are drained until the 5 s timeout) and a total byte budget on rows. Both stay bounded by the timeout
+  and by 200 rows per set; add a total row/byte budget if memory becomes a concern.
+- **Formal RED for the shared pool.** The old code (0fb6aa9, shared pool) was run with the validator bypassed:
+  student A planted `DATEFIRST 3`, `LOCK_TIMEOUT 77`, `CONTEXT_INFO 0x1234` and a GLOBAL cursor; three later runs
+  on the same SPID all still saw DATEFIRST 3, lock timeout 77, the CONTEXT_INFO and one cursor. So the state did leak.
+  The earlier test that read DATEFIRST 7 on a reused connection was a plain request, not a transaction run; that
+  reading is unexplained and is superseded by this measurement.
 
 ### Observed results (lab run, mssql 12.7.14, tedious)
 
@@ -97,9 +132,10 @@ the database must still refuse it.
   `1e0SET DATEFIRST 4`, `.5SET DATEFIRST 6`, `0xSET NOCOUNT ON` the option really changed and stayed after the
   rollback and across later requests; a `CURSOR GLOBAL` stayed open in `sys.dm_exec_cursors`. An earlier test
   that read `DATEFIRST` back as `7` on the next request is not reproduced by this finding and is unexplained.
-  Consequence: a validator bypass leaks session state to the next student, so the validator is a real
-  guard, not decoration. No runner-side reset was added (a reset inside the transaction is rolled back;
-  reaching tedious' private reset is fragile). Upgrade path: recycle the pool/connection per run.
+  Superseded by the per-run connection above (tests plant SET/LOCK_TIMEOUT/CONTEXT_INFO/GLOBAL cursor with the
+  validator bypassed and the next run sees defaults). The finding is kept as the reason for the design.
+  Consequence (before that change): a validator bypass leaks session state to the next student, so the validator is a real
+  guard, not decoration.
   Raw `0xUSE`/`0xKILL`/`0xGRANT`/`0xSHUTDOWN`/`0xROLLBACK`/`0xOPENROWSET` were not executed (reasoned from the SET
   result that the keyword after a number literal is parsed as a statement); they are covered by the validator test.
 - A 5,000,000-row recursive CTE returns 200 rows with `truncated: true` in about 90 ms.
@@ -117,10 +153,7 @@ the database must still refuse it.
 - **The reset schedule is manual.** `database/sandbox_reset.sql` drops every `sbx` user object; run
   it with `sqlcmd` from Windows Task Scheduler (SQL Agent is installed but stopped on this server,
   and the reset does not depend on it). Run it nightly, or after any shared-state incident.
-- **Session state is only partly constrained.** The validator refuses `SET`; the DATEFIRST result
-  above is the only test evidence that pooled connections do not carry SET state. No other session
-  option was tested.
-- `trustServerCertificate` follows `DB_TRUST_SERVER_CERT` (default false); the sandbox pool uses the
+- `trustServerCertificate` follows `DB_TRUST_SERVER_CERT` (default false); each sandbox connection uses the
   same setting as the app pool.
 
 For production, a per-container SQL Server (Docker `mcr.microsoft.com/mssql/server`) is the
@@ -137,7 +170,7 @@ Executed through `runSql` against a disposable lab database (regression tests in
 | `SELECT ... FROM master.sys.sql_logins` | accepted; login names visible, `password_hash` is NULL |
 | three-part names into another database / msdb | denied by permissions |
 | `SELECT * INTO ##g` / `#tmp` | accepted; gone by the next run (rolled back). tempdb growth is bounded only by the 5 s timeout |
-| 2,000,000-row `SELECT INTO #big` | hit the 5 s timeout plus a failed 5 s cancel (about 10 s), rollback failed, pool recycled; next run fine |
+| 2,000,000-row `SELECT INTO #big` | hit the 5 s timeout plus a failed 5 s cancel (about 10 s), rollback failed, connection closed; next run fine (measured before the per-run connection change) |
 | `CAST('x' AS int)` / `1/0` batch abort | error returned, nothing persisted, next run sees `@@TRANCOUNT = 1` (its own transaction, no leaked one). The runner logs "rollback failed" and recycles the pool because the aborted transaction cannot be rolled back again; noisy but safe |
 | 5000 `SELECT` result sets in one batch | first set returned in about 0.4 s, pool usable afterwards (CPU not measured separately) |
 | `CREATE TRIGGER` after `CREATE TABLE` in the same batch | refused by SQL Server (must be the first statement), so a trigger cannot fire inside a run |
@@ -158,6 +191,10 @@ DATEFIRST observation above shows no carry-over; no session-reset prelude was ad
 - **In-memory JWT revocation list.** The `jti` denylist lives in process memory: a restart empties it and
   multiple instances do not share it, so a logged-out or revoked token is honoured again until its natural expiry.
   A password change still invalidates tokens through the `pv` claim. Upgrade path: a database table or Redis.
+- **tempdb is not capped.** `SELECT ... INTO #t`, sorts and spills inside a 5 s run can grow tempdb, which is
+  instance-wide and not limited per login. Mitigations to set on the server: a tempdb max size and
+  autogrowth cap, and Resource Governor (a workload group for the sandbox login with request memory and CPU
+  limits). Not enforced by this repository.
 - **TRUST_PROXY** must equal the real number of trusted reverse-proxy hops (`1` behind one proxy; unset with none).
   Too low makes every client share the proxy's address (per-IP limits and lockout then hit everyone). Too high
   lets a client forge `X-Forwarded-For` and pick its own IP, bypassing per-IP limits and lockout.
