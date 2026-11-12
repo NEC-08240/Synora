@@ -17,6 +17,7 @@ import { WS_PATH, takeSession } from './sessions.js';
 const GEMINI_WS = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
 const MAX_USER_TEXT = 4000;
 const IDLE_CLOSE_MS = 10 * 60 * 1000;
+const MAX_MESSAGES_PER_MIN = 30; // per connection; a student cannot run up Gemini quota with a tight loop
 
 function parseCookie(header = '') {
   const pair = header.split(';').map((s) => s.trim()).find((s) => s.startsWith(`${COOKIE_NAME}=`));
@@ -36,7 +37,8 @@ function fail(ws, code, message) {
 export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = config.ai.apiKey } = {}) {
   if (!apiKey) return fail(client, 'ai_unavailable', 'The AI tutor is not configured on this server');
 
-  const upstream = new WebSocket(`${upstreamUrl}?key=${encodeURIComponent(apiKey)}`);
+  // Key goes in a header, not the query string, so it stays out of URLs and proxy/access logs.
+  const upstream = new WebSocket(upstreamUrl, { headers: { 'x-goog-api-key': apiKey } });
   let idleTimer = setTimeout(() => client.close(1000, 'idle'), IDLE_CLOSE_MS);
   const touch = () => {
     clearTimeout(idleTimer);
@@ -79,8 +81,17 @@ export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = conf
     }
   });
 
+  let windowStart = Date.now();
+  let windowCount = 0;
   client.on('message', (data) => {
     touch();
+    if (Date.now() - windowStart >= 60 * 1000) {
+      windowStart = Date.now();
+      windowCount = 0;
+    }
+    if (++windowCount > MAX_MESSAGES_PER_MIN) {
+      return send(client, { type: 'error', code: 'rate_limited', message: 'Too many messages, slow down' });
+    }
     let msg;
     try {
       msg = JSON.parse(data.toString());

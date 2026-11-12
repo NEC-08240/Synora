@@ -70,7 +70,7 @@ Synora/
 
 Needs Node.js 22 or newer (developed on 24), SQL Server and, for C/C++ runs only, Docker.
 
-1. **Database.** Run `database/schema.sql`, then `database/sandbox_setup.sql`, as a SQL Server administrator.
+1. **Database.** Run `database/schema.sql`, then `database/sandbox_setup.sql` (run as `sqlcmd -S localhost -E -C -b -v SANDBOX_DB=.. SANDBOX_LOGIN=.. SANDBOX_PASSWORD=..`, see `backend/README.md`), as a SQL Server administrator. Schedule `database/sandbox_reset.sql` nightly.
    Create the application login described in `backend/README.md`.
 2. **Backend.**
    ```bash

@@ -11,10 +11,15 @@ import { assignmentsRouter } from './routes/assignments.js';
 import { contentRouter } from './routes/content.js';
 import { aiRouter } from './ai/sessions.js';
 import { executeRouter } from './practice/routes.js';
+import { rateLimit, userOrIpKey } from './rateLimit.js';
 
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
+  if (config.trustProxy !== undefined) app.set('trust proxy', config.trustProxy);
+  const executeLimit = rateLimit({ windowMs: 60 * 1000, max: config.rateLimits.execute, keyFn: userOrIpKey });
+  const aiSessionLimit = rateLimit({ windowMs: 60 * 1000, max: config.rateLimits.aiSessions, keyFn: userOrIpKey });
+  const loginLimit = rateLimit({ windowMs: 60 * 1000, max: config.rateLimits.login, keyFn: (req) => `ip:${req.ip}` });
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use((req, res, next) => {
@@ -31,12 +36,13 @@ export function createApp() {
   });
 
   app.get('/api/v1/health', (req, res) => res.json({ status: 'ok' }));
+  app.post('/api/v1/auth/login', loginLimit); // per-IP, independent of the lockout tracker
   app.use('/api/v1/auth', authRouter);
   app.use('/api/v1/users', requireAuth, usersRouter);
   app.use('/api/v1/batches', requireAuth, batchesRouter);
   app.use('/api/v1/assignments', requireAuth, assignmentsRouter);
-  app.use('/api/v1/ai', requireAuth, aiRouter);
-  app.use('/api/v1/execute', requireAuth, requireRole('Student', 'Faculty'), executeRouter);
+  app.use('/api/v1/ai', requireAuth, aiSessionLimit, aiRouter);
+  app.use('/api/v1/execute', requireAuth, requireRole('Student', 'Faculty'), executeLimit, executeRouter);
   app.use('/api/v1', requireAuth, contentRouter);
 
   app.use((req, res) => res.status(404).json({ error: 'Route not found' }));

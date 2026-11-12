@@ -3,12 +3,28 @@ import { config } from './config.js';
 
 let poolPromise;
 
-export function getPool() {
-  poolPromise ??= new sql.ConnectionPool({
+export function createConnectionPool() {
+  return new sql.ConnectionPool({
     ...config.db,
-    options: { encrypt: true, trustServerCertificate: true },
+    options: { encrypt: true, trustServerCertificate: config.db.trustServerCertificate },
     pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
-  }).connect();
+  });
+}
+
+async function connectPool(makePool) {
+  const pool = makePool();
+  try {
+    return await pool.connect();
+  } catch (err) {
+    // Do not cache a failed connect: the next getPool() call retries.
+    poolPromise = undefined;
+    await pool.close().catch(() => {});
+    throw err;
+  }
+}
+
+export function getPool(makePool = createConnectionPool) {
+  poolPromise ??= connectPool(makePool);
   return poolPromise;
 }
 
@@ -30,10 +46,11 @@ export async function queryOne(text, params) {
 }
 
 export async function closePool() {
-  if (!poolPromise) return;
-  const pool = await poolPromise;
+  const pending = poolPromise;
   poolPromise = undefined;
-  await pool.close();
+  if (!pending) return;
+  const pool = await pending.catch(() => null);
+  await pool?.close();
 }
 
 /** True when the error is a UNIQUE/PK violation (SQL Server 2627/2601). */
