@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import sql from 'mssql';
 import { config } from '../src/config.js';
 import { sandboxProblems, isRequired } from './sandbox-prereqs.js';
-import { runSql, runSqlUnvalidatedForTests, closeSandboxPool, findForbiddenStatement } from '../src/practice/sql.js';
+import { runSql, runSqlUnvalidatedForTests, closeSandboxPool, findForbiddenStatement, limits } from '../src/practice/sql.js';
 
 const PROTECTED_DBS = ['SynoraV1', 'SynoraV1_Test', 'SynoraV1_Sandbox'];
 // Permission denials only. SQL Server reports a denied dbo create as "does not exist or you do not
@@ -426,6 +426,11 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
       const r = sqlcmdAdmin(['-h', '-1', '-W', '-Q', `SET NOCOUNT ON; SELECT COUNT(*) FROM sys.dm_exec_sessions WHERE login_name = N'${process.env.SANDBOX_DB_USER}'`]);
       return Number(r.stdout.trim());
     };
+    // Non-stall paths must have closed the session by the time runSql resolves; allow ~300 ms for the server to notice.
+    const sessionsGoneQuickly = async () => {
+      for (let n = 0; n < 6 && sessions() !== 0; n += 1) await new Promise((r) => setTimeout(r, 50));
+      return sessions();
+    };
     const sessionsGone = async () => {
       for (let n = 0; n < 40 && sessions() !== 0; n += 1) await new Promise((r) => setTimeout(r, 250));
       return sessions();
@@ -453,10 +458,10 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
     test('no session survives a SQL error, a timeout, a failed rollback or a connect failure', { skip: !adminAvailable && 'sqlcmd unavailable' }, async (t) => {
       t.mock.method(console, 'error', () => {});
       assert.match((await runSql({ sql: "SELECT CAST('x' AS int)" })).error ?? '', /Conversion failed/);
-      assert.equal(await sessionsGone(), 0, 'after SQL error');
+      assert.equal(await sessionsGoneQuickly(), 0, 'after SQL error');
       const slow = await runSql({ sql: "WAITFOR DELAY '00:00:20'" });
-      assert.match(slow.error ?? '', /Timeout|ETIMEOUT|Request failed/i);
-      assert.equal(await sessionsGone(), 0, 'after timeout');
+      assert.match(slow.error ?? '', /Request failed to complete in \d+ms|ETIMEOUT/i);
+      assert.equal(await sessionsGoneQuickly(), 0, 'after timeout');
       const realBatch = sql.Request.prototype.batch;
       const rb = t.mock.method(sql.Request.prototype, 'batch', async function batch(text) {
         if (String(text).startsWith('IF @@TRANCOUNT')) throw new Error('injected rollback failure');
@@ -464,13 +469,115 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
       });
       assert.equal((await runSql({ sql: 'CREATE TABLE rbfail (id int); SELECT 1 AS ok' })).error, null);
       rb.mock.restore();
-      assert.equal(await sessionsGone(), 0, 'after failed rollback');
+      assert.equal(await sessionsGoneQuickly(), 0, 'after failed rollback');
       assert.equal(await objectExists('sbx.rbfail'), false);
       const conn = t.mock.method(sql.ConnectionPool.prototype, 'connect', async () => { throw new Error('injected connect failure'); });
       await assert.rejects(runSql({ sql: 'SELECT 1' }), /injected connect failure/);
       conn.mock.restore();
       assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
-      assert.equal(await sessionsGone(), 0, 'after connect failure');
+      assert.equal(await sessionsGoneQuickly(), 0, 'after connect failure');
+    });
+
+    test('a pool error event is logged, never crashes the process, and the run skips rollback', async (t) => {
+      const errors = t.mock.method(console, 'error', () => {});
+      const realConnect = sql.ConnectionPool.prototype.connect;
+      t.mock.method(sql.ConnectionPool.prototype, 'connect', async function connect(...args) {
+        const pool = await realConnect.apply(this, args);
+        this.emit('error', new Error('injected pool error'));
+        return pool;
+      });
+      const realBatch = sql.Request.prototype.batch;
+      const sent = [];
+      t.mock.method(sql.Request.prototype, 'batch', async function batch(text) {
+        sent.push(String(text));
+        return realBatch.call(this, text);
+      });
+      assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
+      assert.ok(errors.mock.calls.some((c) => /injected pool error/.test(String(c.arguments[0]))));
+      assert.ok(!sent.some((s) => s.startsWith('IF @@TRANCOUNT')), 'no rollback on a broken connection');
+    });
+
+    test('a timed-out run sends no rollback or sweep on another connection', { skip: !adminAvailable && 'sqlcmd unavailable' }, async (t) => {
+      t.mock.method(console, 'error', () => {});
+      const realBatch = sql.Request.prototype.batch;
+      const realQuery = sql.Request.prototype.query;
+      const sent = [];
+      t.mock.method(sql.Request.prototype, 'batch', async function batch(text) { sent.push(String(text)); return realBatch.call(this, text); });
+      t.mock.method(sql.Request.prototype, 'query', async function query(text) { sent.push(String(text)); return realQuery.call(this, text); });
+      await runSql({ sql: "WAITFOR DELAY '00:00:20'" });
+      assert.deepEqual(sent.filter((s) => /TRANCOUNT|sys\.objects/.test(s)), []);
+    });
+
+    test('a close that stalls frees the slot after the hard bound and is counted; too many stalled closes give 503', async (t) => {
+      t.mock.method(console, 'error', () => {});
+      const saved = { ...limits };
+      Object.assign(limits, { closeHardMs: 150, maxStalledCloses: 0 });
+      const realClose = sql.ConnectionPool.prototype.close;
+      const pending = [];
+      let stall = true;
+      t.mock.method(sql.ConnectionPool.prototype, 'close', function close() {
+        if (!stall) return realClose.call(this);
+        return new Promise((resolve) => pending.push(() => realClose.call(this).then(resolve, resolve)));
+      });
+      try {
+        const started = Date.now();
+        assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
+        assert.ok(Date.now() - started < 5000, 'slot released after the hard bound, not after the stalled close');
+        await assert.rejects(runSql({ sql: 'SELECT 1' }), (e) => e.status === 503);
+        stall = false;
+        pending.splice(0).forEach((release) => release());
+        await new Promise((r) => setTimeout(r, 300));
+        assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null, 'recovers once the stalled close settles');
+      } finally {
+        Object.assign(limits, saved);
+      }
+    });
+
+    test('leak sweep failing or hanging does not fail or hold the run', async (t) => {
+      t.mock.method(console, 'error', () => {});
+      const saved = { ...limits };
+      limits.sweepDeadlineMs = 150;
+      const realQuery = sql.Request.prototype.query;
+      let mode = 'fail';
+      t.mock.method(sql.Request.prototype, 'query', async function query(text) {
+        if (!/sys\.objects|sys\.all_objects/i.test(String(text))) return realQuery.call(this, text);
+        if (mode === 'fail') throw new Error('injected sweep failure');
+        return new Promise(() => {});
+      });
+      try {
+        assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
+        mode = 'hang';
+        const started = Date.now();
+        assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
+        assert.ok(Date.now() - started < 5000);
+      } finally {
+        Object.assign(limits, saved);
+      }
+    });
+
+    test('a request queued longer than queueWaitMs gets 429', async () => {
+      const saved = { ...limits };
+      limits.queueWaitMs = 200;
+      try {
+        const first = runSql({ sql: "WAITFOR DELAY '00:00:01'; SELECT 1 AS ok" });
+        await assert.rejects(runSql({ sql: 'SELECT 1' }), (e) => e.status === 429);
+        assert.equal((await first).error, null);
+        assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null, 'queue is clean afterwards');
+      } finally {
+        Object.assign(limits, saved);
+      }
+    });
+
+    test('SANDBOX_CONCURRENCY above 1 is refused at startup unless SANDBOX_ALLOW_PARALLEL=1', () => {
+      const load = (env) => spawnSync(process.execPath, ['--env-file=.env.test', '-e', "import('./src/config.js').then((m) => console.log('n=' + m.config.practice.sandboxConcurrency))"], {
+        env: { ...process.env, ...env }, encoding: 'utf8',
+      });
+      const refused = load({ SANDBOX_CONCURRENCY: '2', SANDBOX_ALLOW_PARALLEL: '' });
+      assert.notEqual(refused.status, 0);
+      assert.match(refused.stderr, /SANDBOX_CONCURRENCY > 1 is unsafe/);
+      const allowed = load({ SANDBOX_CONCURRENCY: '2', SANDBOX_ALLOW_PARALLEL: '1' });
+      assert.equal(allowed.status, 0, allowed.stderr);
+      assert.match(allowed.stdout, /n=2/);
     });
 
     test('20 concurrent runs respect the limit, leave no sessions, and overflow is still refused', { skip: !adminAvailable && 'sqlcmd unavailable' }, async () => {

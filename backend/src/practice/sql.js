@@ -10,7 +10,14 @@ import { config } from '../config.js';
 import { HttpError, tooManyRequests } from '../http.js';
 
 const CONNECT_TIMEOUT_MS = 5000;
-const CLOSE_WARN_MS = 5000;
+// Mutable only so tests can shrink the bounds; production uses these values.
+export const limits = {
+  closeHardMs: 10000, // a close slower than this is abandoned: slot released, counted in stalledCloses
+  maxStalledCloses: 3, // refuse new runs (503) while more than this many abandoned closes are pending
+  queueWaitMs: 30000, // longest a request waits for a slot before a 429
+  sweepDeadlineMs: 15000, // overall budget for the leak sweep
+};
+let stalledCloses = 0;
 // Shortcut: the setup script ships no sbx objects, so the baseline is empty. Upgrade: list any
 // template-owned sbx object names here if the setup ever creates one.
 const SHIPPED_OBJECTS = new Set();
@@ -18,16 +25,22 @@ const SHIPPED_OBJECTS = new Set();
 /**
  * A brand-new single-connection pool for ONE run, so no SET option, cursor or CONTEXT_INFO from an
  * earlier run can exist (mssql/tedious never resets pooled sessions). Closed by the caller.
+ * mssql re-emits connection and acquire failures as pool 'error' events; an unhandled one would crash
+ * the process, so the listener only records it on `run` (the run then skips rollback and just closes).
  */
-async function openRunConnection() {
+async function openRunConnection(run) {
   const cfg = config.practice.sandboxDb;
   if (!cfg) throw new HttpError(503, 'The SQL sandbox is not configured on this server');
   const pool = new sql.ConnectionPool({
     ...cfg,
     connectionTimeout: CONNECT_TIMEOUT_MS,
     requestTimeout: config.practice.sqlTimeoutMs,
-    options: { encrypt: true, trustServerCertificate: config.db.trustServerCertificate },
+    options: { encrypt: true, trustServerCertificate: config.db.trustServerCertificate, cancelTimeout: 5000 },
     pool: { max: 1, min: 0 },
+  });
+  pool.on('error', (err) => {
+    run.broken = true;
+    console.error(`sandbox: connection error: ${err.message}`);
   });
   try {
     return await pool.connect();
@@ -38,22 +51,31 @@ async function openRunConnection() {
 }
 
 /**
- * Never throws and never waits longer than CLOSE_WARN_MS: pool.close() waits for a checked-out connection, so a
- * wedged one (failed cancel) must not hold the sandbox slot. It is logged and keeps closing in the background.
+ * Never throws. Waits for pool.close() up to limits.closeHardMs, then abandons it: the slot is released, the
+ * close keeps running and is counted in stalledCloses (runQueued refuses new runs while too many are pending),
+ * and no destroy is attempted (an untested private API). close() does not guarantee the server-side
+ * session is gone (we never KILL); the server drops it when the socket closes.
  */
 async function closeRunConnection(pool, reason) {
   let timer;
-  const closing = pool.close().catch((err) => console.error(`sandbox: connection close failed (${reason}): ${err.message}`));
+  let settled = false;
+  const closing = pool.close()
+    .catch((err) => console.error(`sandbox: connection close failed (${reason}): ${err.message}`))
+    .finally(() => {
+      settled = true;
+    });
   const stalled = new Promise((resolve) => {
-    timer = setTimeout(() => {
-      console.error(`sandbox: connection still closing ${CLOSE_WARN_MS} ms after run (${reason})`);
-      resolve();
-    }, CLOSE_WARN_MS);
+    timer = setTimeout(resolve, limits.closeHardMs);
   });
   await Promise.race([closing, stalled]);
   clearTimeout(timer);
+  if (settled) return;
+  stalledCloses += 1;
+  console.error(`sandbox: connection close abandoned after ${limits.closeHardMs} ms (${reason})`);
+  closing.finally(() => {
+    stalledCloses -= 1;
+  });
 }
-
 
 export const isSqlSandboxAvailable = () => Boolean(config.practice.sandboxDb);
 
@@ -217,13 +239,24 @@ const failure = (message) => ({ columns: [], rows: [], rowCount: 0, truncated: f
 let running = 0;
 const waiting = [];
 
-/** Runs `job` in a slot; at most sandboxQueueMax requests wait, and the rest are refused with 429. */
+/** Runs `job` in a slot; at most sandboxQueueMax requests wait (each at most limits.queueWaitMs), the rest get 429. */
 async function runQueued(job) {
   const { sandboxConcurrency, sandboxQueueMax } = config.practice;
+  if (stalledCloses > limits.maxStalledCloses) throw new HttpError(503, 'The SQL sandbox is recovering. Try again shortly.');
   if (running < sandboxConcurrency) {
     running += 1;
   } else if (waiting.length < sandboxQueueMax) {
-    await new Promise((resolve) => waiting.push(resolve)); // the finishing job hands over its slot
+    await new Promise((resolve, reject) => {
+      const entry = () => {
+        clearTimeout(timer);
+        resolve(); // the finishing job hands over its slot
+      };
+      const timer = setTimeout(() => {
+        waiting.splice(waiting.indexOf(entry), 1);
+        reject(tooManyRequests('The SQL sandbox is busy. Try again in a moment.'));
+      }, limits.queueWaitMs);
+      waiting.push(entry);
+    });
   } else {
     throw tooManyRequests('The SQL sandbox is busy. Try again in a moment.');
   }
@@ -327,18 +360,29 @@ const ROLLBACK_SQL = 'IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION';
  * connection (not sql.Transaction, which pins the connection and would make pool.close() wait on it forever).
  */
 async function finishRun(pool, run) {
-  if (!run.begun) return;
+  // After a timeout/cancel or a connection error the session may be gone or doomed; a second request could open a
+  // new connection. Just close: that ends the session and the server rolls the transaction back.
+  if (!run.begun || run.aborted || run.broken) return;
   try {
     await pool.request().batch(ROLLBACK_SQL);
   } catch (err) {
     console.error(`sandbox: rollback failed: ${err.message}`);
     return;
   }
-  await removeLeakedObjects(pool);
+  let deadline;
+  await Promise.race([
+    removeLeakedObjects(pool),
+    new Promise((resolve) => {
+      deadline = setTimeout(() => {
+        console.error('sandbox: leak sweep exceeded its deadline');
+        resolve();
+      }, limits.sweepDeadlineMs);
+    }),
+  ]);
+  clearTimeout(deadline);
 }
 
-async function executeInTransaction(pool, { sql: studentSql, setupScript }) {
-  const run = { begun: false, aborted: false };
+async function executeInTransaction(pool, run, { sql: studentSql, setupScript }) {
   try {
     await pool.request().batch('BEGIN TRANSACTION');
     run.begun = true;
@@ -367,9 +411,10 @@ async function executeInTransaction(pool, { sql: studentSql, setupScript }) {
 }
 
 async function runOnFreshConnection(studentSql, setupScript) {
-  const pool = await openRunConnection();
+  const run = { begun: false, aborted: false, broken: false };
+  const pool = await openRunConnection(run);
   try {
-    return await executeInTransaction(pool, { sql: studentSql, setupScript });
+    return await executeInTransaction(pool, run, { sql: studentSql, setupScript });
   } finally {
     await closeRunConnection(pool, 'run finished');
   }

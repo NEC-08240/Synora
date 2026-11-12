@@ -94,14 +94,36 @@ the database must still refuse it.
   still open. Close errors are logged, never thrown. If a close takes longer than 5 s (a wedged cancel) it is
   logged and the slot is released while the close continues in the background. A connect failure rejects the
   request (nothing to close beyond the half-open pool).
+- **After a timeout, cancel or connection error the run only closes.** No ROLLBACK or leak sweep is sent, because
+  the connection is already doomed and a second request could open a new connection just to clean up. Closing the
+  socket makes the server roll back. The pool's `error` event is handled (logged, marks the run broken); mssql
+  re-emits connect and acquire failures there and an unhandled one would crash the process. tedious
+  `cancelTimeout` is set explicitly to 5000 ms (its default is also 5000).
+- **Close is bounded, not guaranteed.** `pool.close()` does not guarantee that the server-side session is gone
+  (we never `KILL`). The run waits up to 10 s (`limits.closeHardMs`), then abandons the close: the slot is
+  released and the close is counted as stalled. While more than 3 closes are stalled, new runs get `503`; the
+  counter drops when a close finally settles. A close that never settles keeps the sandbox refusing after four
+  such events until the process restarts (fail closed). No `destroy` is attempted (private tarn API; in a
+  trial it prevented the close from ever settling).
+- Waiting requests give up with `429` after 30 s (`limits.queueWaitMs`); the leak sweep has a 15 s overall
+  deadline (`limits.sweepDeadlineMs`), after which the run returns and the sweep is abandoned (logged).
 - Cost: one login handshake per run (tens of milliseconds on a local server, not measured separately; the
   sandbox suite's simple runs finish in well under 100 ms). The old pool recycle code and the
   `needsLeakCheck` flag are gone: a bad connection is never reused, so there is nothing to recycle, and the leak
   sweep after every rollback replaces the deferred check.
 - Runs are **serial by default** (`SANDBOX_CONCURRENCY=1`), because students share the `sbx` schema
   and overlapping runs would see each other's uncommitted objects. Up to `SANDBOX_QUEUE_MAX`
-  (default 8) requests wait in memory; the next one gets `429`. Changing `SANDBOX_CONCURRENCY`
-  above 1 is not supported.
+  (default 8) requests wait in memory; the next one gets `429`. `SANDBOX_CONCURRENCY` above 1 is unsafe
+  (one run's uncommitted `sbx` DDL blocks another run's catalog reads and leak sweep) and the server refuses to
+  start unless `SANDBOX_ALLOW_PARALLEL=1` is also set, which logs a warning.
+- Not done: cancelling after a later recordset starts (the 200-row cap applies per result set, so thousands of
+  result sets are drained until the 5 s timeout) and a total byte budget on rows. Both stay bounded by the timeout
+  and by 200 rows per set; add a total row/byte budget if memory becomes a concern.
+- **Formal RED for the shared pool.** The old code (0fb6aa9, shared pool) was run with the validator bypassed:
+  student A planted `DATEFIRST 3`, `LOCK_TIMEOUT 77`, `CONTEXT_INFO 0x1234` and a GLOBAL cursor; three later runs
+  on the same SPID all still saw DATEFIRST 3, lock timeout 77, the CONTEXT_INFO and one cursor. So the state did leak.
+  The earlier test that read DATEFIRST 7 on a reused connection was a plain request, not a transaction run; that
+  reading is unexplained and is superseded by this measurement.
 
 ### Observed results (lab run, mssql 12.7.14, tedious)
 
@@ -169,6 +191,10 @@ DATEFIRST observation above shows no carry-over; no session-reset prelude was ad
 - **In-memory JWT revocation list.** The `jti` denylist lives in process memory: a restart empties it and
   multiple instances do not share it, so a logged-out or revoked token is honoured again until its natural expiry.
   A password change still invalidates tokens through the `pv` claim. Upgrade path: a database table or Redis.
+- **tempdb is not capped.** `SELECT ... INTO #t`, sorts and spills inside a 5 s run can grow tempdb, which is
+  instance-wide and not limited per login. Mitigations to set on the server: a tempdb max size and
+  autogrowth cap, and Resource Governor (a workload group for the sandbox login with request memory and CPU
+  limits). Not enforced by this repository.
 - **TRUST_PROXY** must equal the real number of trusted reverse-proxy hops (`1` behind one proxy; unset with none).
   Too low makes every client share the proxy's address (per-IP limits and lockout then hit everyone). Too high
   lets a client forge `X-Forwarded-For` and pick its own IP, bypassing per-IP limits and lockout.

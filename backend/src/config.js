@@ -51,6 +51,19 @@ export function parseTrustProxy(raw) {
 
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Values above 1 are unsafe: runs share the sbx schema, so one run's uncommitted DDL blocks another's leak
+// sweep and catalog reads. Refuse at startup unless SANDBOX_ALLOW_PARALLEL=1 (then warn).
+function sandboxConcurrency() {
+  const n = parsePositiveIntEnv(process.env.SANDBOX_CONCURRENCY, 1, 'SANDBOX_CONCURRENCY');
+  if (n > 1) {
+    if (process.env.SANDBOX_ALLOW_PARALLEL !== '1') {
+      throw new Error('SANDBOX_CONCURRENCY > 1 is unsafe (shared sbx schema); set SANDBOX_ALLOW_PARALLEL=1 to override');
+    }
+    console.warn('SANDBOX_CONCURRENCY > 1 with SANDBOX_ALLOW_PARALLEL=1: runs can block each other on sbx locks');
+  }
+  return n;
+}
+
 export const config = Object.freeze({
   port: Number(process.env.PORT ?? 4000),
   isProduction,
@@ -99,7 +112,7 @@ export const config = Object.freeze({
     maxRows: 200,
     // Students share the sbx schema, so sandbox runs are serial by default. Values above 1 are
     // unsupported: the leak detector would see another run's uncommitted objects.
-    sandboxConcurrency: parsePositiveIntEnv(process.env.SANDBOX_CONCURRENCY, 1, 'SANDBOX_CONCURRENCY'),
+    sandboxConcurrency: sandboxConcurrency(),
     // Requests waiting for a sandbox slot; beyond this they get 429.
     sandboxQueueMax: parseIntEnv(process.env.SANDBOX_QUEUE_MAX, 8, 'SANDBOX_QUEUE_MAX'),
   }),
