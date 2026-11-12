@@ -127,6 +127,12 @@ function tokenize(text) {
     } else if (ch === ';') {
       tokens.push({ kind: 'semi' });
       i += 1;
+    } else if (ch === ',') {
+      tokens.push({ kind: 'comma' });
+      i += 1;
+    } else if (ch === '(') {
+      tokens.push({ kind: 'paren' });
+      i += 1;
     } else {
       WORD.lastIndex = i;
       const match = WORD.exec(text);
@@ -150,6 +156,23 @@ function isReferentialAction(tokens, index) {
     && ['NULL', 'DEFAULT'].includes(wordAt(tokens, index + 1));
 }
 
+// Words that put UPDATE in a non-DML position: trigger event lists (AFTER/FOR/INSTEAD OF UPDATE,
+// "INSERT, UPDATE"), cursor FOR UPDATE, FK actions (ON UPDATE), and IF/AND/OR/NOT/WHEN UPDATE(col).
+const NON_DML_BEFORE_UPDATE = new Set(['ON', 'FOR', 'AFTER', 'OF', 'IF', 'AND', 'OR', 'NOT', 'WHEN']);
+
+/** True only for a real `UPDATE <target> SET` statement start, not STATISTICS / FOR UPDATE / trigger events. */
+function isDmlUpdate(tokens, index) {
+  const prev = tokens[index - 1];
+  if (prev?.kind === 'word' && NON_DML_BEFORE_UPDATE.has(prev.value.toUpperCase())) {
+    // WHEN directly before UPDATE is CASE WHEN UPDATE(col); MERGE uses THEN UPDATE SET.
+    return false;
+  }
+  if (prev?.kind === 'paren') return false;
+  if (tokens[index - 1]?.kind === 'comma') return false;
+  const next = tokens[index + 1];
+  return next?.kind !== 'paren' && wordAt(tokens, index + 1) !== 'STATISTICS' && next !== undefined;
+}
+
 /**
  * Returns the name of the first statement the sandbox refuses (for example "EXEC" or "SET"), or
  * null. Defense in depth only: the database permissions are the real control. A single UPDATE
@@ -162,6 +185,8 @@ export function findForbiddenStatement(text) {
     const token = tokens[i];
     if (token.kind === 'semi') {
       setPermits = 0;
+    } else if (token.kind === 'paren' || token.kind === 'comma') {
+      continue;
     } else if (token.kind === 'ident') {
       if (SP_XP_PREFIX.test(token.value)) return token.value;
     } else {
@@ -171,7 +196,7 @@ export function findForbiddenStatement(text) {
       if (SIMPLE_FORBIDDEN.has(word)) return word;
       if ((word === 'BEGIN' || word === 'SAVE') && TRANSACTION_WORDS.has(next)) return `${word} ${next}`;
       if (['CREATE', 'ALTER', 'DROP'].includes(word) && ['LOGIN', 'USER'].includes(next)) return `${word} ${next}`;
-      if (word === 'UPDATE' && wordAt(tokens, i - 1) !== 'ON') setPermits = 1;
+      if (word === 'UPDATE' && isDmlUpdate(tokens, i)) setPermits = 1;
       if (word === 'SET' && !isReferentialAction(tokens, i)) {
         if (setPermits === 0) return 'SET';
         setPermits = 0;

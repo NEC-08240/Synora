@@ -81,6 +81,32 @@ describe('statement validator (no database needed)', () => {
     assert.equal(findForbiddenStatement('UPDATE t SET a = 1'), null);
   });
 
+  test('SET after UPDATE STATISTICS, FOR UPDATE, AFTER UPDATE or IF UPDATE() is refused', () => {
+    assert.equal(findForbiddenStatement('UPDATE STATISTICS sbx.t\nSET LOCK_TIMEOUT 0'), 'SET');
+    assert.equal(findForbiddenStatement(
+      'DECLARE c CURSOR FOR SELECT a FROM sbx.t FOR UPDATE\nSET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED'), 'SET');
+    assert.equal(findForbiddenStatement('DECLARE c CURSOR FOR SELECT a FROM sbx.t FOR UPDATE OF a SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('CREATE TRIGGER sbx.tr ON sbx.t AFTER UPDATE AS SET NOCOUNT ON; SELECT 1'), 'SET');
+    assert.equal(findForbiddenStatement('CREATE TRIGGER sbx.tr ON sbx.t AFTER INSERT, UPDATE AS SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('CREATE TRIGGER sbx.tr ON sbx.t AFTER UPDATE, DELETE AS SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('IF UPDATE(a) SET XACT_ABORT ON'), 'SET');
+  });
+
+  test('real UPDATE ... SET forms are still allowed', () => {
+    for (const ok of [
+      'UPDATE sbx.t SET a=1',
+      'UPDATE t SET a = 1 WHERE id = 2',
+      'UPDATE TOP (5) sbx.t SET a=1',
+      'UPDATE TOP (5) PERCENT t SET a=1',
+      'UPDATE x SET a=1 FROM sbx.t x JOIN sbx.u y ON x.id = y.id',
+      'UPDATE sbx.t AS x SET a=1',
+      'UPDATE sbx.t WITH (TABLOCK) SET a=1',
+      'UPDATE [dbo].[t] SET [set] = 1',
+      'UPDATE #tmp SET a=1',
+      'MERGE sbx.t AS d USING sbx.u AS s ON d.id = s.id WHEN MATCHED THEN UPDATE SET d.a = s.a;',
+    ]) assert.equal(findForbiddenStatement(ok), null, ok);
+  });
+
   test('keywords inside comments and string literals are ignored', () => {
     assert.equal(findForbiddenStatement('/* EXEC xp_cmdshell */ SELECT 1'), null);
     assert.equal(findForbiddenStatement('SELECT 1 /* a /* nested */ EXEC */'), null);
