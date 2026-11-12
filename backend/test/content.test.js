@@ -128,3 +128,27 @@ test('a student with no batch sees no subjects and cannot read topics', async ()
   assert.deepEqual((await api('GET', '/api/v1/subjects', { cookie })).body.subjects, []);
   assert.equal((await api('GET', '/api/v1/subjects/1/topics', { cookie })).status, 403);
 });
+
+test('shared subject: faculty may author only when assigned in every batch that has the subject', async () => {
+  const tag = unique();
+  const mk = async (body, path = 'users') => (await api('POST', `/api/v1/${path}`, { cookie: admin, body })).body;
+  const subject = { subjectId: (await queryOne("INSERT INTO dbo.Subjects (Title, Status) OUTPUT INSERTED.SubjectId VALUES (@t, N'Active')", { t: `Shared ${tag}` })).SubjectId };
+  const [b1, b2] = [(await mk({ name: `B1 ${tag}`, academicYear: '2026-27' }, 'batches')).batch, (await mk({ name: `B2 ${tag}`, academicYear: '2026-27' }, 'batches')).batch];
+  const makeFaculty = async (n) => {
+    const email = `sf${n}-${tag}@synora.local`;
+    const u = (await mk({ name: `SF${n}`, email, password: 'Password123', role: 'Faculty' })).user;
+    return { id: u.userId, cookie: (await api('POST', '/api/v1/auth/login', { body: { email, password: 'Password123' } })).cookie };
+  };
+  const [f1, f2] = [await makeFaculty(1), await makeFaculty(2)];
+  const assign = (batchId, f) => api('POST', '/api/v1/assignments', { cookie: admin, body: { batchId, subjectId: subject.subjectId, facultyId: f.id } });
+  const author = (cookie, orderIndex = 1) => api('POST', `/api/v1/subjects/${subject.subjectId}/topics`, { cookie, body: { title: 't', orderIndex } });
+
+  assert.equal((await author(f1.cookie)).status, 403, 'unassigned faculty refused');
+  await assign(b1.batchId, f1);
+  assert.equal((await author(f1.cookie)).status, 201, 'assigned in the only batch: allowed');
+  await assign(b2.batchId, f2);
+  assert.equal((await author(f1.cookie)).status, 403, 'a second batch has someone else: refused');
+  assert.equal((await author(f2.cookie)).status, 403, 'and vice versa');
+  assert.equal((await api('GET', `/api/v1/subjects/${subject.subjectId}/topics`, { cookie: f1.cookie })).status, 200, 'read access is unchanged');
+  assert.equal((await author(admin, 2)).status, 201, 'admin always allowed');
+});

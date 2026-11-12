@@ -47,7 +47,7 @@ const statusFilter = (user, alias) => (isStudent(user) ? `AND ${alias}.Status = 
 
 /** 403 unless the user may read this subject (students: allocated to their batch; faculty: assigned to it). */
 async function assertCanReadSubject(user, subjectId) {
-  if (!isStudent(user)) return assertCanAuthorSubject(user, subjectId);
+  if (!isStudent(user)) return assertAssignedToSubject(user, subjectId);
   const row = await queryOne(
     `SELECT 1 AS ok FROM dbo.FacultyAssignments WHERE SubjectId = @subjectId AND BatchId = @batchId`,
     { subjectId, batchId: user.BatchId ?? -1 },
@@ -55,14 +55,29 @@ async function assertCanReadSubject(user, subjectId) {
   if (!row) throw forbidden('Subject is not allocated to your batch');
 }
 
-/** 403 unless faculty is assigned to the subject (any batch). Admin always passes. */
-async function assertCanAuthorSubject(user, subjectId) {
+/** 403 unless faculty is assigned to the subject in at least one batch (read access). Admin always passes. */
+async function assertAssignedToSubject(user, subjectId) {
   if (user.RoleName === 'Administrator') return;
   const row = await queryOne(
     `SELECT 1 AS ok FROM dbo.FacultyAssignments WHERE SubjectId = @subjectId AND FacultyId = @facultyId`,
     { subjectId, facultyId: user.UserId },
   );
   if (!row) throw forbidden('You are not assigned to this subject');
+}
+
+/**
+ * Authoring edits content that every batch taking the subject sees (topics belong to the subject, not a batch),
+ * so faculty must be assigned in EVERY batch that has an assignment for it. Another faculty teaching any batch
+ * of the subject blocks authoring; the admin resolves that by assigning one faculty across the batches.
+ */
+async function assertCanAuthorSubject(user, subjectId) {
+  await assertAssignedToSubject(user, subjectId);
+  if (user.RoleName === 'Administrator') return;
+  const other = await queryOne(
+    `SELECT 1 AS ok FROM dbo.FacultyAssignments WHERE SubjectId = @subjectId AND FacultyId <> @facultyId`,
+    { subjectId, facultyId: user.UserId },
+  );
+  if (other) throw forbidden('This subject is shared with batches you are not assigned to; ask an administrator');
 }
 
 async function loadTopic(topicId) {
