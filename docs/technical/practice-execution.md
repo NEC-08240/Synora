@@ -61,7 +61,14 @@ are ignored) and refuses before any database work: `EXEC`/`EXECUTE`, any `sp_`/`
 only when `UPDATE` begins a statement (start of input, after `;`, `THEN`, `ELSE`, `BEGIN`, `AS`, `TRY`,
 `CATCH`, or a closing `)` as in a CTE or `IF EXISTS(...)`) and is not `UPDATE STATISTICS` or `UPDATE (`;
 it closes at the next `;` or after that one `SET`. A second `SET` (`UPDATE t SET a=1 SET DATEFIRST 1`) is
-refused. Known false positive: `IF 1=1 UPDATE t SET ...` (a condition that does not end in `)`) is refused.
+refused. `GLOBAL` is refused anywhere (a `DECLARE c CURSOR GLOBAL` outlives the rollback on the pooled
+connection; default cursor scope is also GLOBAL unless the database says otherwise, so the keyword ban is partial).
+Number literals are lexed like SQL Server: `0x`, `1e0`, `1.5e3`, `.5` are consumed as numbers and the keyword
+after them is still seen (`SELECT 0xSET DATEFIRST 3` runs as `SELECT 0x` then `SET`). Identifiers with digits
+(`col1`, `t2`, `a1b`) are unaffected.
+Known false positives (all refused, rewrite with `;` or a parenthesised condition): `IF 1=1 UPDATE t SET ...`,
+`IF @x IS NULL UPDATE ...`, `WHILE ... UPDATE ...`, `BEGIN ... END UPDATE` without a `;`, and a trigger body
+`AS BEGIN SET NOCOUNT ON ...` (SET is refused there).
 The validator is a text scan and can be wrong in both directions. It is defense in depth, not a security
 boundary; the database permissions above are the control. A student can write SQL the validator misses, and
 the database must still refuse it.
@@ -85,10 +92,16 @@ the database must still refuse it.
 
 ### Observed results (lab run, mssql 12.7.14, tedious)
 
-- SET state on a reused pooled connection: `SET DATEFIRST 1` in one request was read back as `7`
-  in the next request on the same connection (same `@@SPID`). So the driver does not carry
-  session SET state across requests in this setup. This is observed, not guaranteed; the validator
-  still refuses SET because the rule is cheap and a future driver change would not be noticed.
+- Pool reset (corrected, lab run with pool size 1, same `@@SPID`): mssql/tedious does NOT reset a pooled session
+  (`tedious` has `reset()` but `mssql/lib/tedious` never calls it). With `0xSET DATEFIRST 3`, `0xSET LOCK_TIMEOUT 77`,
+  `1e0SET DATEFIRST 4`, `.5SET DATEFIRST 6`, `0xSET NOCOUNT ON` the option really changed and stayed after the
+  rollback and across later requests; a `CURSOR GLOBAL` stayed open in `sys.dm_exec_cursors`. An earlier test
+  that read `DATEFIRST` back as `7` on the next request is not reproduced by this finding and is unexplained.
+  Consequence: a validator bypass leaks session state to the next student, so the validator is a real
+  guard, not decoration. No runner-side reset was added (a reset inside the transaction is rolled back;
+  reaching tedious' private reset is fragile). Upgrade path: recycle the pool/connection per run.
+  Raw `0xUSE`/`0xKILL`/`0xGRANT`/`0xSHUTDOWN`/`0xROLLBACK`/`0xOPENROWSET` were not executed (reasoned from the SET
+  result that the keyword after a number literal is parsed as a statement); they are covered by the validator test.
 - A 5,000,000-row recursive CTE returns 200 rows with `truncated: true` in about 90 ms.
 - `WAITFOR DELAY '00:00:20'` is aborted at about 5.1 s and the next request succeeds.
 
@@ -167,6 +180,7 @@ DATEFIRST observation above shows no carry-over; no session-reset prelude was ad
 
 No GitHub Actions workflow exists in this repo. Set `REQUIRE_SANDBOX_TESTS=1` in CI so a missing lab database
 (`SANDBOX_DB_*`), `sqlcmd` or Windows authentication fails the run instead of skipping the sandbox tests.
+`npm run test:ci` does this (`backend/.env.ci`); `REQUIRE_SANDBOX_TESTS` accepts `1` or `true`.
 Unset, they skip and a warning is printed at start; the skipped count appears in the node test summary.
 
 ## Verification

@@ -101,6 +101,25 @@ describe('statement validator (no database needed)', () => {
     assert.equal(findForbiddenStatement('IF UPDATE(a) SET XACT_ABORT ON'), 'SET');
   });
 
+  test('keywords glued to a number literal are still seen (0xSET, 1e0SET, .5SET)', () => {
+    const cases = {
+      'SELECT 0xSET NOCOUNT ON': 'SET', 'SELECT 1e0SET DATEFIRST 1': 'SET', 'UPDATE t SET a=0xSET LOCK_TIMEOUT 0': 'SET',
+      'SELECT 1.5e3SET DATEFIRST 1': 'SET', 'SELECT .5SET DATEFIRST 1': 'SET', 'SELECT 1.SET DATEFIRST 1': 'SET',
+      'SELECT 0xUSE master': 'USE', 'SELECT 0xKILL 5': 'KILL', 'SELECT 0xGRANT SELECT ON t TO u': 'GRANT',
+      'SELECT 0xSHUTDOWN': 'SHUTDOWN', 'SELECT 0xROLLBACK': 'ROLLBACK', 'SELECT 0xOPENROWSET(1)': 'OPENROWSET',
+      'SELECT 12EXEC x': 'EXEC',
+    };
+    for (const [text, word] of Object.entries(cases)) assert.equal(findForbiddenStatement(text), word, text);
+    for (const ok of ['SELECT col1, t2.a1b FROM sbx.t2 AS t2', 'SELECT 1 AS x', 'SELECT 0xDEADBEEF AS h, 1.5e3 AS f, .5 AS d', 'SELECT a1 FROM [t] WHERE b2 = 10']) {
+      assert.equal(findForbiddenStatement(ok), null, ok);
+    }
+  });
+
+  test('GLOBAL (cursor scope that outlives the rollback) is refused', () => {
+    assert.equal(findForbiddenStatement('DECLARE c CURSOR GLOBAL FOR SELECT 1'), 'GLOBAL');
+    assert.equal(findForbiddenStatement('DECLARE c CURSOR LOCAL FOR SELECT 1'), null);
+  });
+
   test('UPDATE in a non-DML position never opens the SET permit (allow-list)', () => {
     for (const bad of [
       'CREATE SECURITY POLICY p ADD BLOCK PREDICATE sbx.f(a) ON sbx.t BEFORE UPDATE SET CONTEXT_INFO 0x01',
@@ -176,6 +195,8 @@ test('sandbox test prerequisites are present when REQUIRE_SANDBOX_TESTS=1', () =
 
 test('REQUIRE_SANDBOX_TESTS turns a missing prerequisite into a reported problem', () => {
   assert.equal(isRequired({ REQUIRE_SANDBOX_TESTS: '1' }), true);
+  assert.equal(isRequired({ REQUIRE_SANDBOX_TESTS: 'TRUE' }), true);
+  assert.equal(isRequired({ REQUIRE_SANDBOX_TESTS: '0' }), false);
   assert.equal(isRequired({}), false);
   assert.deepEqual(sandboxProblems({ labReason: 'lab env missing: X', adminAvailable: false }).length, 2);
   assert.deepEqual(sandboxProblems({ labReason: false, adminAvailable: true }), []);

@@ -70,6 +70,8 @@ const SIMPLE_FORBIDDEN = new Set([
 ]);
 const TRANSACTION_WORDS = new Set(['TRAN', 'TRANSACTION', 'DISTRIBUTED']);
 const WORD = /[\p{L}_@#][\p{L}\p{N}_@#$]*/uy;
+// SQL Server ends a number where the letters stop fitting it, so `0xSET` is `0x` then SET.
+const NUMBER = /0x[0-9a-f]*|(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?/iy;
 
 /** Index just past the end of a quoted run starting at `start`; a doubled closer is an escape. */
 function endOfQuoted(text, start, closer) {
@@ -134,6 +136,12 @@ function tokenize(text) {
       tokens.push({ kind: 'paren', value: ch });
       i += 1;
     } else {
+      NUMBER.lastIndex = i;
+      const num = NUMBER.exec(text);
+      if (num) {
+        i = NUMBER.lastIndex;
+        continue;
+      }
       WORD.lastIndex = i;
       const match = WORD.exec(text);
       if (match) {
@@ -193,6 +201,8 @@ export function findForbiddenStatement(text) {
       const next = wordAt(tokens, i + 1);
       if (SP_XP_PREFIX.test(token.value)) return token.value;
       if (SIMPLE_FORBIDDEN.has(word)) return word;
+      // A GLOBAL cursor survives the rollback on a pooled connection (pool does not reset sessions).
+      if (word === 'GLOBAL') return word;
       if ((word === 'BEGIN' || word === 'SAVE') && TRANSACTION_WORDS.has(next)) return `${word} ${next}`;
       if (['CREATE', 'ALTER', 'DROP'].includes(word) && ['LOGIN', 'USER'].includes(next)) return `${word} ${next}`;
       if (word === 'UPDATE' && isDmlUpdate(tokens, i)) setPermits = 1;
