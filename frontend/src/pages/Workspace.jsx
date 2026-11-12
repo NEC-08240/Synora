@@ -10,14 +10,21 @@ const TABS = ['Theory', 'Objectives', 'Resources'];
 /** SCR-03 Interactive Learning Workspace: content | practice | AI tutor. */
 export default function Workspace() {
   const { lessonId } = useParams();
+  // Keyed by lesson so switching lessons remounts all state (lesson, tab, editor) instead of carrying it over.
+  return <WorkspaceLesson key={lessonId} lessonId={lessonId} />;
+}
+
+function WorkspaceLesson({ lessonId }) {
   const [lesson, setLesson] = useState(null);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('Theory');
 
   useEffect(() => {
+    let ignore = false;
     api('GET', `/lessons/${lessonId}`)
-      .then((d) => { setLesson(d.lesson); setError(''); })
-      .catch((e) => setError(e.status === 404 ? 'This lesson is not available.' : e.message));
+      .then((d) => { if (!ignore) setLesson(d.lesson); })
+      .catch((e) => { if (!ignore) setError(e.status === 404 ? 'This lesson is not available.' : e.message); });
+    return () => { ignore = true; };
   }, [lessonId]);
 
   if (error) {

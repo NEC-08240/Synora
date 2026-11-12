@@ -3,6 +3,13 @@ import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { btn, input } from '../components/Shell.jsx';
 import { homeFor, useAuth } from '../auth.jsx';
 
+/** Maps a failed login to user-facing text; the server's "not active" message is shown as-is. */
+function loginErrorMessage(err) {
+  if (err.status === 401) return /not active/i.test(err.message) ? err.message : 'Invalid email or password.';
+  if (err.status === 429) return 'Too many attempts, try later.';
+  return 'Sign-in failed. Please try again.';
+}
+
 /** SCR-01 Auth & Gateway: single login form, role-based redirect. */
 export default function Login() {
   const { user, login } = useAuth();
@@ -25,7 +32,7 @@ export default function Login() {
       const from = u.role === 'Student' ? location.state?.from : null;
       navigate(from ?? homeFor(u.role), { replace: true });
     } catch (err) {
-      setError(err.status === 401 && !/not active/i.test(err.message) ? 'Invalid email or password.' : err.message);
+      setError(loginErrorMessage(err));
     } finally {
       setBusy(false);
     }

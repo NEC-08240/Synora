@@ -11,14 +11,21 @@ export default function Hub() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    api('GET', '/subjects').then((d) => setSubjects(d.subjects)).catch((e) => setError(e.message));
+    let ignore = false;
+    api('GET', '/subjects')
+      .then((d) => { if (!ignore) setSubjects(d.subjects); })
+      .catch((e) => { if (!ignore) setError(e.message); });
+    return () => { ignore = true; };
   }, []);
+
+  const firstName = user?.name?.split(' ')[0] ?? '';
 
   return (
     <Shell title="Learning Hub">
-      <h1 className="text-3xl font-bold">Welcome back, {user.name.split(' ')[0]}!</h1>
+      <h1 className="text-3xl font-bold">Welcome back{firstName ? `, ${firstName}` : ''}!</h1>
       <p className="mb-8 text-muted">Pick a subject to continue learning.</p>
       {error && <p role="alert" className="text-warning">{error}</p>}
+      {!subjects && !error && <p className="text-muted">Loading subjects…</p>}
       {subjects && subjects.length === 0 && <p className="text-muted">No subjects are allocated to your batch yet.</p>}
       <div className="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
         {subjects?.map((s) => <SubjectCard key={s.subjectId} subject={s} />)}
@@ -35,11 +42,18 @@ function SubjectCard({ subject }) {
   const toggle = async () => {
     setOpen(!open);
     if (topics) return;
+    setError('');
     try {
       const { topics: t } = await api('GET', `/subjects/${subject.subjectId}/topics`);
-      setTopics(await Promise.all(
-        t.map(async (topic) => ({ ...topic, lessons: (await api('GET', `/topics/${topic.topicId}/lessons`)).lessons })),
-      ));
+      // One failed lesson request should not blank the whole subject.
+      const settled = await Promise.allSettled(
+        t.map((topic) => api('GET', `/topics/${topic.topicId}/lessons`)),
+      );
+      setTopics(t.map((topic, i) => ({
+        ...topic,
+        lessons: settled[i].status === 'fulfilled' ? settled[i].value.lessons : [],
+        lessonsFailed: settled[i].status === 'rejected',
+      })));
     } catch (e) {
       setError(e.message);
     }
@@ -47,7 +61,7 @@ function SubjectCard({ subject }) {
 
   return (
     <div className={card}>
-      <button onClick={toggle} className="w-full text-left" aria-expanded={open}>
+      <button onClick={toggle} className="w-full text-left" aria-expanded={open} aria-label={`${subject.title}, ${open ? 'collapse' : 'expand'} topics`}>
         <h3 className="text-lg font-bold">{subject.title}</h3>
         <p className="text-sm text-muted">{subject.description}</p>
         <p className="mt-2 text-xs text-primary">{subject.topicCount} topics {open ? '▲' : '▼'}</p>
@@ -65,7 +79,8 @@ function SubjectCard({ subject }) {
                     <Link to={`/learn/lessons/${l.lessonId}`} className="text-sm text-muted hover:text-primary">› {l.title}</Link>
                   </li>
                 ))}
-                {t.lessons.length === 0 && <li className="text-xs text-muted">No published lessons yet.</li>}
+                {t.lessonsFailed && <li role="alert" className="text-xs text-warning">Could not load lessons for this topic.</li>}
+                {!t.lessonsFailed && t.lessons.length === 0 && <li className="text-xs text-muted">No published lessons yet.</li>}
               </ul>
             </li>
           ))}
