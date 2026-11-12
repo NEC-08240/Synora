@@ -72,6 +72,7 @@ export const config = Object.freeze({
   rateLimits: Object.freeze({
     execute: parseIntEnv(process.env.RATE_LIMIT_EXECUTE_PER_MIN, 30, 'RATE_LIMIT_EXECUTE_PER_MIN'),
     aiSessions: parseIntEnv(process.env.RATE_LIMIT_AI_PER_MIN, 10, 'RATE_LIMIT_AI_PER_MIN'),
+    login: parseIntEnv(process.env.RATE_LIMIT_LOGIN_PER_MIN, 20, 'RATE_LIMIT_LOGIN_PER_MIN'),
   }),
   ai: Object.freeze({
     // Optional: without a key the AI tutor reports itself unavailable instead of failing silently.

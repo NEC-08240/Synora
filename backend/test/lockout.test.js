@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {
   LOCK_MS,
   LOCKOUT_LIMITS,
+  MAX_TRACKED,
+  beginAttempt,
+  refundAttempt,
   clearFailures,
   isLockedOut,
   recordFailure,
@@ -88,4 +91,36 @@ test('the tracker never holds more than 10000 keys (oldest evicted first)', () =
 test('verifyPassword with no stored hash still runs a bcrypt compare and returns false', async () => {
   assert.equal(await verifyPassword('anything-at-all', undefined), false);
   assert.equal(await verifyPassword('anything-at-all', null), false);
+});
+
+test('beginAttempt reserves synchronously: a burst of 30 attempts passes exactly the pair limit', () => {
+  let admitted = 0;
+  for (let i = 0; i < 30; i += 1) if (beginAttempt('10.9.0.1', 'burst@x.test', T0)) admitted += 1;
+  assert.equal(admitted, LOCKOUT_LIMITS.pair);
+  assert.equal(isLockedOut('10.9.0.1', 'burst@x.test', T0 + 1), true);
+});
+
+test('refundAttempt after a correct password returns the per-ip slot and removes a lock the reservation caused', () => {
+  const ip = '10.9.1.1';
+  for (let i = 0; i < LOCKOUT_LIMITS.ip - 1; i += 1) recordFailure(ip, `r${i}@x.test`, T0);
+  assert.equal(beginAttempt(ip, 'real@x.test', T0), true); // 30th reservation locks the ip scope
+  assert.equal(isLockedOut(ip, 'other@x.test', T0 + 1), true);
+  clearFailures(ip, 'real@x.test');
+  refundAttempt(ip);
+  assert.equal(isLockedOut(ip, 'other@x.test', T0 + 1), false);
+});
+
+test('a rotating-ip spray cannot evict a victim email counter or any active lock', () => {
+  const victim = 'evict-victim@x.test';
+  const lockedIp = '10.9.2.1';
+  failMany('10.9.2.2', victim, 3, T0);
+  failMany(lockedIp, 'locked-user@x.test', LOCKOUT_LIMITS.pair, T0);
+  for (let i = 0; i < MAX_TRACKED; i += 1) {
+    recordFailure(`10.10.${Math.floor(i / 250)}.${i % 250}`, `spray${i}@evict.test`, T0);
+  }
+  assert.ok(trackedCount() <= MAX_TRACKED, `tracked ${trackedCount()}`);
+  assert.equal(isLockedOut(lockedIp, 'locked-user@x.test', T0 + 1), true, 'lock survived the spray');
+  // The victim's counter survived: two more failures (3 + 2 = pair limit) lock that pair.
+  failMany('10.9.2.2', victim, LOCKOUT_LIMITS.pair - 3, T0 + 1);
+  assert.equal(isLockedOut('10.9.2.2', victim, T0 + 2), true, 'victim counter was not evicted');
 });

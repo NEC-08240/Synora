@@ -5,7 +5,7 @@ import { config } from '../config.js';
 import { queryOne } from '../db.js';
 import { tooManyRequests, unauthorized } from '../http.js';
 import { validate } from '../validate.js';
-import { clearFailures, isLockedOut, recordFailure } from './lockout.js';
+import { beginAttempt, clearFailures, refundAttempt } from './lockout.js';
 import { COOKIE_NAME, cookieOptions, requireAuth, revokeToken, signToken } from './middleware.js';
 
 export const authRouter = Router();
@@ -33,7 +33,8 @@ authRouter.post('/login', async (req, res) => {
     password: { type: 'string', required: true, max: 200 },
   });
   const normalizedEmail = email.toLowerCase();
-  if (isLockedOut(req.ip, normalizedEmail)) throw tooManyRequests('Too many failed sign-in attempts. Try again later.');
+  // Reserve before any await: the reservation is the recorded failure unless the password turns out right.
+  if (!beginAttempt(req.ip, normalizedEmail)) throw tooManyRequests('Too many failed sign-in attempts. Try again later.');
   const user = await queryOne(
     `SELECT u.UserId, u.Name, u.Email, u.PasswordHash, u.Status, u.BatchId, r.RoleName
        FROM dbo.Users u JOIN dbo.Roles r ON r.RoleId = u.RoleId
@@ -43,10 +44,10 @@ authRouter.post('/login', async (req, res) => {
   const passwordOk = await verifyPassword(password, user?.PasswordHash);
   // Same message for unknown email and wrong password so accounts cannot be enumerated.
   if (!user || !passwordOk) {
-    recordFailure(req.ip, normalizedEmail);
     throw unauthorized('Invalid email or password');
   }
   clearFailures(req.ip, normalizedEmail);
+  refundAttempt(req.ip);
   if (user.Status !== 'Active') throw unauthorized('Account is not active');
   res.cookie(COOKIE_NAME, signToken(user), cookieOptions);
   res.json({ user: publicUser(user) });

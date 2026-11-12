@@ -19,6 +19,7 @@ export function createApp() {
   if (config.trustProxy !== undefined) app.set('trust proxy', config.trustProxy);
   const executeLimit = rateLimit({ windowMs: 60 * 1000, max: config.rateLimits.execute, keyFn: userOrIpKey });
   const aiSessionLimit = rateLimit({ windowMs: 60 * 1000, max: config.rateLimits.aiSessions, keyFn: userOrIpKey });
+  const loginLimit = rateLimit({ windowMs: 60 * 1000, max: config.rateLimits.login, keyFn: (req) => `ip:${req.ip}` });
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
   app.use((req, res, next) => {
@@ -35,6 +36,7 @@ export function createApp() {
   });
 
   app.get('/api/v1/health', (req, res) => res.json({ status: 'ok' }));
+  app.post('/api/v1/auth/login', loginLimit); // per-IP, independent of the lockout tracker
   app.use('/api/v1/auth', authRouter);
   app.use('/api/v1/users', requireAuth, usersRouter);
   app.use('/api/v1/batches', requireAuth, batchesRouter);

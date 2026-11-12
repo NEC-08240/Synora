@@ -14,7 +14,9 @@ export const LOCK_MS = 15 * 60 * 1000;
 /** Quiet period after the last failure (or the end of a lock) before counts start again from zero. */
 const WINDOW_MS = LOCK_MS;
 export const LOCKOUT_LIMITS = Object.freeze({ pair: 5, email: 20, ip: 30 });
-const MAX_TRACKED = 10000;
+export const MAX_TRACKED = 10000;
+/** Locked entries are kept past MAX_TRACKED (so rotating IPs cannot evict a lock) up to this hard bound. */
+const MAX_LOCKED_TRACKED = MAX_TRACKED * 2;
 const SWEEP_MS = 60 * 1000;
 
 const failures = new Map(); // scopeKey -> { count, lastFailureAt, lockedUntil }
@@ -45,7 +47,48 @@ export function recordFailure(ip, email, now = Date.now()) {
     failures.delete(key); // re-insert so Map order tracks recency for eviction
     failures.set(key, { count, lastFailureAt: now, lockedUntil });
   }
-  while (failures.size > MAX_TRACKED) failures.delete(failures.keys().next().value);
+  if (failures.size > MAX_TRACKED) evict(now);
+}
+
+/**
+ * Frees room without letting rotating-IP junk push out a victim's counters: drops oldest single-failure
+ * unlocked entries first (what an attacker's spray creates), then oldest unlocked entries, and only past the
+ * hard bound the oldest locked ones. Trims to 90% so the O(n) scan is amortised.
+ */
+function evict(now) {
+  const target = Math.floor(MAX_TRACKED * 0.9);
+  const passes = [(e) => e.lockedUntil <= now && e.count <= 1, (e) => e.lockedUntil <= now];
+  for (const eligible of passes) {
+    for (const [key, entry] of failures) {
+      if (failures.size <= target) return;
+      if (eligible(entry)) failures.delete(key);
+    }
+  }
+  for (const key of failures.keys()) {
+    if (failures.size <= MAX_LOCKED_TRACKED) return;
+    failures.delete(key);
+  }
+}
+
+/**
+ * Atomically (no await) checks the lock and reserves this attempt as a failure in every scope. Callers MUST
+ * call this before any async work, so N parallel guesses cannot all pass the lock check before the first
+ * result is known. Returns false when locked. After a correct password call `refundAttempt`; otherwise the
+ * reservation simply stands as the recorded failure.
+ */
+export function beginAttempt(ip, email, now = Date.now()) {
+  if (isLockedOut(ip, email, now)) return false;
+  recordFailure(ip, email, now);
+  return true;
+}
+
+/** Undoes the per-IP part of a reservation after a correct password (pair/email are cleared separately). */
+export function refundAttempt(ip) {
+  const key = `ip:${ip}`;
+  const entry = failures.get(key);
+  if (!entry) return;
+  const count = Math.max(0, entry.count - 1);
+  failures.set(key, { ...entry, count, lockedUntil: count < LOCKOUT_LIMITS.ip ? 0 : entry.lockedUntil });
 }
 
 /** Successful sign-in clears this pair and this email; the per-IP counter is left alone. */
