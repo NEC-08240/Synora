@@ -64,7 +64,8 @@ import { stateAfterErrorFrame, boundaryState, SESSION_EXPIRED_MESSAGE } from '..
 
 test('tutor: an error frame while replying returns the chat to ready, other states are kept', () => {
   assert.equal(stateAfterErrorFrame('replying'), 'ready');
-  for (const s of ['connecting', 'ready', 'closed', 'error']) assert.equal(stateAfterErrorFrame(s), s);
+  assert.equal(stateAfterErrorFrame('connecting'), 'error');
+  for (const s of ['ready', 'closed', 'error']) assert.equal(stateAfterErrorFrame(s), s);
 });
 
 test('error boundary state can recover (reset) after a crash; expiry message is non-empty', () => {

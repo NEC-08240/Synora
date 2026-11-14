@@ -54,3 +54,4 @@ __pycache__/
 
 # Claude Code local state and worktrees
 .claude/
+smoke.out
