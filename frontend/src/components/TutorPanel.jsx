@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
+import { stateAfterErrorFrame } from '../uiState.js';
 import { btn, input } from './Shell.jsx';
 
 const CONNECT_TIMEOUT_MS = 15000;
@@ -67,7 +68,12 @@ export default function TutorPanel({ lessonId }) {
       stopTimer();
       setState('ready');
       markLastDone();
-    } else if (frame.type === 'error') setNotice(frame.message);
+    } else if (frame.type === 'error') {
+      stopTimer(); // otherwise the stale reply timer later replaces this message with "stopped replying"
+      setState(stateAfterErrorFrame);
+      markLastDone();
+      setNotice(frame.message);
+    }
   };
 
   const connect = async () => {

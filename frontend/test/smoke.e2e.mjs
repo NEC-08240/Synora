@@ -110,6 +110,14 @@ try {
   await waitFor(`${atPath('/learn')} && ${hasText('C Programming')}`, 'student hub with subjects');
   step('student signs in and sees the learning hub (SCR-02)');
 
+  await send('Network.enable');
+  await send('Network.clearBrowserCookies'); // simulate an expired session
+  await click('button', 'C Programming');
+  await waitFor(`${atPath('/login')} && ${hasText('Your session has expired')}`, 'session-expired message on login');
+  step('expired session returns to login with a session-expired message');
+  await signIn('student@synora.local');
+  await waitFor(`${atPath('/learn')} && ${hasText('C Programming')}`, 'student hub after re-login');
+
   await click('button', 'C Programming');
   await waitFor(`document.querySelector('a[href^="/learn/lessons/"]')`, 'lesson links under the subject');
   await evaluate(`document.querySelector('a[href^="/learn/lessons/"]').click()`);

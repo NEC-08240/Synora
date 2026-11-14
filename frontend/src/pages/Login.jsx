@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { btn, input } from '../components/Shell.jsx';
 import { homeFor, useAuth } from '../auth.jsx';
+import { SESSION_EXPIRED_MESSAGE } from '../uiState.js';
 
 /** Maps a failed login to user-facing text; the server's "not active" message is shown as-is. */
 function loginErrorMessage(err) {
@@ -12,7 +13,7 @@ function loginErrorMessage(err) {
 
 /** SCR-01 Auth & Gateway: single login form, role-based redirect. */
 export default function Login() {
-  const { user, login } = useAuth();
+  const { user, expired, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState('');
@@ -51,6 +52,7 @@ export default function Login() {
           <span className="text-muted">Password</span>
           <input className={input} type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
+        {expired && !error && <p role="status" className="text-sm text-warning">{SESSION_EXPIRED_MESSAGE}</p>}
         {error && <p role="alert" className="text-sm text-warning">{error}</p>}
         <button className={`${btn} w-full`} disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
       </form>

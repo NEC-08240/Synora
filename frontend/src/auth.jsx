@@ -6,9 +6,10 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined); // undefined = loading, null = anonymous
+  const [expired, setExpired] = useState(false); // true after a 401 on a signed-in session
 
   useEffect(() => {
-    setUnauthorizedHandler(() => setUser(null));
+    setUnauthorizedHandler(() => { setExpired(true); setUser(null); });
     return () => setUnauthorizedHandler(null);
   }, []);
 
@@ -18,15 +19,17 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const d = await api('POST', '/auth/login', { email, password });
+    setExpired(false);
     setUser(d.user);
     return d.user;
   };
   const logout = async () => {
     await api('POST', '/auth/logout').catch(() => {});
+    setExpired(false);
     setUser(null);
   };
 
-  return <AuthContext.Provider value={{ user, login, logout }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, expired, login, logout }}>{children}</AuthContext.Provider>;
 }
 
 export const useAuth = () => useContext(AuthContext);

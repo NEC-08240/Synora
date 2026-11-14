@@ -59,3 +59,16 @@ test('a non-JSON error response still produces an ApiError', async () => {
   globalThis.fetch = async () => ({ ok: false, status: 502, text: async () => '<html>Bad Gateway</html>' });
   await assert.rejects(api('GET', '/subjects'), (e) => e instanceof ApiError && e.status === 502);
 });
+
+import { stateAfterErrorFrame, boundaryState, SESSION_EXPIRED_MESSAGE } from '../src/uiState.js';
+
+test('tutor: an error frame while replying returns the chat to ready, other states are kept', () => {
+  assert.equal(stateAfterErrorFrame('replying'), 'ready');
+  for (const s of ['connecting', 'ready', 'closed', 'error']) assert.equal(stateAfterErrorFrame(s), s);
+});
+
+test('error boundary state can recover (reset) after a crash; expiry message is non-empty', () => {
+  assert.equal(boundaryState.crashed.failed, true);
+  assert.equal(boundaryState.ok.failed, false);
+  assert.match(SESSION_EXPIRED_MESSAGE, /session has expired/i);
+});
