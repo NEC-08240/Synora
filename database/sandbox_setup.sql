@@ -1,11 +1,12 @@
 /*
   Student SQL sandbox (handoff section 9.3): a SEPARATE database and a least-privilege login.
   Idempotent. Run as a sysadmin with Windows auth; the name and password come in as sqlcmd
-  variables so no password is stored in this file:
+  variables so no password is stored in this file. The password comes ONLY from the
+  SANDBOX_PASSWORD environment variable (sqlcmd reads it); never pass it with -v:
 
-    sqlcmd -S localhost -E -C -b -v SANDBOX_DB=<db> SANDBOX_LOGIN=<login> SANDBOX_PASSWORD=<pw> -i database\sandbox_setup.sql
+    sqlcmd -S localhost -E -C -b -v SANDBOX_DB=<db> SANDBOX_LOGIN=<login> -i database\sandbox_setup.sql
 
-  The -v value is visible in the process list while sqlcmd runs. Mirror the same values into
+  Command-line values are visible in the process list and shell history. Mirror the same values into
   backend/.env (SANDBOX_DB_NAME, SANDBOX_DB_USER, SANDBOX_DB_PASSWORD).
   These permissions are the real control. The app-side validator is defense in depth only.
   Sandbox object reset: database/sandbox_reset.sql (scheduled, not SQL Agent).
@@ -20,6 +21,18 @@ IF LOWER(N'$(SANDBOX_DB)') IN (N'synorav1', N'synorav1_test', N'master', N'model
     THROW 50003, N'SANDBOX_DB must be a dedicated sandbox/lab database (name contains sandbox, sbx or lab) and never an application or system database.', 1;
 IF LOWER(N'$(SANDBOX_LOGIN)') IN (N'sa', N'synora_app') OR IS_SRVROLEMEMBER(N'sysadmin', N'$(SANDBOX_LOGIN)') = 1
     THROW 50004, N'SANDBOX_LOGIN must be a dedicated sandbox login, not sa, synora_app or a sysadmin.', 1;
+IF LOWER(N'$(SANDBOX_LOGIN)') NOT LIKE N'%sandbox%' AND LOWER(N'$(SANDBOX_LOGIN)') NOT LIKE N'%sbx%'
+    THROW 50005, N'SANDBOX_LOGIN name must contain sandbox or sbx so an unrelated login is never rotated.', 1;
+-- The password is pasted into T-SQL below: allow only characters that cannot break out of the string.
+IF N'$(SANDBOX_PASSWORD)' LIKE N'%[^A-Za-z0-9_.!@#%-]%' OR LEN(N'$(SANDBOX_PASSWORD)') < 16
+    THROW 50006, N'SANDBOX_PASSWORD must be 16+ characters from A-Z a-z 0-9 _ . ! @ # % - only.', 1;
+-- Fail closed BEFORE the login is changed: an existing sandbox DB must hold no dbo user objects.
+IF DB_ID(N'$(SANDBOX_DB)') IS NOT NULL
+BEGIN
+    DECLARE @n INT;
+    EXEC sp_executesql N'SELECT @n = COUNT(*) FROM [$(SANDBOX_DB)].sys.objects WHERE schema_id = SCHEMA_ID(N''dbo'') AND is_ms_shipped = 0', N'@n INT OUTPUT', @n = @n OUTPUT;
+    IF @n > 0 THROW 50007, N'Sandbox database has user objects in schema dbo; refusing before any login change.', 1;
+END
 GO
 USE [master];
 GO

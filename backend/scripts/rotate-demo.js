@@ -35,7 +35,7 @@ async function main() {
     await tx.commit();
     console.log('rotated 3 demo accounts');
   } catch (err) {
-    await tx.rollback();
+    await tx.rollback().catch(() => {}); // keep the original error; re-check the hashes before retrying
     throw err;
   }
 }
