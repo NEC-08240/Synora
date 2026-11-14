@@ -3,8 +3,12 @@
    Source of truth: docs/database/database-design.md (20 entities, D1-D5)
    Target: SQL Server 2019+ (developed and executed on SQL Server 2022)
 
-   How to run: open in SSMS, execute the whole file (F5). It creates the
-   database SynoraV1 if missing, then the 20 tables, constraints and indexes.
+   How to run (SQLCMD mode; the target database is REQUIRED, there is no default):
+     sqlcmd -S localhost -E -C -b -v DB_NAME=SynoraV1 -i database\schema.sql
+   In SSMS enable Query > SQLCMD Mode and add `:setvar DB_NAME <name>` first.
+   It creates the database $(DB_NAME) if missing, then the 20 tables,
+   constraints and indexes. Use a throwaway name (e.g. SynoraScratch) to
+   experiment; never point experiments at SynoraV1 or any *_Sandbox database.
    Re-runnable: every object is created only if it does not already exist, and
    nothing is dropped. It never drops or alters existing data.
 
@@ -14,15 +18,20 @@
    everything else is NO ACTION.
    ============================================================================= */
 
+:on error exit
 SET NOCOUNT ON;
 SET QUOTED_IDENTIFIER ON;   -- required by the filtered index (sqlcmd defaults to OFF; SSMS to ON)
 GO
 
-IF DB_ID(N'SynoraV1') IS NULL
-    CREATE DATABASE SynoraV1;
+IF N'$(DB_NAME)' LIKE N'%[_]Sandbox%'
+    THROW 50001, N'Refusing to build the application schema in a sandbox database.', 1;
 GO
 
-USE SynoraV1;
+IF DB_ID(N'$(DB_NAME)') IS NULL
+    CREATE DATABASE [$(DB_NAME)];
+GO
+
+USE [$(DB_NAME)];
 GO
 
 /* ------------------------------ D1 User Data ------------------------------ */

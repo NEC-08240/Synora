@@ -454,7 +454,7 @@ The ER diagram introduces no schema change. If this file changes, update the `.m
 
 ## 11. SQL Server Implementation
 
-- `database/schema.sql` creates database `SynoraV1`, the 20 tables, constraints and indexes, plus the 3 roles and 3 subjects (re-runnable, non-destructive).
+- `database/schema.sql` creates the database named by the required sqlcmd variable `DB_NAME` (conventionally `SynoraV1`), the 20 tables, constraints and indexes, plus the 3 roles and 3 subjects (re-runnable, non-destructive).
 - `database/validate_schema.sql` checks the live database against this design and runs rolled-back negative tests.
 - `docs/tools/check_sql_schema.py` compares live columns, types and nullability with section 4.
 - `docs/database/ssms-setup.md` is the SSMS procedure; `docs/database/sql-server-consistency-audit.md` records the audit.

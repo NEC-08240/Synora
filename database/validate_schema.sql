@@ -1,6 +1,7 @@
 /* =============================================================================
    Synora V1 - schema validation (read-only checks + rolled-back negative tests)
-   Run AFTER database/schema.sql, in the same database (SynoraV1).
+   Run AFTER database/schema.sql against the SAME database; the target is required:
+     sqlcmd -S localhost -E -C -b -v DB_NAME=<db> -i databasealidate_schema.sql
 
    Part 1 compares the live catalog with the locked design: tables, PKs, FKs
    (with ON DELETE action), UNIQUE constraints, CHECK constraints, indexes, and
@@ -11,8 +12,12 @@
    Output: one row per failed check, then a PASS/FAIL summary.
    ============================================================================= */
 
+:on error exit
 SET NOCOUNT ON;
 SET QUOTED_IDENTIFIER ON;
+GO
+
+USE [$(DB_NAME)];
 GO
 
 IF OBJECT_ID(N'tempdb..#Result') IS NOT NULL DROP TABLE #Result;

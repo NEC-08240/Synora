@@ -3,7 +3,7 @@
 ## Setup
 
 1. SQL Server 2019+ with TCP/IP enabled on port 1433 and mixed-mode authentication.
-2. Create the database: run `database/schema.sql` (SSMS or `sqlcmd -S localhost -E -i database/schema.sql`).
+2. Create the database: run `database/schema.sql` with an explicit target (there is no default): `sqlcmd -S localhost -E -C -b -v DB_NAME=SynoraV1 -i database/schema.sql`, then check it with `sqlcmd -S localhost -E -C -b -v DB_NAME=SynoraV1 -i database/validate_schema.sql`.
 3. Create an application login with data read/write on `SynoraV1`:
    ```sql
    CREATE LOGIN synora_app WITH PASSWORD = '<strong password>';
@@ -32,7 +32,7 @@ ALLOW_SEED=1 npm run seed
 Integration tests run against a second database so seed/demo data is never touched:
 
 ```
-sed "s/SynoraV1/SynoraV1_Test/g" ../database/schema.sql | sqlcmd -S localhost -E
+sqlcmd -S localhost -E -C -b -v DB_NAME=SynoraV1_Test -i ../database/schema.sql
 # grant synora_app the same roles on SynoraV1_Test, then:
 cp .env .env.test   # set DB_NAME=SynoraV1_Test and PORT=0
 # SQL sandbox tests need the separate sandbox DB (see docs/technical/practice-execution.md):
