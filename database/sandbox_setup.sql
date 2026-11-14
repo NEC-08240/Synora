@@ -10,6 +10,17 @@
   These permissions are the real control. The app-side validator is defense in depth only.
   Sandbox object reset: database/sandbox_reset.sql (scheduled, not SQL Agent).
 */
+/* Guards run first, before any login is created or altered. */
+:on error exit
+USE [master];
+GO
+IF N'$(SANDBOX_DB)' LIKE N'%[^A-Za-z0-9_]%' OR N'$(SANDBOX_LOGIN)' LIKE N'%[^A-Za-z0-9_]%' OR N'$(SANDBOX_DB)' = N'' OR N'$(SANDBOX_LOGIN)' = N''
+    THROW 50002, N'SANDBOX_DB and SANDBOX_LOGIN must be non-empty and contain only letters, digits and underscore.', 1;
+IF LOWER(N'$(SANDBOX_DB)') IN (N'synorav1', N'synorav1_test', N'master', N'model', N'msdb', N'tempdb') OR LOWER(N'$(SANDBOX_DB)') NOT LIKE N'%sandbox%' AND LOWER(N'$(SANDBOX_DB)') NOT LIKE N'%sbx%' AND LOWER(N'$(SANDBOX_DB)') NOT LIKE N'%lab%'
+    THROW 50003, N'SANDBOX_DB must be a dedicated sandbox/lab database (name contains sandbox, sbx or lab) and never an application or system database.', 1;
+IF LOWER(N'$(SANDBOX_LOGIN)') IN (N'sa', N'synora_app') OR IS_SRVROLEMEMBER(N'sysadmin', N'$(SANDBOX_LOGIN)') = 1
+    THROW 50004, N'SANDBOX_LOGIN must be a dedicated sandbox login, not sa, synora_app or a sysadmin.', 1;
+GO
 USE [master];
 GO
 IF SUSER_ID(N'$(SANDBOX_LOGIN)') IS NULL
