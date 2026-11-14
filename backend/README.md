@@ -43,4 +43,6 @@ sqlcmd -S localhost -E -C -b -v SANDBOX_DB=<db> SANDBOX_LOGIN=<login> SANDBOX_PA
 npm run seed:test && npm test
 ```
 
+The test helpers overwrite the demo users' password hashes with random values, so after any test run the demo accounts no longer accept `SEED_PASSWORD`. `npm run seed` never updates existing users, so for the browser smoke test (`frontend`: `npm run smoke`) use a freshly seeded database and run the smoke test **before** `npm test` / `npm run test:ci`; on a used database, recreate it or reset the three demo users' `PasswordHash` first.
+
 API contract: see `docs/technical/api-spec.md`.
