@@ -3,14 +3,14 @@
 ## 1. Scope
 
 This report records the release-candidate evidence for `trial/rc1` at code commit
-`e6ebde3` (H1–H5 integration plus database-script hardening; later commits on the branch are documentation only). It does not authorize a production
+`95cd133` (H1–H5 integration, database-script hardening and the three frontend fixes: session-expired notice, error-boundary reset, tutor timer on error frames; later commits on the branch are documentation only). It does not authorize a production
 deployment, database migration, credential rotation, push, pull request, or
 merge.
 
 ## 2. Git baseline
 
 - Candidate branch: `trial/rc1`.
-- Verified code commit: `e6ebde3` — `fix: harden DB_NAME guard ...`; H1–H5 integration was `6b927a4`.
+- Verified code commit: `95cd133` — `fix(frontend): error frame while connecting moves tutor to retryable error state`; H1–H5 integration was `6b927a4`.
 - Relationship to `origin/main`: ahead by the H1–H5 history plus the commits listed in the release PR; `origin/main` has not moved.
 - All H1–H5 worktrees were clean at inspection. The candidate worktree was also clean before this documentation update.
 
@@ -28,7 +28,7 @@ merge.
 
 ## 4. Backend verification
 
-All results below are from a **fresh clone of `e6ebde3`** (`npm ci`, new disposable databases `CleanEnv_App` / `CleanEnv_Sbx` with dedicated logins, all dropped afterwards), run on 14 November 2026. `SynoraV1`, `SynoraV1_Test` and `SynoraV1_Sandbox` were not used.
+All results below are from a **fresh clone of `95cd133`** (`npm ci`, new disposable databases `CleanEnv_App` / `CleanEnv_Sbx` with dedicated logins, all dropped afterwards), run on 14 November 2026. `SynoraV1`, `SynoraV1_Test` and `SynoraV1_Sandbox` were not used.
 
 `npm run test:ci` (`REQUIRE_SANDBOX_TESTS=1`): **123 passed, 0 failed, 0 skipped**, including the SQL sandbox suite against the disposable sandbox.
 
@@ -36,10 +36,10 @@ All results below are from a **fresh clone of `e6ebde3`** (`npm ci`, new disposa
 
 | Check | Result |
 |---|---|
-| `npm test` | 7 passed, 0 failed, 0 skipped |
+| `npm test` | 9 passed, 0 failed, 0 skipped |
 | `npm run build` | Passed |
 | `npm run lint` | 0 errors; 2 known Fast Refresh warnings in `src/auth.jsx` |
-| Browser smoke (`npm run smoke`, headless Chrome, real API + Vite + SQL Server) | 11/11 steps passed, exit 0 |
+| Browser smoke (`npm run smoke`, headless Chrome, real API + Vite + SQL Server) | 12/12 steps passed (incl. new session-expiry step), exit 0 |
 
 Smoke steps: anonymous redirect to login; wrong password rejected; student login and learning hub (SCR-02); lesson opens workspace (SCR-03); Theory/Objectives/Resources tabs; SQL runs in sandbox and result renders; C runner reports not configured; AI tutor reports not configured; student blocked from faculty area; faculty lands on `/manage` and is blocked from student area; no uncaught page errors. The C runner and AI tutor steps verify the *not configured* state only. The smoke test must run before the backend tests, which overwrite demo-user passwords (see `backend/README.md`).
 
@@ -78,5 +78,5 @@ Remaining academic deliverables: DFD finalisation and ER diagram verification ag
 1. Review this report and the candidate diff.
 2. Commit only this documentation update on `trial/rc1`.
 3. Push only after owner approval.
-4. Open a PR from `trial/rc1` to the current `main` only after owner approval, attaching this report and the known limitations.
+4. Open a PR from `release/v1` to the current `main`, attaching this report and the known limitations.
 5. Do not merge until a reviewer accepts the limitations and any required fresh-environment/browser verification.
