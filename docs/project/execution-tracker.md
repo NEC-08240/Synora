@@ -3,9 +3,9 @@
 Target: **Mid-Term Progress Review, November 2026**. Source schedule: synopsis §8.1 Gantt (Iterative & Incremental SDLC).
 Statuses: NOT STARTED · IN PROGRESS · BLOCKED · IMPLEMENTED (code + tests written) · VERIFIED (tests run and passing, manually checked).
 
-Branch: `feature/v1-core-foundation` (from `docs/canonical-dfd` + merged `origin/main`). Not pushed.
-Last full run, 11 Nov 2026: backend 28/28, frontend unit 3/3, browser smoke 11/11, lint and build clean.
-Acceptance report: [november-report.md](november-report.md).
+Release candidate: `trial/rc1` at `6b927a4` (H1–H5 integration). Not pushed.
+Last automated release run, 14 Nov 2026: backend `npm run test:ci` passed against the disposable test/lab configuration; frontend unit tests 7/7, production build passed, and lint had 0 errors with 2 known Fast Refresh warnings. Browser smoke was not rerun in this pass.
+Acceptance report: [november-report.md](november-report.md). Release evidence and file classification: [release-readiness-2026-11-14.md](release-readiness-2026-11-14.md).
 
 ## Phase summary
 

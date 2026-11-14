@@ -1,6 +1,6 @@
 # Synora V1 — November 2026 Acceptance Report
 
-Prepared 11 November 2026 for the Mid-Term Progress Review. Branch `feature/v1-core-foundation`, not pushed.
+Prepared 11 November 2026 for the Mid-Term Progress Review; release-candidate evidence refreshed 14 November 2026. Candidate branch `trial/rc1` at `6b927a4`, not pushed.
 Task-level detail lives in [execution-tracker.md](execution-tracker.md).
 
 **Verdict: not fully complete.** Everything scheduled through November is built and tested, but two
@@ -62,17 +62,17 @@ to Gemini Live. The key stays on the server. No transcript is stored. Without a 
 - **SQL:** working. Runs only in the sandbox database, in a transaction that is always rolled back.
 - **C/C++:** proxy to a Piston-compatible runner with compile and run timeouts. Never run live.
 
-## 9. Test results (11 Nov 2026, this machine)
+## 9. Test results
 
 | Suite | Command | Result |
 |---|---|---|
-| Backend API, real SQL Server test DB | `cd backend && npm test` | 28 pass, 0 fail |
-| Frontend unit | `cd frontend && npm test` | 3 pass, 0 fail |
-| Browser smoke, headless Chrome | `cd frontend && npm run smoke` | 11 steps pass |
-| Lint | `npm run lint` | 2 warnings, 0 errors |
-| Build | `npm run build` | ok |
+| Backend API and required sandbox regression suite, disposable test/lab DB | `cd backend && npm run test:ci` | Passed 14 Nov; suite refuses protected real sandbox database names |
+| Frontend unit | `cd frontend && npm test` | 7 pass, 0 fail (14 Nov) |
+| Browser smoke, headless Chrome | `cd frontend && npm run smoke` | Previously passed 11 steps on 11 Nov; not rerun in this release pass |
+| Lint | `npm run lint` | 2 warnings, 0 errors (14 Nov) |
+| Build | `npm run build` | Passed (14 Nov) |
 
-Coverage was not measured. There are no React component unit tests; the browser smoke covers the screens.
+Coverage was not measured. There are no React component unit tests; the browser smoke covers the screens. Full release evidence, scope and exclusions are in [release-readiness-2026-11-14.md](release-readiness-2026-11-14.md).
 
 ## 10. Security and implementation review
 
