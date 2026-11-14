@@ -4,7 +4,7 @@ Requires SQL Server 2019 or later (developed and run on SQL Server 2022) and SQL
 
 ## 1. Create the database
 
-`database/schema.sql` creates the target database itself if it does not exist. The target is required and has no default: enable **Query > SQLCMD Mode** and put `:setvar DB_NAME SynoraV1` (or a throwaway name) on the first line of the script, or use `sqlcmd -S localhost -E -C -b -v DB_NAME=<name> -i database/schema.sql`. The script refuses names containing `_Sandbox`. To create it by hand instead:
+`database/schema.sql` creates the target database itself if it does not exist. The target is required and has no default: enable **Query > SQLCMD Mode** and put `:setvar DB_NAME SynoraV1` (or a throwaway name) on the first line of the script, or use `sqlcmd -S localhost -E -C -b -v DB_NAME=<name> -i database/schema.sql`. The script refuses names with characters other than letters, digits and `_`, and names containing `_Sandbox`. To create it by hand instead:
 
 1. Connect to your instance in SSMS.
 2. Right-click **Databases > New Database...**, name it `SynoraV1`, click OK.
@@ -17,7 +17,7 @@ Requires SQL Server 2019 or later (developed and run on SQL Server 2022) and SQL
 
 ## 3. Run the validation
 
-1. Open `database/validate_schema.sql` enable SQLCMD Mode and set `:setvar DB_NAME <same name>` first (or run `sqlcmd -S localhost -E -C -b -v DB_NAME=<name> -i database/validate_schema.sql`). It switches to that database itself.
+1. Open `database/validate_schema.sql`, enable SQLCMD Mode and set `:setvar DB_NAME <same name>` first (or run `sqlcmd -S localhost -E -C -b -v DB_NAME=<name> -i database/validate_schema.sql`). It switches to that database itself.
 2. Press **F5**.
 3. Expected result: the first result grid (failures) is empty, the second shows every category with `Failed = 0`, and the last row says `PASS`.
 

@@ -17,6 +17,14 @@ SET NOCOUNT ON;
 SET QUOTED_IDENTIFIER ON;
 GO
 
+IF N'$(DB_NAME)' LIKE N'%[^A-Za-z0-9_]%' OR N'$(DB_NAME)' = N''
+   OR N'$(DB_NAME)' LIKE N'%[_]Sandbox%' COLLATE Latin1_General_CI_AS
+BEGIN
+    RAISERROR(N'DB_NAME missing/invalid (letters, digits, _ only; not a *_Sandbox database). Run in SQLCMD mode with -v DB_NAME=<db>. Stopping.', 16, 1);
+    SET NOEXEC ON;  -- plain SSMS ignores :on error exit; this skips every later batch
+END
+GO
+
 USE [$(DB_NAME)];
 GO
 
@@ -354,4 +362,7 @@ FROM #Result GROUP BY Category ORDER BY Category;
 
 SELECT CASE WHEN EXISTS (SELECT 1 FROM #Result WHERE Passed = 0) THEN N'FAIL' ELSE N'PASS' END AS Overall,
        COUNT(*) AS TotalChecks FROM #Result;
+GO
+
+IF EXISTS (SELECT 1 FROM #Result WHERE Passed = 0) THROW 50002, N'Schema validation FAILED (see failures above)', 1;  -- non-zero sqlcmd exit with -b
 GO

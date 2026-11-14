@@ -23,8 +23,12 @@ SET NOCOUNT ON;
 SET QUOTED_IDENTIFIER ON;   -- required by the filtered index (sqlcmd defaults to OFF; SSMS to ON)
 GO
 
-IF N'$(DB_NAME)' LIKE N'%[_]Sandbox%'
-    THROW 50001, N'Refusing to build the application schema in a sandbox database.', 1;
+IF N'$(DB_NAME)' LIKE N'%[^A-Za-z0-9_]%' OR N'$(DB_NAME)' = N''
+   OR N'$(DB_NAME)' LIKE N'%[_]Sandbox%' COLLATE Latin1_General_CI_AS
+BEGIN
+    RAISERROR(N'DB_NAME missing/invalid (letters, digits, _ only; not a *_Sandbox database). Run in SQLCMD mode with -v DB_NAME=<db>. Stopping.', 16, 1);
+    SET NOEXEC ON;  -- plain SSMS ignores :on error exit; this skips every later batch
+END
 GO
 
 IF DB_ID(N'$(DB_NAME)') IS NULL
