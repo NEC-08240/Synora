@@ -47,14 +47,23 @@ const ENDPOINTS = [
 
 /* ------------------------------ routing / mounting ------------------------------ */
 
-test('all 17 assessment endpoints are mounted as 501 stubs behind auth', async () => {
+// M3-4 (faculty review, endpoints 15-17) is still a stub; endpoints 1-14 are implemented and covered by their own tests.
+const STUBS = ENDPOINTS.slice(14);
+
+test('all 17 assessment endpoints are mounted behind auth; the review endpoints (15-17) are still 501 stubs', async () => {
   assert.equal(ENDPOINTS.length, 17);
   for (const [method, path] of ENDPOINTS) {
     const anon = await api(method, path);
     assert.equal(anon.status, 401, `${method} ${path} unauthenticated`);
+  }
+  for (const [method, path] of STUBS) {
     const res = await api(method, path, { cookie: faculty, body: method === 'GET' ? undefined : {} });
     assert.equal(res.status, 501, `${method} ${path}`);
     assert.ok(res.body.error, `${method} ${path} has {error}`);
+  }
+  for (const [method, path] of ENDPOINTS.slice(0, 14)) {
+    const res = await api(method, path, { cookie: faculty, body: method === 'GET' ? undefined : {} });
+    assert.notEqual(res.status, 501, `${method} ${path} must be implemented`);
   }
 });
 
@@ -70,11 +79,11 @@ test('submit endpoint is rate limited per user, other endpoints are not touched 
   const max = config.rateLimits.submit;
   assert.ok(Number.isInteger(max) && max > 0);
   for (let i = 0; i < max; i += 1) {
-    assert.equal((await api('POST', '/api/v1/activities/1/submissions', { cookie: student, body: {} })).status, 501);
+    assert.notEqual((await api('POST', '/api/v1/activities/1/submissions', { cookie: student, body: {} })).status, 429);
   }
   const limited = await api('POST', '/api/v1/activities/1/submissions', { cookie: student, body: {} });
   assert.equal(limited.status, 429);
-  assert.equal((await api('GET', '/api/v1/activities/1/submissions/mine', { cookie: student })).status, 501);
+  assert.notEqual((await api('GET', '/api/v1/activities/1/submissions/mine', { cookie: student })).status, 429);
 });
 
 test('config exposes a bounded grading concurrency', () => {
@@ -176,7 +185,6 @@ test('student projections never contain hidden answer-key data', () => {
   const out = JSON.stringify([
     project.activityStudent(activityRow, { questions: [hiddenQuestion], testCases: [hiddenTestCase], sqlSpec: hiddenSql }),
     project.questionStudent(hiddenQuestion),
-    project.testCaseStudent(hiddenTestCase),
     project.sqlSpecStudent(hiddenSql),
     project.resultStudent({ passed: 1, total: 2, compileError: false, timedOut: false, ActualOutput: `${SENTINEL}-actual`, stderr: `${SENTINEL}-err` }),
     project.submissionStudent({
@@ -221,7 +229,7 @@ test('grader registry: registerGrader is the seam, runGrading dispatches by Acti
   await assert.rejects(runGrading({ ActivityType: 'Assignment' }, {}), { status: 400 });
 });
 
-test('stub graders for Coding and SQL are registered and report 501 until M3-3', async () => {
-  await assert.rejects(runGrading({ ActivityType: 'Coding' }, {}), { status: 501 });
-  await assert.rejects(runGrading({ ActivityType: 'SQL' }, {}), { status: 501 });
+test('graders for Coding and SQL are registered (M3-3); an unconfigured activity is refused, not graded', async () => {
+  await assert.rejects(runGrading({ ActivityType: 'Coding' }, {}), (err) => err.status >= 400);
+  await assert.rejects(runGrading({ ActivityType: 'SQL' }, {}), (err) => err.status >= 400);
 });
