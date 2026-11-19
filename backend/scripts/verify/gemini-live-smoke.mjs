@@ -60,7 +60,7 @@ async function ask(label, text) {
   const deltas = turn.filter((e) => e.msg.type === 'text');
   const order = turn.map((e) => e.msg.type).filter((t, i, a) => a[i - 1] !== t).join('>');
   console.log(`${label}: order=${order} deltas=${deltas.length} firstDeltaMs=${deltas[0] ? deltas[0].at - t0 : 'n/a'} totalMs=${done ? done.at - t0 : 'timeout'}`);
-  const reply = deltas.map((e) => e.msg.text).join('');
+  const reply = deltas.map((e) => e.msg.delta).join('');
   console.log(`${label}: reply(first 200 chars)=${JSON.stringify(reply.slice(0, 200))}`);
   const err = turn.find((e) => e.msg.type === 'error');
   if (err) console.log(`${label}: error code=${err.msg.code} message=${err.msg.message}`);

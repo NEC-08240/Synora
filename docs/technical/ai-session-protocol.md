@@ -59,16 +59,19 @@ Idle sockets are closed after 10 minutes. Closing the browser socket closes the 
 
 ## 4. Upstream mapping
 
-- Setup frame: `{ setup: { model: "models/<GEMINI_MODEL>", generationConfig: { responseModalities: ["TEXT"] }, systemInstruction } }`.
+- Setup frame (`GEMINI_MODALITY=audio`, default): `{ setup: { model: "models/<GEMINI_MODEL>", generationConfig: { responseModalities: ["AUDIO"] }, outputAudioTranscription: {}, systemInstruction } }`. `outputAudioTranscription` is a top-level sibling of `generationConfig`. Current Live models (verified 2026-11-19, gemini-3.8-live and gemini-3.1-flash-live-preview) reject TEXT, so the tutor's text is the output transcript. With `GEMINI_MODALITY=text` the setup uses `responseModalities: ["TEXT"]` instead.
 - User turn: `{ clientContent: { turns: [{ role: "user", parts: [{ text }] }], turnComplete: true } }`.
-- `serverContent.modelTurn.parts[].text` → `text` frames; `serverContent.turnComplete` → `turn_complete`.
+- Audio mode: `serverContent.outputTranscription.text` → `text` frames (chunks forwarded untrimmed). Audio `inlineData` is discarded unbuffered and unlogged; it is still generated, so Google bills it as audio output tokens.
+- Text mode: `serverContent.modelTurn.parts[].text` → `text` frames.
+- Both modes: `serverContent.turnComplete` → `turn_complete`. Frames are processed in arrival order.
 
 ## Configuration
 
 | Variable | Default | Notes |
 |---|---|---|
 | `GEMINI_API_KEY` | empty | From Google AI Studio. Empty = tutor reports unavailable. |
-| `GEMINI_MODEL` | `gemini-2.0-flash-live-001` | Any Live-capable model id. |
+| `GEMINI_MODEL` | `gemini-3.8-live` | Any Live-capable model id (`gemini-2.0-flash-live-001` is retired). |
+| `GEMINI_MODALITY` | `audio` | `audio` or `text`; anything else fails at startup. |
 
 ## Frontend fallback behaviour
 
