@@ -41,9 +41,7 @@ export const questionFaculty = (q) => ({
   })),
 });
 
-/** Test cases are hidden from students (D2); they only learn that a case exists. */
-export const testCaseStudent = (tc) => ({ testCaseId: tc.TestCaseId, orderIndex: tc.OrderIndex });
-
+/** Test cases are hidden from students (D2, D4): no ids, order or per-case results, only passed/total counts on attempts. */
 export const testCaseFaculty = (tc) => ({
   testCaseId: tc.TestCaseId,
   inputData: tc.InputData,
@@ -57,7 +55,6 @@ export const sqlSpecFaculty = (s) => ({ setupScript: s.SetupScript, expectedResu
 export const activityStudent = (a, { questions = [], testCases = [], sqlSpec = null } = {}) => ({
   ...activityBase(a),
   questions: questions.map(questionStudent),
-  testCases: testCases.map(testCaseStudent),
   sqlSpec: sqlSpec ? sqlSpecStudent(sqlSpec) : null,
 });
 

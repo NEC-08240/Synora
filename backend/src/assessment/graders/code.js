@@ -30,6 +30,7 @@ export async function grade(activity, payload, { runCode = async (r) => (await i
       console.error('code grader runner failure:', err.message);
       throw new HttpError(503, 'Code runner unavailable');
     }
+    if (run.exitCode == null && !run.timedOut && !run.compileError) throw new HttpError(503, 'Code runner returned no result');
     if (run.compileError) {
       return {
         score: 0, passed: 0, total: cases.length, compileError: true, timedOut: false,

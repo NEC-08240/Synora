@@ -16,6 +16,12 @@ export const activitiesRouter = Router();
 
 const TYPES = ['Practice', 'Quiz', 'Coding', 'SQL', 'Assignment'];
 const MAX_SCORE_LIMIT = 999.99;
+// Authoring caps (bound grading time and storage): items per activity and text sizes.
+const MAX_QUESTIONS = 50;
+const MAX_OPTIONS = 10;
+const MAX_TEST_CASES = 50;
+const MAX_TEXT = 20_000;
+const MAX_TIME_LIMIT_MS = 600_000;
 const isStudent = (user) => user.RoleName === 'Student';
 const cents = (n) => Math.round(n * 100);
 
@@ -113,11 +119,11 @@ activitiesRouter.post('/topics/:topicId/activities', async (req, res) => {
   const b = validate(req.body, {
     activityType: { type: 'enum', values: TYPES, required: true },
     title: { type: 'string', required: true, max: 150 },
-    instructions: { type: 'string', required: true },
+    instructions: { type: 'string', required: true, max: MAX_TEXT },
     isGraded: { type: 'bool', required: true },
-    starterCode: { type: 'string' },
-    hints: { type: 'string' },
-    timeLimitMs: { type: 'int', min: 1 },
+    starterCode: { type: 'string', max: MAX_TEXT },
+    hints: { type: 'string', max: MAX_TEXT },
+    timeLimitMs: { type: 'int', min: 1, max: MAX_TIME_LIMIT_MS },
   });
   const practice = b.activityType === 'Practice';
   if (b.isGraded === practice) {
@@ -155,10 +161,10 @@ activitiesRouter.patch('/activities/:id', async (req, res) => {
   const activity = await loadForAuthoring(req);
   const b = validate(req.body, {
     title: { type: 'string', max: 150 },
-    instructions: { type: 'string' },
-    starterCode: { type: 'string' },
-    hints: { type: 'string' },
-    timeLimitMs: { type: 'int', min: 1 },
+    instructions: { type: 'string', max: MAX_TEXT },
+    starterCode: { type: 'string', max: MAX_TEXT },
+    hints: { type: 'string', max: MAX_TEXT },
+    timeLimitMs: { type: 'int', min: 1, max: MAX_TIME_LIMIT_MS },
   });
   if (req.body.maxScore != null) {
     if (!activity.IsGraded) throw badRequest('Validation failed', { maxScore: 'not allowed for ungraded activities' });
@@ -209,7 +215,14 @@ activitiesRouter.post('/activities/:id/status', async (req, res) => {
   const activity = await loadForAuthoring(req);
   const { status } = validate(req.body, { status: { type: 'enum', values: ['Published', 'Archived'], required: true } });
   if (!TRANSITIONS[activity.Status].includes(status)) throw conflict(`Cannot change status from ${activity.Status} to ${status}`);
-  if (status === 'Published') await assertPublishable(activity);
+  if (status === 'Published') {
+    // checks and flip share one edit-lock transaction, so content cannot change between "valid" and "published"
+    await withEditLock(activity.ActivityId, async (tx) => {
+      await assertPublishable(await loadActivity(activity.ActivityId));
+      await txQuery(tx, "UPDATE dbo.Activities SET Status = N'Published' WHERE ActivityId = @id", { id: activity.ActivityId });
+    });
+    return res.json({ activity: await authoringView(activity.ActivityId) });
+  }
   const updated = await queryOne(
     'UPDATE dbo.Activities SET Status = @status OUTPUT INSERTED.ActivityId WHERE ActivityId = @id AND Status = @from',
     { id: activity.ActivityId, status, from: activity.Status },
@@ -223,17 +236,18 @@ activitiesRouter.post('/activities/:id/status', async (req, res) => {
 const assertType = (activity, type) => {
   if (activity.ActivityType !== type) throw badRequest(`Only ${type} activities accept this`);
 };
-const nonEmptyArray = (value, name) => {
+const nonEmptyArray = (value, name, max = Infinity) => {
   if (!Array.isArray(value) || !value.length) throw badRequest('Validation failed', { [name]: 'must be a non-empty array' });
+  if (value.length > max) throw badRequest('Validation failed', { [name]: `must have at most ${max} items` });
   return value;
 };
 
 function parseQuestions(body) {
-  return nonEmptyArray(body?.questions, 'questions').map((raw, i) => {
-    const q = validate(raw, { questionText: { type: 'string', required: true }, explanation: { type: 'string' } });
+  return nonEmptyArray(body?.questions, 'questions', MAX_QUESTIONS).map((raw, i) => {
+    const q = validate(raw, { questionText: { type: 'string', required: true, max: 2000 }, explanation: { type: 'string', max: 2000 } });
     const points = checkScore(raw.points, `questions[${i}].points`);
-    const options = nonEmptyArray(raw.options, `questions[${i}].options`).map((o) => validate(o, {
-      optionText: { type: 'string', required: true },
+    const options = nonEmptyArray(raw.options, `questions[${i}].options`, MAX_OPTIONS).map((o) => validate(o, {
+      optionText: { type: 'string', required: true, max: 1000 },
       isCorrect: { type: 'bool', required: true },
     }));
     if (options.length < 2 || options.filter((o) => o.isCorrect).length !== 1) {
@@ -273,8 +287,8 @@ activitiesRouter.put('/activities/:id/questions', async (req, res) => {
 
 activitiesRouter.put('/activities/:id/test-cases', async (req, res) => {
   const activity = await loadForAuthoring(req);
-  const cases = nonEmptyArray(req.body?.testCases, 'testCases')
-    .map((raw) => validate(raw, { inputData: { type: 'string' }, expectedOutput: { type: 'string', required: true } }));
+  const cases = nonEmptyArray(req.body?.testCases, 'testCases', MAX_TEST_CASES)
+    .map((raw) => validate(raw, { inputData: { type: 'string', max: 10_000 }, expectedOutput: { type: 'string', required: true, max: 10_000 } }));
   assertType(activity, 'Coding');
   await withEditLock(activity.ActivityId, async (tx) => {
     const id = activity.ActivityId;
@@ -305,7 +319,7 @@ function parseExpectedResult(er) {
 
 activitiesRouter.put('/activities/:id/sql-spec', async (req, res) => {
   const activity = await loadForAuthoring(req);
-  const { setupScript } = validate(req.body, { setupScript: { type: 'string', required: true } });
+  const { setupScript } = validate(req.body, { setupScript: { type: 'string', required: true, max: MAX_TEXT } });
   const expectedResult = parseExpectedResult(req.body.expectedResult);
   const refused = findForbiddenStatement(setupScript);
   if (refused) throw badRequest('Validation failed', { setupScript: `statement not allowed: ${refused}` });

@@ -100,6 +100,8 @@ export const config = Object.freeze({
   assessment: Object.freeze({
     // Max auto-grading runs in flight at once (grading can use the sandbox).
     gradeConcurrency: parseIntEnv(process.env.ASSESSMENT_GRADE_CONCURRENCY, 4, 'ASSESSMENT_GRADE_CONCURRENCY'),
+    // Max submissions waiting for a grading slot; the next one gets 429 instead of queueing (spec 7.6).
+    queueMax: parseIntEnv(process.env.ASSESSMENT_QUEUE_MAX, 50, 'ASSESSMENT_QUEUE_MAX'),
   }),
   ai: Object.freeze({
     // Optional: without a key the AI tutor reports itself unavailable instead of failing silently.

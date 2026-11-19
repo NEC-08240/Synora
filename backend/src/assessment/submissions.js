@@ -4,7 +4,7 @@ import { getPool, isUniqueViolation, query, queryOne } from '../db.js';
 import { HttpError, badRequest, conflict } from '../http.js';
 import { idParam, validate } from '../validate.js';
 import { assertCanReadActivity, assertCanReadSubmission, assertStudent, loadActivity } from './access.js';
-import { runGrading } from './grader.js';
+import { loadGradable, runGrading } from './grader.js';
 import { resultStudent, submissionFaculty, submissionStudent } from './project.js';
 
 /*
@@ -93,7 +93,7 @@ async function parseSubmission(activity, body) {
 async function gradeOrFail(activity, payload) {
   let out;
   try {
-    out = await runGrading(activity, payload);
+    out = await runGrading(await loadGradable(activity), payload);
   } catch (err) {
     console.error('Grading failed:', err?.message);
     throw err instanceof HttpError ? err : new HttpError(503, 'Grading is temporarily unavailable');
@@ -127,8 +127,9 @@ async function writeAttempt(req, activity, content, graded, answers) {
     );
     const submissionId = ins.recordset[0].SubmissionId;
     for (const r of graded?.results ?? []) {
+      if (r.testCaseId == null) continue; // only Coding results map to a TestCases row; quiz/SQL keep counts only
       await run('INSERT dbo.TestCaseResults (SubmissionId, TestCaseId, Passed, ActualOutput, ExecutionTimeMs) VALUES (@id, @t, @p, @o, @ms)', {
-        id: submissionId, t: r.TestCaseId, p: Boolean(r.Passed), o: r.ActualOutput ?? null, ms: r.ExecutionTimeMs ?? null,
+        id: submissionId, t: r.testCaseId, p: Boolean(r.passed), o: r.actualOutput ?? null, ms: r.executionTimeMs ?? null,
       });
     }
     for (const a of answers ?? []) {
@@ -139,7 +140,7 @@ async function writeAttempt(req, activity, content, graded, answers) {
     return submissionId;
   } catch (err) {
     await tx.rollback().catch(() => {});
-    if (isUniqueViolation(err)) throw conflict('Another attempt was recorded at the same time, please retry');
+    if (isUniqueViolation(err) || err?.number === 1205) throw conflict('Another attempt was recorded at the same time, please retry'); // 1205 = deadlock victim
     throw err;
   }
 }
@@ -152,7 +153,7 @@ submissionsRouter.post('/activities/:id/submissions', async (req, res) => {
   const submissionId = await writeAttempt(req, activity, content, graded, answers);
   const row = await queryOne(`${SUBMISSION_SELECT} WHERE s.SubmissionId = @id`, { id: submissionId });
   const body = studentRow(row);
-  if (graded?.results?.length) Object.assign(body, resultStudent({ passed: row.passed, total: row.total, compileError: graded.compileError, timedOut: graded.timedOut }));
+  if (graded && graded.total > 0) Object.assign(body, resultStudent({ passed: graded.passed, total: graded.total, compileError: graded.compileError, timedOut: graded.timedOut }));
   res.status(201).json(body);
 });
 
@@ -168,7 +169,13 @@ submissionsRouter.get('/activities/:id/submissions/mine', async (req, res) => {
 submissionsRouter.get('/submissions/:id', async (req, res) => {
   const row = await queryOne(`${SUBMISSION_SELECT} WHERE s.SubmissionId = @id`, { id: idParam(req.params.id) });
   if (!row) throw new HttpError(404, 'Submission not found');
-  await assertCanReadSubmission(req.user, row);
+  try {
+    await assertCanReadSubmission(req.user, row);
+  } catch (err) {
+    // students must not be able to tell "not yours" from "does not exist"
+    if (req.user.RoleName === 'Student' && err.status === 403) throw new HttpError(404, 'Submission not found');
+    throw err;
+  }
   res.json(req.user.RoleName === 'Student' ? studentRow(row) : submissionFaculty(row));
 });
 
