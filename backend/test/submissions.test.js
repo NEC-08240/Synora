@@ -138,9 +138,11 @@ test('coding submit: results stored, student sees only passed/total flags; bad b
   const fx = await codingFixture();
   registerGrader('Coding', async () => ({
     score: 10,
+    passed: 1,
+    total: 1,
     compileError: false,
     timedOut: false,
-    results: [{ TestCaseId: fx.testCaseId, Passed: true, ActualOutput: `${SENTINEL}-actual`, ExecutionTimeMs: 7 }],
+    results: [{ testCaseId: fx.testCaseId, passed: true, actualOutput: `${SENTINEL}-actual`, executionTimeMs: 7 }],
   }));
   const url = `${base(fx.activityId)}/submissions`;
   assert.equal((await api('POST', url, { cookie: student, body: { source: '' } })).status, 400);
@@ -241,7 +243,7 @@ test('sentinel: hidden values never appear in any student response, error body o
     const sql = await createActivityFixture({ type: 'SQL' });
     await query('INSERT dbo.SqlTaskSpecs (ActivityId, SetupScript, ExpectedResult) VALUES (@a, N\'select 1\', @r)', { a: sql.activityId, r: JSON.stringify({ rows: [[`${SENTINEL}-result`]] }) });
     registerGrader('Quiz', async () => ({ score: 5, results: [] }));
-    registerGrader('Coding', async () => ({ score: 5, results: [{ TestCaseId: code.testCaseId, Passed: false, ActualOutput: `${SENTINEL}-actual`, ExecutionTimeMs: 1 }] }));
+    registerGrader('Coding', async () => ({ score: 5, passed: 0, total: 1, results: [{ testCaseId: code.testCaseId, passed: false, actualOutput: `${SENTINEL}-actual`, executionTimeMs: 1 }] }));
     registerGrader('SQL', async () => { throw new Error('sandbox unavailable'); });
     const ok = await call('POST', `${base(quiz.activityId)}/submissions`, { cookie: student, body: { answers: fullAnswers(quiz) } });
     await call('POST', `${base(quiz.activityId)}/submissions`, { cookie: student, body: { answers: [] } });

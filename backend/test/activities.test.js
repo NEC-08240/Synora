@@ -146,7 +146,7 @@ test('coding test cases: validate, replace, hidden from students, publish needs 
   assert.equal((await pub()).status, 200);
   const one = await api('GET', `/api/v1/activities/${id}`, { cookie: student });
   assert.equal(one.status, 200);
-  assert.equal(one.body.activity.testCases.length, 2);
+  assert.equal(one.body.activity.testCases, undefined, 'students get no test case listing');
   assert.ok(!JSON.stringify(one.body).includes(SENTINEL));
 });
 
