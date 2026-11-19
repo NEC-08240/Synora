@@ -10,6 +10,14 @@ const server = app.listen(config.port, () => console.log(`Synora API listening o
 attachAiRelay(server);
 if (!config.ai.apiKey) console.warn('GEMINI_API_KEY not set: AI tutor will report itself unavailable');
 
+// Last resort: log the message only and exit non-zero so a supervisor restarts the process.
+for (const event of ['unhandledRejection', 'uncaughtException']) {
+  process.on(event, (err) => {
+    console.error(`${event}:`, err?.message ?? String(err));
+    process.exit(1);
+  });
+}
+
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, async () => {
     server.close();
