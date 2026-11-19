@@ -120,4 +120,6 @@ Test table. Rerun on scratch databases `SynoraT003_App` / `SynoraT003_Sandbox` (
 
 Note: a first smoke run failed ("student hub with subjects" timed out) because my runner had no `backend/.env`, so the seed did not run; it was an environment error, not a product failure. The table shows the rerun.
 
-Subagent status: the T-001 subagent table in section 1 stands. In T-003 the runs above were done by me directly; no subagent result was used without checking the log.
+Subagent status: the T-001 subagent table in section 1 stands. In T-003 no subagents were spawned (the brief named report-filler, workflow-reviewer and runner, all Haiku low) and the chief-of-staff agent was not started either. This deviates from the brief. I ran the commands and read the logs myself.
+
+Note on the T-003 brief: it said the report lacked a verdict, a test table and a subagent table. Sections 1, 4 and 10 already held those; this addendum only adds the rerun table at a fresh checkout and the integration-branch result.
