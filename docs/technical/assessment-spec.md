@@ -1,6 +1,6 @@
 # Module 3 — Assessment Backend Specification
 
-Status: DRAFT for owner review. Base: release/v1 (22e9349). Scope: backend only, on the **existing** schema (`database/schema.sql:173-347`). No schema change, no new dependency.
+Status: DRAFT for owner review. The section structure is my reading of a partly truncated T-006 prompt (**ASSUMPTION**). Base: release/v1 (22e9349). Scope: backend only, on the **existing** schema (`database/schema.sql:173-347`). No schema change, no new dependency.
 Items marked **ASSUMPTION** are my reading, not owner-confirmed. Items in §10 are **not decided**; each has a labelled *proposed default* that implementation tasks must route through one swappable function so the decision never blocks them.
 
 ## 1. Scope and locked rules
@@ -29,7 +29,7 @@ Roles: Student / Faculty / Administrator. Administrator is **read-only** on asse
 
 All routes sit behind `requireAuth`. Access decisions live in **one module** `backend/src/assessment/access.js` (foundation task) exporting:
 
-- `assertCanReadActivity(user, activity)` — Student: Published activity whose Subject is allocated to the student's batch (via `FacultyAssignments`, same rule as `assertCanReadSubject` in content.js); Faculty: assigned to that subject in ≥1 batch; Admin: any (read-only).
+- `assertCanReadActivity(user, activity)` — Student: Published activity under a **Published Topic** (`Topics.Status`, schema.sql:107) whose Subject is allocated to the student's batch (via `FacultyAssignments`, same rule as `assertCanReadSubject` in content.js); Faculty: assigned to that subject in ≥1 batch; Admin: any (read-only).
 - `assertCanAuthorActivity(user, subjectId, activity?)` — **the only place the open authoring decision (§10-D1) is implemented.** Returns/throws 403.
 - `assertCanGradeSubmission(user, submission)` — Faculty assigned (FacultyAssignments) to the **student's batch** for the activity's subject. Admin → 403 (read-only). Batch-level scope, unlike authoring.
 - `assertStudent(user)` for student endpoints.
@@ -67,7 +67,7 @@ Replace-style PUTs avoid per-row ordering races and respect the unique `(parent,
 ### 4.3 Faculty review and grading
 | # | Method & path | Notes |
 |---|---|---|
-| 15 | `GET /activities/:id/submissions` | In-scope submissions (batch-level, §3), filter `status`, `studentId`; paged. |
+| 15 | `GET /activities/:id/submissions` | In-scope submissions (batch-level, §3); Admin may list (read-only). Query: `status`, `studentId`, `limit` (≤100, default 50), `offset`. |
 | 16 | `PATCH /submissions/:id/grade` | `{score, feedback?}`; sets Status Graded, `GradedBy`=faculty, `GradedAt`. Works for Assignment, and as override for auto-graded. Validates `0 ≤ score ≤ MaxScore` (no DB check exists). |
 | 17 | `GET /submissions/:id/results` | Faculty/Admin only: `TestCaseResults` incl. hidden data. |
 **Endpoint count: 17.**
@@ -87,7 +87,7 @@ Replace-style PUTs avoid per-row ordering races and respect the unique `(parent,
 For each test case in `OrderIndex`: `runCode({language, source, stdin: InputData})` (practice/code.js). Pass ⇔ exit 0, not timedOut, not compileError, and stdout equals `ExpectedOutput` after normalising `\r\n`→`\n` and trimming trailing whitespace per line and trailing blank lines. `Score = MaxScore × passed/total`, rounded to 2 dp (DECIMAL(5,2)). Runner unavailable (503/502) ⇒ submission stays `Submitted`, 503 to caller, nothing partial written. Writes `TestCaseResults`.
 
 ### 6.2 SQL
-`runSql({sql: studentSql, setupScript})` returns `{columns, rows, rowCount, truncated, error}` (first recordset only, serial queue). `ExpectedResult` JSON shape: `{"columns":["a","b"],"rows":[[1,"x"],…],"orderMatters":false}`. Compare: column names case-insensitive and in order; values compared with NULL=NULL, numbers numerically, strings exact; if `orderMatters` false rows compared as multisets. `truncated` or `error` ⇒ fail. Score: all-or-nothing `MaxScore`. **Limit:** only the first result set is compared; multi-statement answers are not partially credited.
+`runSql({sql: studentSql, setupScript})` returns `{columns, rows, rowCount, truncated, error}` (first recordset only, serial queue). `ExpectedResult` JSON shape: `{"columns":["a","b"],"rows":[[1,"x"],…],"orderMatters":false}`. Compare: column names case-insensitive and in order; values compared with NULL=NULL, numbers numerically, strings exact; if `orderMatters` false rows compared as multisets. `truncated` or `error` ⇒ fail. Normalisation before compare: BIT `true/false`→`1/0`; Date objects→ISO-8601 UTC strings; DECIMAL/numbers compared numerically (`Number` equality after rounding to 6 dp); duplicate column names collapse in `runSql` row objects, so publish **rejects** an expected/student result with duplicate column names. Publish also rejects an `expectedResult` larger than the sandbox truncation cap (task could never pass). DML tasks (INSERT/UPDATE/DELETE) are **not gradable** (first result set only; run is rolled back). Score: all-or-nothing `MaxScore`. **Limit:** only the first result set is compared; multi-statement answers are not partially credited.
 
 ### 6.3 Quiz
 Per question: correct iff chosen option `IsCorrect`. `Score = Σ Points of correct`. Every question must be answered or 400. Option must belong to the question (composite FK is the backstop).
@@ -96,16 +96,18 @@ Per question: correct iff chosen option `IsCorrect`. `Score = Σ Points of corre
 Stored `Submitted`; only faculty grading (#16) moves it to `Graded`.
 
 ### Hidden-data protection (applies to every endpoint)
-- One **projection function per entity** in `backend/src/assessment/project.js`; routes never serialise DB rows directly. Student projections exclude: `IsCorrect`, `Explanation` (until §10-D5 reveals), `InputData`, `ExpectedOutput`, `SetupScript`, `ExpectedResult`, `TestCaseResults.ActualOutput`/stderr, `ExecutionTimeMs` of hidden cases.
+- One **projection function per entity** in `backend/src/assessment/project.js`; routes never serialise DB rows directly. Student projections exclude: `IsCorrect`, `Explanation` (until §10-D5 reveals), `InputData`, `ExpectedOutput`, `ExpectedResult`, `TestCaseResults.ActualOutput`/stderr, `ExecutionTimeMs` of hidden cases.
 - Student feedback for Coding is only `{passed, total, compileError?, timedOut?}`. **Never** per-case output: a program that echoes stdin would leak hidden input.
+- `SetupScript` is **student-visible**: `/execute/sql` takes it from the client, and once tables exist a student can `SELECT *` them anyway. Only `ExpectedResult` is the SQL answer key.
 - Error bodies and logs: grading errors log `err.message` only, never payload, source, stdin or expected values.
-- **Sentinel test required:** seed a unique string in every hidden field, exercise every student endpoint (success and error paths), assert the string appears in no body.
+- **Sentinel test required:** seed a unique string in every hidden field, exercise every student endpoint (success and error paths), assert the string appears in no response body, no error body **and no console/logger output** captured for the whole run.
+- **Residual risk:** with unlimited attempts (D4) and `{passed,total}` visible, a program can branch on hidden input and extract it bit by bit. Mitigation: per-student submit rate limit (`rateLimits.submit`, same pattern as `rateLimits.execute`, config.js:85-86). Not eliminated.
 
 ## 7. Behaviour details
 
 7.1 **Start attempt.** No in-progress Submission status, start time, deadline or attempt-limit column exists (schema.sql:273-294; due dates excluded, database-design.md:414). "Start" is just `GET /activities/:id` + draft. `AttemptNo` is assigned at submit. The server **cannot enforce** a timer, deadline or "1/3 attempts" shown in the prototype; any such UI is advisory. Gap recorded §9.
-7.2 **Double submit.** In one transaction: `SELECT MAX(AttemptNo) … WITH (UPDLOCK, HOLDLOCK)`, insert `AttemptNo+1`. Unique `UQ_Submissions_Activity_Student_Attempt` (:286) is the backstop; violation ⇒ 409.
-7.3 **Grading flow.** Insert `Submitted` + `ActivitySubmitted` event in the submit transaction; grade after commit behind a bounded in-process semaphore (size = config, default 4; no new dependency); then update to `Graded`, `GradedBy` NULL. Runner/sandbox busy ⇒ 429 / stays `Submitted`. **Recovery:** rows stuck `Submitted` (crash) for an auto-graded type are re-graded by `POST /submissions/:id/regrade` (faculty, **ASSUMPTION** — adds endpoint #18) or at server start by a sweep of auto types older than 5 min. Foundation task picks one; default = start-up sweep only (no extra endpoint).
+7.2 **Double submit.** In the same write transaction as 7.3: `SELECT MAX(AttemptNo) … WITH (UPDLOCK, HOLDLOCK)`, insert `AttemptNo+1`. Unique `UQ_Submissions_Activity_Student_Attempt` (:286) is the backstop; violation ⇒ 409.
+7.3 **Grading flow (synchronous).** #11 returns the finished result (201). For Quiz/Coding/SQL: grade **first** (read-only, no DB writes) behind a bounded in-process semaphore (config, default 4; no new dependency); then in ONE transaction: allocate `AttemptNo` (7.2), insert the Submission already `Graded` (`GradedBy` NULL), insert `TestCaseResults`/`SubmissionAnswers`, write `ActivitySubmitted`. Runner/sandbox busy ⇒ 429/503 and **nothing is written**; the student retries. No stuck rows, no sweep, no regrade endpoint. `Submitted` exists only for Assignment. Per-student submit rate limit applies (§6).
 7.4 **Score bounds.** `0 ≤ Score ≤ MaxScore` in backend (only `Score ≥ 0` is DB-checked, :289).
 7.5 **Edit lock.** Once an Activity is Published or has any Submission, question/option/test-case/spec edits are 409 (FKs :305-308, :325 are NO ACTION, edits would fail or rewrite history). Archive instead.
 7.6 **Concurrency (≈30 students).** `runSql` is serial with queue max/wait (sandbox config); grading semaphore bounds code runs; surplus ⇒ 429 with Retry-After, never an unbounded wait.
@@ -116,9 +118,9 @@ Stored `Submitted`; only faculty grading (#16) moves it to `Graded`.
 
 | Task | Owns (disjoint) | Depends | Notes |
 |---|---|---|---|
-| **M3-0 Foundation (sequential, first)** | `backend/src/app.js` (mount), `backend/src/config.js` (semaphore/rate keys), `backend/test/helpers.js` (fixtures), `backend/src/assessment/access.js`, `project.js`, `grader.js` (interface `grade(activity, payload) → {score, results}`), export of content.js `assert*` | — | Everyone else imports from here. |
+| **M3-0 Foundation (sequential, first)** | `backend/src/app.js` (mount), `backend/src/config.js` (semaphore/rate keys), `backend/test/helpers.js` (fixtures), `backend/src/routes/content.js` (export `assert*`), `assessment/access.js`, `project.js`, `grader.js` (registry; interface `grade(activity, payload) → {score, results}`), **stubs** `activities.js`, `submissions.js`, `review.js`, `graders/{quiz,code,sql}.js` already mounted/registered | — | M3-1…M3-4 never touch `app.js`. |
 | M3-1 Authoring | `assessment/activities.js` + `test/assessment-authoring.test.js` | 0 | Endpoints 1-8. |
-| M3-2 Student work + submit | `assessment/submissions.js` + `test/assessment-submit.test.js` | 0 | Endpoints 9-14 (events incl.), AttemptNo txn. |
+| M3-2 Student work + submit | `assessment/submissions.js` + `test/assessment-submit.test.js` | 0 | Endpoints 9-14 (events incl.), AttemptNo txn; tests inject a stub grader. |
 | M3-3 Graders | `assessment/graders/quiz.js`, `code.js`, `sql.js` + `test/assessment-graders.test.js` | 0 | Pure functions on grader interface. |
 | M3-4 Faculty review | `assessment/review.js` + `test/assessment-review.test.js` | 0,2 | Endpoints 15-17. |
 | M3-5 Hidden-data sentinel + docs | `test/assessment-sentinel.test.js`, **only this task edits** `docs/technical/api-spec.md` | 1-4 | Sentinel runs last. |
@@ -134,7 +136,7 @@ M3-1…M3-4 can run in parallel after M3-0. Frontend work is out of scope.
 6. Authoring vs FacultyAssignments: UQ(Batch,Subject) means two faculty sharing a subject across batches cannot both pass an "assigned in every batch" rule (D1).
 7. `QuizOptions` index permits zero correct options; app must require exactly one.
 8. `Submissions.Status` has no "InProgress"/"Regrading".
-9. `api-spec.md:~83` still says assessment endpoints are undefined — updated by M3-5 only.
+9. **Correction to earlier draft:** `SetupScript` is student-visible, not hidden (see §6). 10. Prototype scr-04 shows "(Hidden)" (index.html:228,230) and "1 / 3 allowed" (:127) — VERIFIED. 11. `api-spec.md:~83` still says assessment endpoints are undefined — updated by M3-5 only.
 
 ## 10. Open decisions (owner) — proposed defaults are NOT chosen
 
@@ -149,4 +151,4 @@ M3-1…M3-4 can run in parallel after M3-0. Frontend work is out of scope.
 - **D6 Practice submit:** confirm Practice is draft-only (no Submissions rows).
 
 ## ASSUMPTION list
-1. Quiz `MaxScore` = Σ Points. 2. Coding scoring proportional, SQL all-or-nothing. 3. Practice has no submit endpoint. 4. Recovery by start-up sweep. 5. Sandbox/runner-busy ⇒ 429/503 with row left `Submitted`. 6. TabSwitch rate limit 1/5 s. 7. Semaphore size 4. 8. Replace-style PUT for question/test sets. 9. Endpoint count 17 (18 if regrade endpoint chosen).
+1. Quiz `MaxScore` = Σ Points. 2. Coding scoring proportional, SQL all-or-nothing. 3. Practice has no submit endpoint. 5. Sandbox/runner-busy ⇒ 429/503, nothing written. 6. TabSwitch rate limit 1/5 s. 7. Semaphore size 4; submit rate limit config key `rateLimits.submit`. 8. Replace-style PUT for question/test sets. 9. Endpoint count 17. 10. All quiz questions must be answered (else 400). 11. Student-visible `setupScript`.
