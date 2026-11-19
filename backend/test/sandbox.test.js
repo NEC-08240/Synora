@@ -6,6 +6,7 @@
 import { describe, test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import sql from 'mssql';
@@ -58,9 +59,47 @@ async function objectExists(name) {
   return recordset[0].id !== null;
 }
 
-/** Windows-auth sysadmin sqlcmd, used only to create and drop disposable peer/check databases. */
-const sqlcmdAdmin = (args) => spawnSync('sqlcmd', ['-S', process.env.DB_SERVER ?? 'localhost', '-E', '-C', '-b', ...args], { encoding: 'utf8' });
-const adminAvailable = sqlcmdAdmin(['-Q', 'SELECT 1']).status === 0;
+/**
+ * Sysadmin access, used only to create and drop disposable peer/check databases. With
+ * SANDBOX_ADMIN_USER/SANDBOX_ADMIN_PASSWORD set (CI: the throwaway sa login) it goes through the
+ * mssql driver; otherwise it falls back to Windows-auth sqlcmd. Returns { status, stdout, stderr }.
+ * { q } runs one text, { file, vars } runs a sqlcmd-style script ($(VAR), GO batches, :on error exit).
+ * shortcut: the mssql path handles only those directives, upgrade if sandbox_setup.sql grows others.
+ */
+const adminServer = () => process.env.DB_SERVER ?? 'localhost';
+const useSqlLogin = Boolean(process.env.SANDBOX_ADMIN_USER);
+
+function sqlcmdAdmin({ q, file, vars = {}, db }) {
+  const args = ['-S', adminServer(), '-E', '-C', '-b', ...(db ? ['-d', db] : []), ...(q ? ['-h', '-1', '-W', '-Q', q] : [])];
+  if (file) args.push('-v', ...Object.entries(vars).map(([k, v]) => `${k}=${v}`), '-i', file);
+  const r = spawnSync('sqlcmd', args, { encoding: 'utf8' });
+  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+async function mssqlAdmin({ q, file, vars = {}, db }) {
+  const text = q ?? readFileSync(file, 'utf8').replace(/\$\((\w+)\)/g, (m, k) => vars[k] ?? m).replace(/^:on error exit.*$/gim, '');
+  const pool = new sql.ConnectionPool({
+    server: adminServer(), port: Number(process.env.DB_PORT ?? 1433), database: db,
+    user: process.env.SANDBOX_ADMIN_USER, password: process.env.SANDBOX_ADMIN_PASSWORD,
+    options: { trustServerCertificate: process.env.DB_TRUST_SERVER_CERT === 'true', encrypt: true },
+  });
+  let stdout = '';
+  try {
+    await pool.connect();
+    for (const batch of text.split(/^\s*GO\s*$/im).filter((b) => b.trim())) {
+      const { recordset } = await pool.request().batch(batch);
+      if (recordset?.length) stdout = String(Object.values(recordset[0])[0]);
+    }
+    return { status: 0, stdout, stderr: '' };
+  } catch (e) {
+    return { status: 1, stdout, stderr: e.message };
+  } finally {
+    await pool.close().catch(() => {});
+  }
+}
+
+const admin = async (opts) => (useSqlLogin ? mssqlAdmin(opts) : sqlcmdAdmin(opts));
+const adminAvailable = (await admin({ q: 'SELECT 1' })).status === 0;
 const dropDbSql = (db) => `IF DB_ID(N'${db}') IS NOT NULL BEGIN ALTER DATABASE [${db}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${db}]; END`;
 
 /** Drops every user object in sbx and dbo so each test starts from an empty schema. */
@@ -277,14 +316,14 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
       assert.match(err.message, DENIED);
     });
 
-    describe('against a disposable peer database', { skip: !adminAvailable && 'sqlcmd with Windows auth unavailable' }, () => {
+    describe('against a disposable peer database', { skip: !adminAvailable && 'sysadmin access (sqlcmd -E or SANDBOX_ADMIN_USER) unavailable' }, () => {
       const peer = `${process.env.SANDBOX_DB_NAME}_peer`;
-      before(() => {
-        const made = sqlcmdAdmin(['-Q', `${dropDbSql(peer)}; CREATE DATABASE [${peer}]`]);
+      before(async () => {
+        const made = await admin({ q: `${dropDbSql(peer)}; CREATE DATABASE [${peer}]` });
         assert.equal(made.status, 0, 'peer database created');
-        assert.equal(sqlcmdAdmin(['-d', peer, '-Q', 'CREATE TABLE dbo.secret (id int); INSERT dbo.secret VALUES (1)']).status, 0);
+        assert.equal((await admin({ db: peer, q: 'CREATE TABLE dbo.secret (id int); INSERT dbo.secret VALUES (1)' })).status, 0);
       });
-      after(() => { sqlcmdAdmin(['-Q', dropDbSql(peer)]); });
+      after(async () => { await admin({ q: dropDbSql(peer) }); });
 
       test('cross-database SELECT is denied (the peer exists, so this is a real permission denial)', async () => {
         const err = await deniedError(`SELECT TOP 1 id FROM [${peer}].dbo.secret`);
@@ -422,21 +461,21 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
     const probe = `SELECT @@SPID AS spid, @@DATEFIRST AS d, @@LOCK_TIMEOUT AS lt, CONTEXT_INFO() AS ci,
       (SELECT COUNT(*) FROM sys.dm_exec_cursors(@@SPID)) AS cur`;
     const dirty = 'SET DATEFIRST 3; SET LOCK_TIMEOUT 77; SET CONTEXT_INFO 0x1234; DECLARE gc CURSOR GLOBAL FOR SELECT 1; OPEN gc;';
-    const sessions = () => {
-      const r = sqlcmdAdmin(['-h', '-1', '-W', '-Q', `SET NOCOUNT ON; SELECT COUNT(*) FROM sys.dm_exec_sessions WHERE login_name = N'${process.env.SANDBOX_DB_USER}'`]);
+    const sessions = async () => {
+      const r = await admin({ q: `SET NOCOUNT ON; SELECT COUNT(*) FROM sys.dm_exec_sessions WHERE login_name = N'${process.env.SANDBOX_DB_USER}'` });
       return Number(r.stdout.trim());
     };
     // Non-stall paths must have closed the session by the time runSql resolves; allow ~300 ms for the server to notice.
     const sessionsGoneQuickly = async () => {
-      for (let n = 0; n < 6 && sessions() !== 0; n += 1) await new Promise((r) => setTimeout(r, 50));
-      return sessions();
+      for (let n = 0; n < 6 && (await sessions()) !== 0; n += 1) await new Promise((r) => setTimeout(r, 50));
+      return await sessions();
     };
     const sessionsGone = async () => {
-      for (let n = 0; n < 40 && sessions() !== 0; n += 1) await new Promise((r) => setTimeout(r, 250));
-      return sessions();
+      for (let n = 0; n < 40 && (await sessions()) !== 0; n += 1) await new Promise((r) => setTimeout(r, 250));
+      return await sessions();
     };
 
-    test('session state planted by student A (validator bypassed) is invisible to student B', { skip: !adminAvailable && 'sqlcmd unavailable' }, async () => {
+    test('session state planted by student A (validator bypassed) is invisible to student B', { skip: !adminAvailable && 'sysadmin access unavailable' }, async () => {
       const a = await runSqlUnvalidatedForTests({ sql: `${dirty} ${probe}` });
       assert.equal(a.error, null);
       assert.equal(a.rows[0].d, 3, 'planting worked');
@@ -455,7 +494,7 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
       assert.equal(await sessionsGone(), 0);
     });
 
-    test('no session survives a SQL error, a timeout, a failed rollback or a connect failure', { skip: !adminAvailable && 'sqlcmd unavailable' }, async (t) => {
+    test('no session survives a SQL error, a timeout, a failed rollback or a connect failure', { skip: !adminAvailable && 'sysadmin access unavailable' }, async (t) => {
       t.mock.method(console, 'error', () => {});
       assert.match((await runSql({ sql: "SELECT CAST('x' AS int)" })).error ?? '', /Conversion failed/);
       assert.equal(await sessionsGoneQuickly(), 0, 'after SQL error');
@@ -497,7 +536,7 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
       assert.ok(!sent.some((s) => s.startsWith('IF @@TRANCOUNT')), 'no rollback on a broken connection');
     });
 
-    test('a timed-out run sends no rollback or sweep on another connection', { skip: !adminAvailable && 'sqlcmd unavailable' }, async (t) => {
+    test('a timed-out run sends no rollback or sweep on another connection', { skip: !adminAvailable && 'sysadmin access unavailable' }, async (t) => {
       t.mock.method(console, 'error', () => {});
       const realBatch = sql.Request.prototype.batch;
       const realQuery = sql.Request.prototype.query;
@@ -580,10 +619,10 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
       assert.match(allowed.stdout, /n=2/);
     });
 
-    test('20 concurrent runs respect the limit, leave no sessions, and overflow is still refused', { skip: !adminAvailable && 'sqlcmd unavailable' }, async () => {
+    test('20 concurrent runs respect the limit, leave no sessions, and overflow is still refused', { skip: !adminAvailable && 'sysadmin access unavailable' }, async () => {
       const { sandboxConcurrency, sandboxQueueMax } = config.practice;
       let peak = 0;
-      const sampler = setInterval(() => { peak = Math.max(peak, sessions()); }, 200);
+      const sampler = setInterval(() => { sessions().then((n) => { peak = Math.max(peak, n); }); }, 200);
       const results = await Promise.allSettled(Array.from({ length: 20 }, () => runSql({ sql: "WAITFOR DELAY '00:00:00.100'; SELECT 1 AS ok" })));
       clearInterval(sampler);
       const ok = results.filter((r) => r.status === 'fulfilled' && r.value.error === null).length;
@@ -596,23 +635,22 @@ describe('SQL sandbox', { skip: skipReason() }, () => {
   });
 });
 
-// Setup-script assertion: runs sqlcmd as the Windows admin against a throwaway DB (needs sqlcmd + admin; skipped otherwise).
+// Setup-script assertion: runs the setup script as sysadmin against a throwaway DB (skipped without admin access).
 describe('sandbox_setup.sql dbo-objects assertion', { skip: !process.env.SANDBOX_DB_NAME && 'lab env not set' }, () => {
   const db = `${process.env.SANDBOX_DB_NAME}_setupchk`;
   const login = `${db}_l`;
   const script = fileURLToPath(new URL('../../database/sandbox_setup.sql', import.meta.url));
-  const admin = sqlcmdAdmin;
-  const setup = () => admin(['-v', `SANDBOX_DB=${db}`, `SANDBOX_LOGIN=${login}`, `SANDBOX_PASSWORD=${randomBytes(12).toString('hex')}Aa1!`, '-i', script]);
+  const setup = () => admin({ file: script, vars: { SANDBOX_DB: db, SANDBOX_LOGIN: login, SANDBOX_PASSWORD: `${randomBytes(12).toString('hex')}Aa1!` } });
   const adminOk = adminAvailable;
 
-  after(() => {
-    admin(['-Q', `${dropDbSql(db)}; IF SUSER_ID(N'${login}') IS NOT NULL DROP LOGIN [${login}]`]);
+  after(async () => {
+    await admin({ q: `${dropDbSql(db)}; IF SUSER_ID(N'${login}') IS NOT NULL DROP LOGIN [${login}]` });
   });
 
-  test('succeeds on an empty database, fails once a dbo object exists', { skip: !adminOk && 'sqlcmd with Windows auth unavailable' }, () => {
-    assert.equal(setup().status, 0, 'empty database passes');
-    assert.equal(admin(['-d', db, '-Q', 'CREATE TABLE dbo.owned (a int)']).status, 0);
-    const second = setup();
+  test('succeeds on an empty database, fails once a dbo object exists', { skip: !adminOk && 'sysadmin access (sqlcmd -E or SANDBOX_ADMIN_USER) unavailable' }, async () => {
+    assert.equal((await setup()).status, 0, 'empty database passes');
+    assert.equal((await admin({ db, q: 'CREATE TABLE dbo.owned (a int)' })).status, 0);
+    const second = await setup();
     assert.notEqual(second.status, 0, 'a dbo object makes setup fail under -b');
     assert.match(second.stdout + second.stderr, /user objects in schema dbo/);
   });
