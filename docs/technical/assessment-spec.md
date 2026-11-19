@@ -1,7 +1,7 @@
 # Module 3 — Assessment Backend Specification
 
 Status: DRAFT for owner review. The section structure is my reading of a partly truncated T-006 prompt (**ASSUMPTION**). Base: release/v1 (22e9349). Scope: backend only, on the **existing** schema (`database/schema.sql:173-347`). No schema change, no new dependency.
-Items marked **ASSUMPTION** are my reading, not owner-confirmed. Items in §10 are **not decided**; each has a labelled *proposed default* that implementation tasks must route through one swappable function so the decision never blocks them.
+Items marked **ASSUMPTION** are my reading, not owner-confirmed. §10 records the owner decisions D1–D6 (all decided 2026-11-19); the authoring rule and Practice-submit rule still sit behind one swappable function each.
 
 ## 1. Scope and locked rules
 
