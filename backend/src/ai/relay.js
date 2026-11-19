@@ -17,7 +17,11 @@ import { WS_PATH, takeSession } from './sessions.js';
 const GEMINI_WS = 'wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent';
 const MAX_USER_TEXT = 4000;
 const IDLE_CLOSE_MS = 10 * 60 * 1000;
+const MAX_LIVE_SOCKETS_PER_USER = 2; // open relay sockets per student; each one is a live Gemini session
 const MAX_MESSAGES_PER_MIN = 30; // per connection; a student cannot run up Gemini quota with a tight loop
+
+// Message only: never log frame content or the key.
+const logChainError = (err) => console.error('ai relay upstream frame failed:', err?.message);
 
 function parseCookie(header = '') {
   const pair = header.split(';').map((s) => s.trim()).find((s) => s.startsWith(`${COOKIE_NAME}=`));
@@ -55,7 +59,12 @@ export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = conf
     }));
   });
 
-  upstream.addEventListener('message', async (event) => {
+  // Blob.text() is async; chaining keeps a slow decode from letting a later frame overtake an earlier one.
+  let chain = Promise.resolve();
+  upstream.addEventListener('message', (event) => {
+    chain = chain.then(() => handleUpstream(event)).catch(logChainError);
+  });
+  async function handleUpstream(event) {
     const raw = typeof event.data === 'string' ? event.data : await event.data.text();
     let msg;
     try {
@@ -70,16 +79,21 @@ export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = conf
       if (part.text) send(client, { type: 'text', delta: part.text });
     }
     if (content.turnComplete) send(client, { type: 'turn_complete' });
-  });
+  }
 
   upstream.addEventListener('error', () => fail(client, 'upstream_error', 'The AI service is unreachable'));
+  // Queued behind the frame chain so the tail of a reply is delivered before the client is closed.
   upstream.addEventListener('close', (event) => {
-    if (client.readyState === client.OPEN) {
+    chain = chain.then(() => {
+      if (client.readyState !== client.OPEN) return;
       // 1000 = normal; anything else (quota, bad model, auth) is surfaced so the UI can fall back.
       if (event.code !== 1000) send(client, { type: 'error', code: 'upstream_closed', message: event.reason || `Upstream closed (${event.code})` });
       client.close(1000, 'upstream closed');
-    }
+    }).catch(logChainError);
   });
+
+  // ws emits 'error' for an oversize/invalid frame; with no listener that is an uncaught exception.
+  client.on('error', (err) => console.error('ai relay client socket error:', err.message));
 
   let windowStart = Date.now();
   let windowCount = 0;
@@ -121,18 +135,41 @@ export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = conf
 /** Mounts the relay on an http.Server; only upgrades for WS_PATH are handled here. */
 export function attachAiRelay(server, options) {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 16 * 1024 });
+  const liveByUser = new Map(); // userId -> open/reserved socket count
 
   server.on('upgrade', async (req, socket, head) => {
     try {
       const url = new URL(req.url, 'http://localhost');
       if (url.pathname !== WS_PATH) return socket.destroy();
+      // Node drops its own socket error listener on upgrade; a reset during the auth await would otherwise crash the process.
+      socket.on('error', (err) => console.error('ai relay upgrade socket error:', err.message));
 
       const origin = req.headers.origin;
       if (origin && !config.corsOrigins.includes(origin)) return reject(socket, 403);
       const user = await userFromToken(parseCookie(req.headers.cookie));
       if (!user || user.RoleName !== 'Student') return reject(socket, 401);
+      // The client may have dropped during the await; its 'close' already fired, so a slot reserved now would never be released.
+      if (socket.destroyed) return;
+      // Check + reserve with no await in between, so concurrent upgrades cannot all pass the check.
+      // Checked before takeSession so a refused attempt does not burn the session.
+      const live = liveByUser.get(user.UserId) ?? 0;
+      if (live >= MAX_LIVE_SOCKETS_PER_USER) return reject(socket, 429);
+      liveByUser.set(user.UserId, live + 1);
+      let released = false;
+      const release = () => {
+        if (released) return;
+        released = true;
+        const n = (liveByUser.get(user.UserId) ?? 1) - 1;
+        if (n > 0) liveByUser.set(user.UserId, n);
+        else liveByUser.delete(user.UserId);
+      };
+      socket.once('close', release); // covers close, error, and a client that vanishes before handleUpgrade completes
+
       const session = takeSession(url.searchParams.get('session'), user.UserId);
-      if (!session) return reject(socket, 403);
+      if (!session) {
+        release();
+        return reject(socket, 403);
+      }
 
       wss.handleUpgrade(req, socket, head, (ws) => bridge(ws, session, options));
     } catch (err) {
@@ -144,7 +181,7 @@ export function attachAiRelay(server, options) {
 }
 
 function reject(socket, status) {
-  const text = { 401: 'Unauthorized', 500: 'Internal Server Error' }[status] ?? 'Forbidden';
+  const text = { 401: 'Unauthorized', 429: 'Too Many Requests', 500: 'Internal Server Error' }[status] ?? 'Forbidden';
   socket.write(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\n\r\n`);
   socket.destroy();
 }

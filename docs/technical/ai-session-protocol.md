@@ -38,7 +38,8 @@ shows the tutor as unavailable instead of opening a socket.
 
 `GET /api/v1/ai/ws?session=<id>` with the normal `synora_token` cookie. The upgrade is refused with
 `401` (no/invalid cookie, non-student) or `403` (unknown, expired, reused or foreign session,
-disallowed `Origin`).
+disallowed `Origin`) or `429` (the student already has 2 live relay sockets). The 429 check runs
+before the session is consumed, so a refused attempt leaves the session usable once a socket closes.
 
 ## 3. Frames (JSON text)
 
