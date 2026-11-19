@@ -9,6 +9,7 @@ import { usersRouter } from './routes/users.js';
 import { batchesRouter } from './routes/batches.js';
 import { assignmentsRouter } from './routes/assignments.js';
 import { contentRouter } from './routes/content.js';
+import { assessmentRouter } from './assessment/index.js';
 import { aiRouter } from './ai/sessions.js';
 import { executeRouter } from './practice/routes.js';
 import { rateLimit, userOrIpKey } from './rateLimit.js';
@@ -19,6 +20,7 @@ export function createApp() {
   if (config.trustProxy !== undefined) app.set('trust proxy', config.trustProxy);
   const executeLimit = rateLimit({ windowMs: 60 * 1000, max: config.rateLimits.execute, keyFn: userOrIpKey });
   const aiSessionLimit = rateLimit({ windowMs: 60 * 1000, max: config.rateLimits.aiSessions, keyFn: userOrIpKey });
+  const submitLimit = rateLimit({ windowMs: 60 * 1000, max: config.rateLimits.submit, keyFn: userOrIpKey });
   const loginLimit = rateLimit({ windowMs: 60 * 1000, max: config.rateLimits.login, keyFn: (req) => `ip:${req.ip}` });
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
@@ -43,7 +45,8 @@ export function createApp() {
   app.use('/api/v1/assignments', requireAuth, assignmentsRouter);
   app.use('/api/v1/ai', requireAuth, aiSessionLimit, aiRouter);
   app.use('/api/v1/execute', requireAuth, requireRole('Student', 'Faculty'), executeLimit, executeRouter);
-  app.use('/api/v1', requireAuth, contentRouter);
+  app.post('/api/v1/activities/:id/submissions', requireAuth, submitLimit);
+  app.use('/api/v1', requireAuth, assessmentRouter, contentRouter);
 
   app.use((req, res) => res.status(404).json({ error: 'Route not found' }));
 
