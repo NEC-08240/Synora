@@ -51,7 +51,7 @@ jobs:
       - run: npm ci
       - name: Start disposable SQL Server
         run: |
-          docker run -d --name mssql -p 1433:1433 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$CI_SA_PASSWORD" mcr.microsoft.com/mssql/server:2022-latest
+          docker run -d --name mssql -p 1433:1433 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$CI_SA_PASSWORD" mcr.microsoft.com/mssql/server:2022-CU28-ubuntu-22.04
           for i in $(seq 1 40); do
             docker exec mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1 && exit 0
             sleep 3
@@ -77,13 +77,14 @@ jobs:
           EOF
           npm run seed:test
       # Sandbox database and least-privilege login. The per-run throwaway password is masked and only
-      # exported in this step's shell (never written to a file). shortcut: sandbox tests needing a Windows-auth
-      # sysadmin sqlcmd (peer DB, session-leak checks) skip here; npm test, not test:ci, so REQUIRE_SANDBOX_TESTS
-      # stays off. Upgrade by letting sandbox.test.js use sa auth.
+      # exported in this step's shell (never written to a file). The sa login doubles as the sysadmin the
+      # sandbox tests use (mssql driver) for peer-DB and session-leak checks; a skipped suite fails the job.
       - name: Create sandbox login and run backend tests
         run: |
-          SBX_PW="$(openssl rand -hex 16)"
+          # SQL Server password policy needs 3 of 4 character classes; hex alone has only 2 (lower+digit), so append Aa1!.
+          SBX_PW="$(openssl rand -hex 16)Aa1!"
           echo "::add-mask::$SBX_PW"
           docker exec -e SANDBOX_PASSWORD="$SBX_PW" mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v SANDBOX_DB=SynoraT_CI_Sandbox SANDBOX_LOGIN=synora_ci_sbx -i /db/sandbox_setup.sql
           export SANDBOX_DB_NAME=SynoraT_CI_Sandbox SANDBOX_DB_USER=synora_ci_sbx SANDBOX_DB_PASSWORD="$SBX_PW"
+          export SANDBOX_ADMIN_USER=sa SANDBOX_ADMIN_PASSWORD="$CI_SA_PASSWORD" REQUIRE_SANDBOX_TESTS=1
           npm test
