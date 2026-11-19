@@ -49,6 +49,14 @@ export function parseTrustProxy(raw) {
   return parseIntEnv(raw, undefined, 'TRUST_PROXY');
 }
 
+/** Behind a reverse proxy every client shares its IP unless TRUST_PROXY says how many hops to trust, which breaks per-IP rate limits and lockout. */
+export function requireTrustProxyInProduction(trustProxy, isProduction) {
+  if (isProduction && trustProxy === undefined) {
+    throw new Error('TRUST_PROXY must be set when NODE_ENV=production (number of proxy hops; 0 if there is no proxy)');
+  }
+  return trustProxy;
+}
+
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Values above 1 are unsafe: runs share the sbx schema, so one run's uncommitted DDL blocks another's leak
@@ -69,7 +77,7 @@ export const config = Object.freeze({
   isProduction,
   // Secure cookie flag is always on in production; COOKIE_SECURE=true lets an HTTPS staging setup opt in.
   cookieSecure: isProduction || parseBooleanEnv(process.env.COOKIE_SECURE, 'COOKIE_SECURE'),
-  trustProxy: parseTrustProxy(process.env.TRUST_PROXY),
+  trustProxy: requireTrustProxyInProduction(parseTrustProxy(process.env.TRUST_PROXY), isProduction),
   db: Object.freeze({
     server: process.env.DB_SERVER,
     port: Number(process.env.DB_PORT ?? 1433),
