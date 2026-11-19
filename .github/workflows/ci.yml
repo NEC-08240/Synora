@@ -81,7 +81,8 @@ jobs:
       # sandbox tests use (mssql driver) for peer-DB and session-leak checks; a skipped suite fails the job.
       - name: Create sandbox login and run backend tests
         run: |
-          SBX_PW="$(openssl rand -hex 16)"
+          # SQL Server password policy needs 3 of 4 character classes; hex alone has only 2 (lower+digit), so append Aa1!.
+          SBX_PW="$(openssl rand -hex 16)Aa1!"
           echo "::add-mask::$SBX_PW"
           docker exec -e SANDBOX_PASSWORD="$SBX_PW" mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v SANDBOX_DB=SynoraT_CI_Sandbox SANDBOX_LOGIN=synora_ci_sbx -i /db/sandbox_setup.sql
           export SANDBOX_DB_NAME=SynoraT_CI_Sandbox SANDBOX_DB_USER=synora_ci_sbx SANDBOX_DB_PASSWORD="$SBX_PW"
