@@ -43,6 +43,13 @@ export function parseTrustServerCertificate(raw, isProduction) {
   return trust;
 }
 
+/** GEMINI_MODALITY: 'audio' (default; current Live models are audio-only, text comes from the transcript) or 'text'. */
+export function parseGeminiModality(raw) {
+  if (raw === undefined || raw === '') return 'audio';
+  if (raw === 'audio' || raw === 'text') return raw;
+  throw new Error('GEMINI_MODALITY must be "audio" or "text"');
+}
+
 /** TRUST_PROXY: X-Forwarded-For hop count; unset/empty means proxy headers are ignored. */
 export function parseTrustProxy(raw) {
   if (raw === undefined || raw === '') return undefined;
@@ -98,7 +105,8 @@ export const config = Object.freeze({
   ai: Object.freeze({
     // Optional: without a key the AI tutor reports itself unavailable instead of failing silently.
     apiKey: process.env.GEMINI_API_KEY ?? '',
-    model: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash-live-001',
+    model: process.env.GEMINI_MODEL ?? 'gemini-3.8-live',
+    modality: parseGeminiModality(process.env.GEMINI_MODALITY),
     sessionTtlSeconds: 5 * 60,
   }),
   practice: Object.freeze({

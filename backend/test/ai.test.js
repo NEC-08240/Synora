@@ -93,7 +93,7 @@ test('relay streams text from a Gemini-shaped upstream and validates client fram
   const upstreamUrl = `ws://127.0.0.1:${fake.address().port}`;
 
   const relayServer = http.createServer((req, res) => res.end());
-  attachAiRelay(relayServer, { upstreamUrl, apiKey: 'test-key' });
+  attachAiRelay(relayServer, { upstreamUrl, apiKey: 'test-key', modality: 'text' });
   await new Promise((r) => relayServer.listen(0, r));
 
   const { body } = await api('POST', '/api/v1/ai/sessions', { cookie: student, body: {} });
@@ -124,6 +124,54 @@ test('relay streams text from a Gemini-shaped upstream and validates client fram
   await new Promise((r) => fake.close(r));
 });
 
+test('audio mode: setup asks for AUDIO + outputAudioTranscription; only transcript chunks become text, audio is dropped, order kept', { timeout: 30000 }, async () => {
+  let setup;
+  const fake = new WebSocketServer({ port: 0 });
+  const relayServer = http.createServer((req, res) => res.end());
+  fake.on('connection', (ws) => {
+    ws.on('message', (data) => {
+      const msg = JSON.parse(data.toString());
+      if (msg.setup) {
+        setup = msg.setup;
+        return ws.send(JSON.stringify({ setupComplete: {} }));
+      }
+      // Real-API shape: binary frames, small transcript chunks (leading spaces kept), audio inlineData and a thought part alongside, turnComplete last.
+      const b = (o) => ws.send(Buffer.from(JSON.stringify(o)), { binary: true });
+      b({ serverContent: { modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm', data: 'QUJD' } }] }, outputTranscription: { text: 'A pointer' } } });
+      b({ serverContent: { outputTranscription: { text: ' stores an' } } });
+      b({ serverContent: { modelTurn: { parts: [{ text: 'internal thought', thought: true }] }, outputTranscription: { text: ' address.' } } });
+      b({ serverContent: { generationComplete: true } });
+      b({ serverContent: { turnComplete: true } });
+    });
+  });
+  attachAiRelay(relayServer, { upstreamUrl: `ws://127.0.0.1:${fake.address().port}`, apiKey: 'test-key', modality: 'audio' });
+  await new Promise((r) => relayServer.listen(0, r));
+  try {
+    const messages = await connect(`ws://127.0.0.1:${relayServer.address().port}${await mint()}`, student, (ws) => {
+      ws.addEventListener('message', (e) => {
+        const { type } = JSON.parse(e.data);
+        if (type === 'ready') ws.send(JSON.stringify({ type: 'user_text', text: 'what is a pointer' }));
+        if (type === 'turn_complete') ws.close();
+      });
+    });
+    assert.deepEqual(setup.generationConfig.responseModalities, ['AUDIO']);
+    assert.deepEqual(setup.outputAudioTranscription, {}, 'sibling of generationConfig, not nested');
+    assert.equal(setup.generationConfig.outputAudioTranscription, undefined);
+    assert.deepEqual(messages, [
+      { type: 'ready' },
+      { type: 'text', delta: 'A pointer' },
+      { type: 'text', delta: ' stores an' },
+      { type: 'text', delta: ' address.' },
+      { type: 'turn_complete' },
+    ]);
+    assert.ok(!JSON.stringify(messages).includes('QUJD'), 'audio bytes never reach the browser');
+  } finally {
+    await new Promise((r) => relayServer.close(r));
+    fake.clients.forEach((c) => c.terminate());
+    await new Promise((r) => fake.close(r));
+  }
+});
+
 const T = { timeout: 30000 }; // a hung socket must fail the test, not hang the run
 const LIMIT_MS = 5000;
 
@@ -139,7 +187,7 @@ async function until(fn, what) {
 }
 
 /** Fake Gemini upstream + relay; `onMessage(ws, msg)` handles non-setup frames. Setup always gets setupComplete. */
-async function startRelay(onMessage) {
+async function startRelay(onMessage, modality = 'text') {
   const fake = new WebSocketServer({ port: 0 });
   const relayServer = http.createServer((req, res) => res.end());
   const stop = async () => {
@@ -155,7 +203,7 @@ async function startRelay(onMessage) {
         onMessage?.(ws, msg);
       });
     });
-    attachAiRelay(relayServer, { upstreamUrl: `ws://127.0.0.1:${fake.address().port}`, apiKey: 'test-key' });
+    attachAiRelay(relayServer, { upstreamUrl: `ws://127.0.0.1:${fake.address().port}`, apiKey: 'test-key', modality });
     await new Promise((r) => relayServer.listen(0, r));
   } catch (err) {
     await stop();

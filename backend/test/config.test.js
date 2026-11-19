@@ -4,6 +4,7 @@ import {
   parseBooleanEnv,
   parseIntEnv,
   parseTrustProxy,
+  parseGeminiModality,
   parseTrustServerCertificate,
   validateJwtSecret,
 } from '../src/config.js';
@@ -71,4 +72,11 @@ test('scratch guard refuses real and unknown databases, accepts SynoraT names', 
   assert.throws(() => assertScratchDb({ DB_NAME: 'SynoraT004_App', SANDBOX_DB_NAME: 'SynoraV1_Sandbox' }), /SANDBOX_DB_NAME=SynoraV1_Sandbox/);
   assert.doesNotThrow(() => assertScratchDb({ DB_NAME: 'SynoraT004_App', SANDBOX_DB_NAME: 'SynoraT004_Sandbox' }));
   assert.doesNotThrow(() => assertScratchDb({ DB_NAME: 'SynoraT004_App' }));
+});
+
+test('parseGeminiModality defaults to audio and accepts only audio or text', () => {
+  assert.equal(parseGeminiModality(undefined), 'audio');
+  assert.equal(parseGeminiModality(''), 'audio');
+  assert.equal(parseGeminiModality('text'), 'text');
+  assert.throws(() => parseGeminiModality('video'), /GEMINI_MODALITY/);
 });

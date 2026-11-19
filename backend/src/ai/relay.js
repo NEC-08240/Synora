@@ -38,7 +38,7 @@ function fail(ws, code, message) {
 }
 
 /** Pipes one authorized client socket to a fresh Gemini Live session. */
-export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = config.ai.apiKey } = {}) {
+export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = config.ai.apiKey, modality = config.ai.modality } = {}) {
   if (!apiKey) return fail(client, 'ai_unavailable', 'The AI tutor is not configured on this server');
 
   // Key goes in a header, not the query string, so it stays out of URLs and proxy/access logs.
@@ -53,7 +53,9 @@ export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = conf
     upstream.send(JSON.stringify({
       setup: {
         model: `models/${config.ai.model}`,
-        generationConfig: { responseModalities: ['TEXT'] },
+        generationConfig: { responseModalities: [modality === 'text' ? 'TEXT' : 'AUDIO'] },
+        // Top-level sibling of generationConfig. Current Live models are audio-only; the transcript is the text.
+        ...(modality === 'audio' && { outputAudioTranscription: {} }),
         systemInstruction: { parts: [{ text: session.systemInstruction }] },
       },
     }));
@@ -75,8 +77,13 @@ export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = conf
     if (msg.setupComplete) return send(client, { type: 'ready' });
     const content = msg.serverContent;
     if (!content) return;
-    for (const part of content.modelTurn?.parts ?? []) {
-      if (part.text) send(client, { type: 'text', delta: part.text });
+    if (modality === 'text') {
+      for (const part of content.modelTurn?.parts ?? []) {
+        if (part.text) send(client, { type: 'text', delta: part.text });
+      }
+    } else if (content.outputTranscription?.text) {
+      // Audio (modelTurn inlineData) is generated and billed but deliberately discarded; chunks go out untrimmed (leading spaces are word breaks).
+      send(client, { type: 'text', delta: content.outputTranscription.text });
     }
     if (content.turnComplete) send(client, { type: 'turn_complete' });
   }
