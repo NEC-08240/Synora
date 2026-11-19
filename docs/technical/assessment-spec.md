@@ -30,7 +30,7 @@ Roles: Student / Faculty / Administrator. Administrator is **read-only** on asse
 All routes sit behind `requireAuth`. Access decisions live in **one module** `backend/src/assessment/access.js` (foundation task) exporting:
 
 - `assertCanReadActivity(user, activity)` — Student: Published activity under a **Published Topic** (`Topics.Status`, schema.sql:107) whose Subject is allocated to the student's batch (via `FacultyAssignments`, same rule as `assertCanReadSubject` in content.js); Faculty: assigned to that subject in ≥1 batch; Admin: any (read-only).
-- `assertCanAuthorActivity(user, subjectId, activity?)` — **the only place the open authoring decision (§10-D1) is implemented.** Returns/throws 403.
+- `assertCanAuthorActivity(user, subjectId, activity?)` — **the only place the authoring rule (§10-D1, decided: Option A) is implemented.** Returns/throws 403.
 - `assertCanGradeSubmission(user, submission)` — Faculty assigned (FacultyAssignments) to the **student's batch** for the activity's subject. Admin → 403 (read-only). Batch-level scope, unlike authoring.
 - `assertStudent(user)` for student endpoints.
 
@@ -58,11 +58,11 @@ Replace-style PUTs avoid per-row ordering races and respect the unique `(parent,
 |---|---|---|
 | 9 | `GET /activities/:id/draft` | Own draft or `{content: null}`. |
 | 10 | `PUT /activities/:id/draft` | Upsert `PracticeDrafts` (UQ :266). `content` ≤ 64 KB. Allowed for Coding/SQL/Assignment/Practice, not Quiz. |
-| 11 | `POST /activities/:id/submissions` | Submit (§7). Quiz: `{answers:[{questionId,optionId}]}`; Coding: `{source, language}`; SQL: `{sql}`; Assignment: `{content}`; Practice: not graded (`IsGraded=0`, database-design.md:426). **ASSUMPTION (D6):** returns 400 "not graded"; Practice uses `/execute/*` + draft only. |
+| 11 | `POST /activities/:id/submissions` | Submit (§7). Quiz: `{answers:[{questionId,optionId}]}`; Coding: `{source}` (language is derived from the Subject, §10-D3); SQL: `{sql}`; Assignment: `{content}`; Practice: not graded (`IsGraded=0`, database-design.md:426). **ASSUMPTION (D6):** returns 400 "not graded"; Practice uses `/execute/*` + draft only. |
 | 12 | `GET /activities/:id/submissions/mine` | Own attempts, student projection (§6). |
 | 13 | `GET /submissions/:id` | Own (Student) or in-scope (Faculty/Admin). |
 | 14 | `POST /activities/:id/events` | `{eventType:'TabSwitch'}` only; rate-limited (§7.7). `ActivitySubmitted` is server-written, never client-sent. |
-"Run Tests" for Coding = the existing `POST /execute/code` with the student's own stdin (§10-D2 default) — **no** new endpoint, nothing hidden is executed on the student's behalf.
+"Run Tests" for Coding = the existing `POST /execute/code` with the student's own stdin (§10-D2, decided) — **no** new endpoint, nothing hidden is executed on the student's behalf.
 
 ### 4.3 Faculty review and grading
 | # | Method & path | Notes |
@@ -75,7 +75,7 @@ Replace-style PUTs avoid per-row ordering races and respect the unique `(parent,
 ## 5. Activity invariants (validated in backend)
 
 - Quiz: ≥1 question; each question ≥2 options and **exactly one** `IsCorrect` (the filtered unique index only enforces *at most* one, schema.sql ~:385).
-- Coding: ≥1 test case; language is `c` or `cpp` (§10-D3); `TimeLimitMs` default from practice config.
+- Coding: ≥1 test case; language is derived from the Subject (`C`→`c`, `C++`→`cpp`, by `Subjects.Title`, case-insensitive; **ASSUMPTION** on the seeded names) — a Coding activity in any other subject is rejected at create/publish; `TimeLimitMs` default from practice config.
 - SQL: exactly one `SqlTaskSpecs` row (1:1); `expectedResult` matches §6.2 shape; `setupScript` validated by a dry run in the sandbox on publish.
 - Assignment: no auto-grader; `MaxScore` required.
 - `MaxScore`: for Quiz must equal Σ `Points` (**ASSUMPTION** — avoids two sources of truth); for Coding = Σ equal per-test weights (`MaxScore/N`, rounded in §6.1); SQL/Assignment: free.
@@ -96,12 +96,12 @@ Per question: correct iff chosen option `IsCorrect`. `Score = Σ Points of corre
 Stored `Submitted`; only faculty grading (#16) moves it to `Graded`.
 
 ### Hidden-data protection (applies to every endpoint)
-- One **projection function per entity** in `backend/src/assessment/project.js`; routes never serialise DB rows directly. Student projections exclude: `IsCorrect`, `Explanation` (until §10-D5 reveals), `InputData`, `ExpectedOutput`, `ExpectedResult`, `TestCaseResults.ActualOutput`/stderr, `ExecutionTimeMs` of hidden cases.
+- One **projection function per entity** in `backend/src/assessment/project.js`; routes never serialise DB rows directly. Student projections exclude: `IsCorrect`, `Explanation` (never, §10-D5), `InputData`, `ExpectedOutput`, `ExpectedResult`, `TestCaseResults.ActualOutput`/stderr, `ExecutionTimeMs` of hidden cases.
 - Student feedback for Coding is only `{passed, total, compileError?, timedOut?}`. **Never** per-case output: a program that echoes stdin would leak hidden input.
 - `SetupScript` is **student-visible**: `/execute/sql` takes it from the client, and once tables exist a student can `SELECT *` them anyway. Only `ExpectedResult` is the SQL answer key.
 - Error bodies and logs: grading errors log `err.message` only, never payload, source, stdin or expected values.
 - **Sentinel test required:** seed a unique string in every hidden field, exercise every student endpoint (success and error paths), assert the string appears in no response body, no error body **and no console/logger output** captured for the whole run.
-- **Residual risk:** with unlimited attempts (D4) and `{passed,total}` visible, a program can branch on hidden input and extract it bit by bit. Mitigation: per-student submit rate limit (`rateLimits.submit`, same pattern as `rateLimits.execute`, config.js:85-86). Not eliminated.
+- **Residual risk:** with unlimited attempts (D4, decided) and `{passed,total}` visible, a program can branch on hidden input and extract it bit by bit. Mitigation: per-student submit rate limit (`rateLimits.submit`, same pattern as `rateLimits.execute`, config.js:85-86). Not eliminated.
 
 ## 7. Behaviour details
 
@@ -128,27 +128,26 @@ M3-1…M3-4 can run in parallel after M3-0. Frontend work is out of scope.
 
 ## 9. Conflicts and gaps found (not silently resolved)
 
-1. **Hidden tests vs docs:** database-design.md:22,229,411 (Decision 7) says *all test cases visible*; owner rule says never exposed; `TestCases` has no flag (schema.sql:233-242) and the prototype shows "(Hidden)". Default in D2.
-2. **No `language` column** on Activities for Coding (D3).
+1. **Hidden tests vs docs:** database-design.md:22,229,411 (Decision 7) says *all test cases visible*; owner rule says never exposed; `TestCases` has no flag (schema.sql:233-242) and the prototype shows "(Hidden)". Resolved by D2 (decided).
+2. **No `language` column** on Activities for Coding (resolved by D3: derived from Subject).
 3. **No deadline/attempt limit/start time/in-progress status** — timer, due date, "1/3 allowed" are unenforceable (7.1).
 4. `ExpectedResult` is only `ISJSON` — shape defined here (6.2) and **not** defined in any existing doc.
 5. `TimeLimitMs` is execution limit, not quiz duration (database-design.md:187).
-6. Authoring vs FacultyAssignments: UQ(Batch,Subject) means two faculty sharing a subject across batches cannot both pass an "assigned in every batch" rule (D1).
+6. Authoring vs FacultyAssignments: UQ(Batch,Subject) means two faculty sharing a subject across batches cannot both pass an "assigned in every batch" rule (resolved by D1: Option A).
 7. `QuizOptions` index permits zero correct options; app must require exactly one.
 8. `Submissions.Status` has no "InProgress"/"Regrading".
 9. **Correction to earlier draft:** `SetupScript` is student-visible, not hidden (see §6). 10. Prototype scr-04 shows "(Hidden)" (index.html:228,230) and "1 / 3 allowed" (:127) — VERIFIED. 11. `api-spec.md:~83` still says assessment endpoints are undefined — updated by M3-5 only.
 
-## 10. Open decisions (owner) — proposed defaults are NOT chosen
+## 10. Decisions
 
-- **D1 Who may author content for a subject taught to several batches by different faculty?**
-  - *Option A (subject-level):* faculty may author if assigned to the subject in **at least one** batch.
-  - *Option B (creator-owns):* only `Activities.CreatedBy` may edit; others read-only (no schema change). Admin read-only in both.
-  Implemented only in `assertCanAuthorActivity`; default for tests: Option A. Today's existing rule (`assertAssignedToSubject`) requires assignment in every batch, which 403s co-teaching faculty — recorded, not changed.
-- **D2 Hidden test cases:** proposed default — **every** TestCase is hidden from students; visible examples go in `Instructions`; students use `/execute/code`. Alternative: add `IsHidden` (schema change, needs approval).
-- **D3 Coding language:** proposed — student selects `c`/`cpp` at submit; alternative derive from Subject (C vs C++).
-- **D4 Attempt limit / deadline:** none enforced (no columns). Alternative: new columns (schema change).
-- **D5 Quiz answer reveal:** proposed — never return `IsCorrect`/`Explanation` to students until attempts are exhausted *and* no limit exists ⇒ effectively never to students; faculty only. Alternative: reveal after each submit (leaks answers for retry).
-- **D6 Practice submit:** confirm Practice is draft-only (no Submissions rows).
+Owner decisions of 2026-11-19 (relayed by the planning session, "accept recommended"): D1–D5 DECIDED, D6 OPEN.
+
+- **D1 — DECIDED (2026-11-19), Option A.** A faculty member may author Activities for a subject if assigned to it in **at least one** batch (`FacultyAssignments`). Admin read-only. Implemented only in `assertCanAuthorActivity`. (Rejected: Option B creator-owns.) Note: today's `assertAssignedToSubject` in content.js requires assignment in every batch; M3-0 adds a subject-level helper, content.js behaviour for lessons is unchanged.
+- **D2 — DECIDED (2026-11-19).** Every TestCase is hidden from students. Visible examples go in `Activities.Instructions`. Students use `/execute/code`. No `IsHidden` column, no schema change.
+- **D3 — DECIDED (2026-11-19).** Coding language is derived from the Subject (C or C++). The student does not choose it; submit body has no `language`.
+- **D4 — DECIDED (2026-11-19).** No attempt limit and no deadline in V1 (no schema change). The prototype's "1 / 3 allowed" is not backed by the server.
+- **D5 — DECIDED (2026-11-19).** Students never receive `IsCorrect` or `Explanation`; faculty only.
+- **D6 — OPEN. Practice submit.** Question: may a student submit a Practice activity? *Option 1 (proposed default):* Practice is draft-only; `POST /activities/:id/submissions` returns 400 "not graded", work lives in `PracticeDrafts` and `/execute/*` (database-design.md:426 says practice submissions are kept in `Submissions` with `IsGraded = 0`, so this contradicts that line). *Option 2:* allow it; store a `Submissions` row `Graded` with `Score` 0 and no grader, for attempt history (matches database-design.md:426). Until decided, M3-2 implements Option 1 behind one constant.
 
 ## ASSUMPTION list
-1. Quiz `MaxScore` = Σ Points. 2. Coding scoring proportional, SQL all-or-nothing. 3. Practice has no submit endpoint. 5. Sandbox/runner-busy ⇒ 429/503, nothing written. 6. TabSwitch rate limit 1/5 s. 7. Semaphore size 4; submit rate limit config key `rateLimits.submit`. 8. Replace-style PUT for question/test sets. 9. Endpoint count 17. 10. All quiz questions must be answered (else 400). 11. Student-visible `setupScript`.
+1. Quiz `MaxScore` = Σ Points. 0. Subject names `C`/`C++` exist for language derivation. 2. Coding scoring proportional, SQL all-or-nothing. 3. Practice has no submit endpoint. 5. Sandbox/runner-busy ⇒ 429/503, nothing written. 6. TabSwitch rate limit 1/5 s. 7. Semaphore size 4; submit rate limit config key `rateLimits.submit`. 8. Replace-style PUT for question/test sets. 9. Endpoint count 17. 10. All quiz questions must be answered (else 400). 11. Student-visible `setupScript`.
