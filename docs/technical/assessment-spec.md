@@ -140,14 +140,14 @@ M3-1…M3-4 can run in parallel after M3-0. Frontend work is out of scope.
 
 ## 10. Decisions
 
-Owner decisions of 2026-11-19 (relayed by the planning session, "accept recommended"): D1–D5 DECIDED, D6 OPEN.
+Owner decisions of 2026-11-19 (relayed by the planning session, "accept recommended"): D1–D6 DECIDED (D6 recorded 2026-11-19 by T-008).
 
 - **D1 — DECIDED (2026-11-19), Option A.** A faculty member may author Activities for a subject if assigned to it in **at least one** batch (`FacultyAssignments`). Admin read-only. Implemented only in `assertCanAuthorActivity`. (Rejected: Option B creator-owns.) Note: today's `assertAssignedToSubject` in content.js requires assignment in every batch; M3-0 adds a subject-level helper, content.js behaviour for lessons is unchanged.
 - **D2 — DECIDED (2026-11-19).** Every TestCase is hidden from students. Visible examples go in `Activities.Instructions`. Students use `/execute/code`. No `IsHidden` column, no schema change.
 - **D3 — DECIDED (2026-11-19).** Coding language is derived from the Subject (C or C++). The student does not choose it; submit body has no `language`.
 - **D4 — DECIDED (2026-11-19).** No attempt limit and no deadline in V1 (no schema change). The prototype's "1 / 3 allowed" is not backed by the server.
 - **D5 — DECIDED (2026-11-19).** Students never receive `IsCorrect` or `Explanation`; faculty only.
-- **D6 — OPEN. Practice submit.** Question: may a student submit a Practice activity? *Option 1 (proposed default):* Practice is draft-only; `POST /activities/:id/submissions` returns 400 "not graded", work lives in `PracticeDrafts` and `/execute/*` (database-design.md:426 says practice submissions are kept in `Submissions` with `IsGraded = 0`, so this contradicts that line). *Option 2:* allow it; store a `Submissions` row `Graded` with `Score` 0 and no grader, for attempt history (matches database-design.md:426). Until decided, M3-2 implements Option 1 behind one constant.
+- **D6 — DECIDED (2026-11-19), Option 1. Practice submit.** Question: may a student submit a Practice activity? *Option 1 (chosen):* Practice is draft-only; `POST /activities/:id/submissions` returns 400 "not graded", work lives in `PracticeDrafts` and `/execute/*` (database-design.md:426 says practice submissions are kept in `Submissions` with `IsGraded = 0`, so database-design.md:426 was rewritten by T-008 to match). *Option 2 (rejected):* allow it; store a `Submissions` row `Graded` with `Score` 0 and no grader, for attempt history (matches database-design.md:426). M3-2 implements Option 1 behind one constant.
 
 ## ASSUMPTION list
 1. Quiz `MaxScore` = Σ Points. 0. Subject names `C`/`C++` exist for language derivation. 2. Coding scoring proportional, SQL all-or-nothing. 3. Practice has no submit endpoint. 5. Sandbox/runner-busy ⇒ 429/503, nothing written. 6. TabSwitch rate limit 1/5 s. 7. Semaphore size 4; submit rate limit config key `rateLimits.submit`. 8. Replace-style PUT for question/test sets. 9. Endpoint count 17. 10. All quiz questions must be answered (else 400). 11. Student-visible `setupScript`.
