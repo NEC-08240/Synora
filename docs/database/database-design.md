@@ -19,7 +19,7 @@ Status: **design locked; ER diagram and SQL Server DDL created.**
 | 4 | No Course entity; hierarchy is Subject → Topic → Lesson | No Courses table. |
 | 5 | No multi-select questions | Quiz questions are single-answer. |
 | 6 | No open-text / short-answer responses | No TextResponse column. |
-| 7 | No hidden test cases | No IsHidden column. |
+| 7 | No IsHidden column; every test case is hidden from students | No IsHidden column. All test cases are hidden from students; visible examples go in `Activities.Instructions` (assessment-spec D2, 2026-11-19). |
 | 8 | Lesson objectives are lesson metadata only | `Lessons.Objectives` column. No Objectives entity. |
 | 9 | Tab-switch telemetry is kept, non-punitive | Event type `TabSwitch` in LearningActivity. Audit only. |
 | 10 | AI transcripts are not persisted | No transcript or conversation entity. AI queries are logged as an event with no content. |
@@ -197,7 +197,7 @@ Output-size limit (FR2.5) is backend configuration, not a column.
 | QuestionId | INT | PK | Question identifier. |
 | ActivityId | INT | FK → Activities, NOT NULL, owned (cascade) | Parent quiz activity. |
 | QuestionText | NVARCHAR(MAX) | NOT NULL | Prompt. |
-| Explanation | NVARCHAR(MAX) | NULL | Feedback after submission. |
+| Explanation | NVARCHAR(MAX) | NULL | Faculty-only feedback; never returned to students (assessment-spec D5, 2026-11-19). |
 | Points | DECIMAL(5,2) | NOT NULL, CHECK (> 0) | Points for a correct answer. |
 | OrderIndex | INT | NOT NULL | Position in quiz. |
 
@@ -226,7 +226,7 @@ Constraints:
 | ExpectedOutput | NVARCHAR(MAX) | NOT NULL | Expected STDOUT. |
 | OrderIndex | INT | NOT NULL | Display order. |
 
-Constraint: `UNIQUE(ActivityId, OrderIndex)`. All test cases are visible to students (Decision 7).
+Constraint: `UNIQUE(ActivityId, OrderIndex)`. All test cases are hidden from students (Decision 7 as amended by assessment-spec D2); visible examples live in `Activities.Instructions`.
 
 #### SqlTaskSpecs
 | Attribute | Data Type | Key/Constraint | Description |
@@ -408,7 +408,7 @@ Multiple cascade paths check: each table is reachable by cascade through at most
 | Objectives | Excluded | Decision 8. Column on Lessons. |
 | TextResponse / short-answer | Excluded | Decision 6. |
 | Multi-select answer table | Excluded | Decision 5. |
-| Hidden test cases | Excluded | Decision 7. |
+| IsHidden column | Excluded | Decision 7. Every test case is hidden (assessment-spec D2). |
 | Expected-result table | Excluded | Decision 12. JSON in SqlTaskSpecs. |
 | Rubric table | Excluded | Not in the synopsis. Revisit only if confirmed. |
 | Due dates, reminders | Excluded | Not in the synopsis. |
@@ -423,7 +423,7 @@ Multiple cascade paths check: each table is reachable by cascade through at most
 1. **Faculty authoring scope.** Topics and Activities are shared across batches. A faculty member may author content for a subject if they hold at least one FacultyAssignments row for that subject. Grading and monitoring are limited to their assigned batch. *Needs owner confirmation.*
 2. **Subjects are maintained by the Administrator.** The three V1 subjects are seeded. The Administrator can archive them but cannot add new subjects without a scope change.
 3. **PracticeDrafts belongs to Submission Data (D4).** The canonical DFD (`docs/dfd.png`) shows the draft-save flow from 3.0 into D4.
-4. **Attempts for Practice activities.** Practice submissions are kept in Submissions for attempt tracking (§5.2). They are not graded (`IsGraded = 0`).
+4. **Attempts for Practice activities.** Practice activities are draft-only in V1 (assessment-spec D6): work lives in PracticeDrafts, and `POST /activities/:id/submissions` returns 400 "not graded" for them. No Submissions rows are created for Practice.
 
 ---
 
