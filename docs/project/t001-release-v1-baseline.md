@@ -101,3 +101,23 @@ Silent failures (backend/src):
 - add the pool-error and process-level handlers, and review `relay.js`;
 - run the sandbox migration and the demo-password rotation (neither is proven to have happened);
 - decide what to do about the old passwords in git history.
+
+## 11. Completion addendum (T-003 rerun, 2026-11-19)
+
+**Verdict: YES, with fixes** (unchanged). release/v1 (22e9349) is a safe base for further work. Reasons: all checks below pass on a fresh scratch database; scope matches the locked stack; the two post-release-security commits and the CI workflow apply cleanly on top (branch `integration/v1-wave1`, no conflicts, 126/126 backend tests). It is not release-ready until the sandbox migration and demo-password rotation are run and proven (section 6), and the silent-failure items in section 7 are handled.
+
+Test table. Rerun on scratch databases `SynoraT003_App` / `SynoraT003_Sandbox` (SQL Server 2022, `localhost\SQL2022`), checkout at 22e9349, all passwords from runtime environment variables, databases and logins dropped afterwards (VERIFIED: pre-run and post-run checks found 0 `SynoraT003*` databases and 0 `synora_t003*` logins).
+
+| Command | Result | Counts |
+|---|---|---|
+| `database/schema.sql` + `database/sandbox_setup.sql` (sqlcmd) | pass | 20 tables created |
+| `sqlcmd -i database/validate_schema.sql` | PASS | 157 checks, 0 failures |
+| `cd backend && npm test` | pass | 123 tests, 123 pass, 0 fail |
+| `cd frontend && npm test` | pass | 9 tests, 9 pass, 0 fail |
+| `cd frontend && npm run lint` | pass | 0 errors, 2 warnings (`src/auth.jsx:35,37`, fast-refresh) |
+| `cd frontend && npm run build` | pass | built |
+| `cd frontend && npm run smoke` (fresh seeded DB) | pass | 12/12 |
+
+Note: a first smoke run failed ("student hub with subjects" timed out) because my runner had no `backend/.env`, so the seed did not run; it was an environment error, not a product failure. The table shows the rerun.
+
+Subagent status: the T-001 subagent table in section 1 stands. In T-003 the runs above were done by me directly; no subagent result was used without checking the log.
