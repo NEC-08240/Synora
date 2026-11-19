@@ -218,7 +218,7 @@ test('an upstream close right after the last frames does not drop the tail of th
   const relay = await startRelay((ws) => {
     ws.send(bigFrame('A'), { binary: true });
     ws.send(frame({ modelTurn: { parts: [{ text: 'B' }] }, turnComplete: true }), { binary: true });
-    ws.terminate(); // upstream goes away immediately; the close event must not outrun the pending decodes
+    ws.close(); // upstream goes away right after the frames; the close event must not outrun the pending decodes (terminate() would discard the unsent 5 MB frame on Linux)
   });
   try {
     const messages = await runTurn(relay);
@@ -291,7 +291,8 @@ test('a client that resets the socket during the auth lookup neither crashes the
       });
     }
     await new Promise((r) => setTimeout(r, 300)); // the server-side auth lookups have no observable signal
-    open.push(await openPath(relay.url(), wsPath), await openLive(relay.url()));
+    // fresh session: on a fast runner an aborted request may already have consumed wsPath, which would make this a 403
+    open.push(await openLive(relay.url()), await openLive(relay.url()));
   } finally {
     open.forEach((ws) => ws.terminate());
     await relay.stop();
