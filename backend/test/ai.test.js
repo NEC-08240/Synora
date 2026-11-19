@@ -228,6 +228,22 @@ test('an upstream close right after the last frames does not drop the tail of th
   }
 });
 
+test('an abrupt upstream termination is reported to the client as an error and closes it', T, async () => {
+  const relay = await startRelay((ws) => {
+    ws.send(frame({ modelTurn: { parts: [{ text: 'A' }] } }).toString());
+    ws.terminate(); // no close handshake: the relay sees code 1006
+  });
+  try {
+    const messages = await runTurn(relay);
+    // 1006 raises the socket 'error' event, which fails the session at once (not queued behind the frame chain), so unlike a clean close the tail may be dropped.
+    assert.ok(messages.some((m) => m.type === 'error' && ['upstream_error', 'upstream_closed'].includes(m.code)));
+    assert.ok(!messages.some((m) => m.type === 'turn_complete'));
+    assert.ok(messages.filter((m) => m.type === 'text').every((m) => m.delta === 'A'), 'any delivered text is a prefix of the reply');
+  } finally {
+    await relay.stop();
+  }
+});
+
 test('a student may hold at most 2 live relay sockets; refusal is a 429 that does not burn the session', T, async () => {
   const relay = await startRelay();
   const open = [];
