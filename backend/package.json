@@ -8,9 +8,9 @@
     "start": "node --env-file=.env src/server.js",
     "dev": "node --env-file=.env --watch src/server.js",
     "seed": "node --env-file=.env scripts/seed.js",
-    "seed:test": "node --env-file=.env.test scripts/seed.js",
-    "test": "node --env-file=.env.test --test --test-concurrency=1 \"test/**/*.test.js\"",
-    "test:ci": "node --env-file=.env.test --env-file=.env.ci --test --test-concurrency=1 \"test/**/*.test.js\""
+    "seed:test": "node --env-file=.env.test --import ./test/scratch-guard-setup.js scripts/seed.js",
+    "test": "node --env-file=.env.test --import ./test/scratch-guard-setup.js --test --test-concurrency=1 \"test/**/*.test.js\"",
+    "test:ci": "node --env-file=.env.test --env-file=.env.ci --import ./test/scratch-guard-setup.js --test --test-concurrency=1 \"test/**/*.test.js\""
   },
   "engines": {
     "node": ">=22"
