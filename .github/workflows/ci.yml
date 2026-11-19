@@ -62,15 +62,6 @@ jobs:
           docker cp ../database mssql:/db
           docker exec mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v DB_NAME=SynoraT_CI -i /db/schema.sql
           docker exec mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v DB_NAME=SynoraT_CI -i /db/validate_schema.sql
-          # Sandbox database and least-privilege login; per-run throwaway password, masked, kept out of files.
-          SBX_PW="$(openssl rand -hex 16)"
-          echo "::add-mask::$SBX_PW"
-          docker exec -e SANDBOX_PASSWORD="$SBX_PW" mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v SANDBOX_DB=SynoraT_CI_Sandbox SANDBOX_LOGIN=synora_ci_sbx -i /db/sandbox_setup.sql
-          {
-            echo "SANDBOX_DB_NAME=SynoraT_CI_Sandbox"
-            echo "SANDBOX_DB_USER=synora_ci_sbx"
-            echo "SANDBOX_DB_PASSWORD=$SBX_PW"
-          } >> "$GITHUB_ENV"
           cat > .env.test <<EOF
           NODE_ENV=test
           DB_SERVER=localhost
@@ -85,6 +76,14 @@ jobs:
           ALLOW_SEED=1
           EOF
           npm run seed:test
-      # shortcut: sandbox tests needing a Windows-auth sysadmin sqlcmd (peer DB, session-leak checks) skip here;
-      # npm test, not test:ci, so REQUIRE_SANDBOX_TESTS stays off. Upgrade by letting sandbox.test.js use sa auth.
-      - run: npm test
+      # Sandbox database and least-privilege login. The per-run throwaway password is masked and only
+      # exported in this step's shell (never written to a file). shortcut: sandbox tests needing a Windows-auth
+      # sysadmin sqlcmd (peer DB, session-leak checks) skip here; npm test, not test:ci, so REQUIRE_SANDBOX_TESTS
+      # stays off. Upgrade by letting sandbox.test.js use sa auth.
+      - name: Create sandbox login and run backend tests
+        run: |
+          SBX_PW="$(openssl rand -hex 16)"
+          echo "::add-mask::$SBX_PW"
+          docker exec -e SANDBOX_PASSWORD="$SBX_PW" mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v SANDBOX_DB=SynoraT_CI_Sandbox SANDBOX_LOGIN=synora_ci_sbx -i /db/sandbox_setup.sql
+          export SANDBOX_DB_NAME=SynoraT_CI_Sandbox SANDBOX_DB_USER=synora_ci_sbx SANDBOX_DB_PASSWORD="$SBX_PW"
+          npm test
