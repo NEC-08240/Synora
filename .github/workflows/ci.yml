@@ -3,7 +3,12 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, 'release/**']
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -11,12 +16,13 @@ permissions:
 jobs:
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -28,6 +34,7 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: backend
@@ -35,8 +42,8 @@ jobs:
       # Throwaway values for a disposable container; not real credentials.
       CI_SA_PASSWORD: Ci-only-${{ github.run_id }}-Aa1!
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -53,13 +60,22 @@ jobs:
       - name: Create and seed the test database
         run: |
           docker cp ../database mssql:/db
-          docker exec mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v DB_NAME=SynoraV1_Test -i /db/schema.sql
-          docker exec mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v DB_NAME=SynoraV1_Test -i /db/validate_schema.sql
+          docker exec mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v DB_NAME=SynoraT_CI -i /db/schema.sql
+          docker exec mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v DB_NAME=SynoraT_CI -i /db/validate_schema.sql
+          # Sandbox database and least-privilege login; per-run throwaway password, masked, kept out of files.
+          SBX_PW="$(openssl rand -hex 16)"
+          echo "::add-mask::$SBX_PW"
+          docker exec -e SANDBOX_PASSWORD="$SBX_PW" mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v SANDBOX_DB=SynoraT_CI_Sandbox SANDBOX_LOGIN=synora_ci_sbx -i /db/sandbox_setup.sql
+          {
+            echo "SANDBOX_DB_NAME=SynoraT_CI_Sandbox"
+            echo "SANDBOX_DB_USER=synora_ci_sbx"
+            echo "SANDBOX_DB_PASSWORD=$SBX_PW"
+          } >> "$GITHUB_ENV"
           cat > .env.test <<EOF
           NODE_ENV=test
           DB_SERVER=localhost
           DB_PORT=1433
-          DB_NAME=SynoraV1_Test
+          DB_NAME=SynoraT_CI
           DB_USER=sa
           DB_PASSWORD=$CI_SA_PASSWORD
           DB_TRUST_SERVER_CERT=true
@@ -69,6 +85,6 @@ jobs:
           ALLOW_SEED=1
           EOF
           npm run seed:test
-      # The SQL sandbox suite needs a Windows-auth sysadmin sqlcmd, so it is skipped here and
-      # still has to be run locally (backend/README.md); npm test, not test:ci, keeps it optional.
+      # shortcut: sandbox tests needing a Windows-auth sysadmin sqlcmd (peer DB, session-leak checks) skip here;
+      # npm test, not test:ci, so REQUIRE_SANDBOX_TESTS stays off. Upgrade by letting sandbox.test.js use sa auth.
       - run: npm test
