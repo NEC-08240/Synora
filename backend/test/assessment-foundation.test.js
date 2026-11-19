@@ -47,21 +47,12 @@ const ENDPOINTS = [
 
 /* ------------------------------ routing / mounting ------------------------------ */
 
-// M3-4 (faculty review, endpoints 15-17) is still a stub; endpoints 1-14 are implemented and covered by their own tests.
-const STUBS = ENDPOINTS.slice(14);
-
-test('all 17 assessment endpoints are mounted behind auth; the review endpoints (15-17) are still 501 stubs', async () => {
+// All 17 endpoints are implemented; each has its own test file.
+test('all 17 assessment endpoints are mounted behind auth and none is a 501 stub', async () => {
   assert.equal(ENDPOINTS.length, 17);
   for (const [method, path] of ENDPOINTS) {
     const anon = await api(method, path);
     assert.equal(anon.status, 401, `${method} ${path} unauthenticated`);
-  }
-  for (const [method, path] of STUBS) {
-    const res = await api(method, path, { cookie: faculty, body: method === 'GET' ? undefined : {} });
-    assert.equal(res.status, 501, `${method} ${path}`);
-    assert.ok(res.body.error, `${method} ${path} has {error}`);
-  }
-  for (const [method, path] of ENDPOINTS.slice(0, 14)) {
     const res = await api(method, path, { cookie: faculty, body: method === 'GET' ? undefined : {} });
     assert.notEqual(res.status, 501, `${method} ${path} must be implemented`);
   }
