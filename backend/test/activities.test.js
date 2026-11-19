@@ -123,8 +123,8 @@ test('draft activities are hidden from students; lock once submissions exist', a
   const list = await api('GET', `/api/v1/topics/${topicId}/activities`, { cookie: student });
   assert.equal(list.body.activities.length, 0);
   const fl = await api('GET', `/api/v1/topics/${topicId}/activities`, { cookie: faculty });
-  assert.equal(fl.body.activities.length, 1);
-  const { UserId } = (await query(`SELECT UserId FROM dbo.Users WHERE Email = 'student@synora.local'`)).recordset[0];
+  assert.equal(fl.body.activities.length, 2); // fixture activity + the new draft
+  const { UserId } = (await query(`SELECT UserId FROM dbo.Users WHERE Email = N'student@synora.local'`))[0];
   await query(
     `INSERT dbo.Submissions (ActivityId, StudentId, AttemptNo, Status, SubmittedContent) VALUES (@id, @u, 1, N'Submitted', N'x')`,
     { id, u: UserId },
