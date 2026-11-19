@@ -13,7 +13,7 @@
 4. `cp .env.example .env` and fill in `DB_PASSWORD`, a random `JWT_SECRET`, and `SEED_PASSWORD` (12+ characters, no default).
 5. `npm install`, then seed the demo data (see below), then `npm run dev` → http://localhost:4000/api/v1/health
 
-Seeding is guarded: `scripts/seed.js` refuses to run when `NODE_ENV=production`, and refuses unless `ALLOW_SEED=1` is set. Only seed a disposable database. The target `DB_NAME` is printed before any write:
+Seeding is guarded: `scripts/seed.js` refuses to run when `NODE_ENV=production`, and refuses unless `ALLOW_SEED=1` is set. Only seed a disposable database. `ALLOW_SEED=1` is a deliberate opt-in and is not covered by the `SynoraT` test-database guard (that guard only wraps `npm test`, `npm run test:ci` and `npm run seed:test`); running `scripts/seed.js` directly seeds whatever `DB_NAME` points at, except under `NODE_ENV=production`, which is always refused. The target `DB_NAME` is printed before any write:
 
 ```
 ALLOW_SEED=1 npm run seed
