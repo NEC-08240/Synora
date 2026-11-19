@@ -4,11 +4,14 @@ import { config } from './config.js';
 let poolPromise;
 
 export function createConnectionPool() {
-  return new sql.ConnectionPool({
+  const pool = new sql.ConnectionPool({
     ...config.db,
     options: { encrypt: true, trustServerCertificate: config.db.trustServerCertificate },
     pool: { max: 10, min: 0, idleTimeoutMillis: 30000 },
   });
+  // Without a listener an idle-connection error would crash the process; log the message only (it can carry connection details).
+  pool.on('error', (err) => console.error('SQL pool error:', err?.message));
+  return pool;
 }
 
 async function connectPool(makePool) {

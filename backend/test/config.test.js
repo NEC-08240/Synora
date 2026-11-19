@@ -55,3 +55,20 @@ test('TRUST_PROXY: unset means undefined (headers ignored), a number is a hop co
   assert.equal(parseTrustProxy('1'), 1);
   assert.throws(() => parseTrustProxy('loopback'), /TRUST_PROXY must be a non-negative integer/);
 });
+
+test('production without TRUST_PROXY fails at startup; 0 and a hop count are accepted', async () => {
+  const { requireTrustProxyInProduction } = await import('../src/config.js');
+  assert.throws(() => requireTrustProxyInProduction(undefined, true), /TRUST_PROXY must be set when NODE_ENV=production/);
+  assert.equal(requireTrustProxyInProduction(0, true), 0);
+  assert.equal(requireTrustProxyInProduction(undefined, false), undefined);
+});
+
+test('scratch guard refuses real and unknown databases, accepts SynoraT names', async () => {
+  const { assertScratchDb } = await import('./scratch-guard.js');
+  for (const name of ['SynoraV1', 'SynoraV1_Test', 'SynoraV1_Sandbox', 'Other', undefined]) {
+    assert.throws(() => assertScratchDb({ DB_NAME: name }), /not a scratch database/, String(name));
+  }
+  assert.throws(() => assertScratchDb({ DB_NAME: 'SynoraT004_App', SANDBOX_DB_NAME: 'SynoraV1_Sandbox' }), /SANDBOX_DB_NAME=SynoraV1_Sandbox/);
+  assert.doesNotThrow(() => assertScratchDb({ DB_NAME: 'SynoraT004_App', SANDBOX_DB_NAME: 'SynoraT004_Sandbox' }));
+  assert.doesNotThrow(() => assertScratchDb({ DB_NAME: 'SynoraT004_App' }));
+});

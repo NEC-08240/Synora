@@ -13,7 +13,7 @@
 4. `cp .env.example .env` and fill in `DB_PASSWORD`, a random `JWT_SECRET`, and `SEED_PASSWORD` (12+ characters, no default).
 5. `npm install`, then seed the demo data (see below), then `npm run dev` → http://localhost:4000/api/v1/health
 
-Seeding is guarded: `scripts/seed.js` refuses to run when `NODE_ENV=production`, and refuses unless `ALLOW_SEED=1` is set. Only seed a disposable database. The target `DB_NAME` is printed before any write:
+Seeding is guarded: `scripts/seed.js` refuses to run when `NODE_ENV=production`, and refuses unless `ALLOW_SEED=1` is set. Only seed a disposable database. `ALLOW_SEED=1` is a deliberate opt-in and is not covered by the `SynoraT` test-database guard (that guard only wraps `npm test`, `npm run test:ci` and `npm run seed:test`); running `scripts/seed.js` directly seeds whatever `DB_NAME` points at, except under `NODE_ENV=production`, which is always refused. The target `DB_NAME` is printed before any write:
 
 ```
 ALLOW_SEED=1 npm run seed
@@ -29,12 +29,12 @@ ALLOW_SEED=1 npm run seed
 
 ## Tests
 
-Integration tests run against a second database so seed/demo data is never touched:
+Integration tests run against a disposable scratch database, never a real one. `npm test`, `npm run test:ci` and `npm run seed:test` refuse to start unless `DB_NAME` (and `SANDBOX_DB_NAME`, if set) starts with `SynoraT` (for example `SynoraT_Local`, `SynoraT_Sandbox`). `SynoraV1`, `SynoraV1_Test` and `SynoraV1_Sandbox` are refused. Keep `.env.test` untracked.
 
 ```
-sqlcmd -S localhost -E -C -b -v DB_NAME=SynoraV1_Test -i ../database/schema.sql
-# grant synora_app the same roles on SynoraV1_Test, then:
-cp .env .env.test   # set DB_NAME=SynoraV1_Test and PORT=0
+sqlcmd -S localhost -E -C -b -v DB_NAME=SynoraT_Local -i ../database/schema.sql
+# grant synora_app the same roles on SynoraT_Local, then:
+cp .env .env.test   # set DB_NAME=SynoraT_Local and PORT=0
 # SQL sandbox tests need the separate sandbox DB (see docs/technical/practice-execution.md):
 sqlcmd -S localhost -E -C -b -v SANDBOX_DB=<db> SANDBOX_LOGIN=<login> SANDBOX_PASSWORD=<pw> -i ../database/sandbox_setup.sql
 # REQUIRE_SANDBOX_TESTS=1 makes skipped sandbox tests (no lab env, no sqlcmd/Windows auth) fail loudly; unset = skip with a warning
