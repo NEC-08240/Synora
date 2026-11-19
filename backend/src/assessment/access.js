@@ -1,6 +1,6 @@
 import { queryOne } from '../db.js';
 import { forbidden, notFound } from '../http.js';
-import { assertAssignedToSubject } from '../routes/content.js';
+import { assertAssignedToSubject, assertCanReadSubject } from '../routes/content.js';
 
 /*
  * Access rules for assessment (spec section 3). This is the ONE place the authoring rule (decision D1) lives:
@@ -34,11 +34,7 @@ export function assertStudent(user) {
 export async function assertCanReadActivity(user, activity) {
   if (user.RoleName !== 'Student') return assertAssignedToSubject(user, activity.SubjectId);
   if (activity.Status !== 'Published' || activity.TopicStatus !== 'Published') throw forbidden('Activity is not available');
-  const row = await queryOne(
-    `SELECT 1 AS ok FROM dbo.FacultyAssignments WHERE SubjectId = @subjectId AND BatchId = @batchId`,
-    { subjectId: activity.SubjectId, batchId: user.BatchId ?? -1 },
-  );
-  if (!row) throw forbidden('Activity is not available');
+  await assertCanReadSubject(user, activity.SubjectId); // same batch-allocation rule content.js applies (req.user.BatchId is loaded by requireAuth)
 }
 
 /** D1 (decided): Faculty assigned to the subject in at least one batch. Administrator is read-only. */
