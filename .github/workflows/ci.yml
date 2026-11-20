@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, 'release/**']
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      # Throwaway values for a disposable container; not real credentials.
+      CI_SA_PASSWORD: Ci-only-${{ github.run_id }}-Aa1!
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - name: Start disposable SQL Server
+        run: |
+          docker run -d --name mssql -p 1433:1433 -e ACCEPT_EULA=Y -e "MSSQL_SA_PASSWORD=$CI_SA_PASSWORD" mcr.microsoft.com/mssql/server:2022-CU28-ubuntu-22.04
+          for i in $(seq 1 40); do
+            docker exec mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -Q "SELECT 1" >/dev/null 2>&1 && exit 0
+            sleep 3
+          done
+          docker logs mssql; exit 1
+      - name: Create and seed the test database
+        run: |
+          docker cp ../database mssql:/db
+          docker exec mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v DB_NAME=SynoraT_CI -i /db/schema.sql
+          docker exec mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v DB_NAME=SynoraT_CI -i /db/validate_schema.sql
+          cat > .env.test <<EOF
+          NODE_ENV=test
+          DB_SERVER=localhost
+          DB_PORT=1433
+          DB_NAME=SynoraT_CI
+          DB_USER=sa
+          DB_PASSWORD=$CI_SA_PASSWORD
+          DB_TRUST_SERVER_CERT=true
+          JWT_SECRET=$(openssl rand -hex 32)
+          CORS_ORIGINS=http://localhost:5173
+          SEED_PASSWORD=$(openssl rand -hex 12)
+          ALLOW_SEED=1
+          EOF
+          npm run seed:test
+      # Sandbox database and least-privilege login. The per-run throwaway password is masked and only
+      # exported in this step's shell (never written to a file). The sa login doubles as the sysadmin the
+      # sandbox tests use (mssql driver) for peer-DB and session-leak checks; a skipped suite fails the job.
+      - name: Create sandbox login and run backend tests
+        run: |
+          # SQL Server password policy needs 3 of 4 character classes; hex alone has only 2 (lower+digit), so append Aa1!.
+          SBX_PW="$(openssl rand -hex 16)Aa1!"
+          echo "::add-mask::$SBX_PW"
+          docker exec -e SANDBOX_PASSWORD="$SBX_PW" mssql /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$CI_SA_PASSWORD" -C -b -v SANDBOX_DB=SynoraT_CI_Sandbox SANDBOX_LOGIN=synora_ci_sbx -i /db/sandbox_setup.sql
+          export SANDBOX_DB_NAME=SynoraT_CI_Sandbox SANDBOX_DB_USER=synora_ci_sbx SANDBOX_DB_PASSWORD="$SBX_PW"
+          export SANDBOX_ADMIN_USER=sa SANDBOX_ADMIN_PASSWORD="$CI_SA_PASSWORD" REQUIRE_SANDBOX_TESTS=1
+          npm test

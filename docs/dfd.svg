@@ -1,0 +1,157 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1420" viewBox="0 0 1600 1420" font-family="Segoe UI, Arial, sans-serif">
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#333"/></marker></defs>
+<rect width="1600" height="1420" fill="#fff"/>
+<text x="800.0" y="42" font-size="28" font-weight="700" text-anchor="middle">Synora Live Smart Edification: Level 1 Data Flow Diagram (V1)</text>
+<text x="800.0" y="68" font-size="15" text-anchor="middle" fill="#555">Data stores D1-D5 match docs/database/database-design.md section 2 (Microsoft SQL Server)</text>
+<ellipse cx="620" cy="170" rx="130.0" ry="60.0" fill="#e8f0fe" stroke="#1a56b0" stroke-width="2"/>
+<text x="620" y="156" font-size="18" font-weight="700" text-anchor="middle">1.0</text>
+<text x="620" y="176" font-size="15" font-weight="600" text-anchor="middle">User &amp; Access Mgmt</text>
+<ellipse cx="620" cy="430" rx="130.0" ry="60.0" fill="#e8f0fe" stroke="#1a56b0" stroke-width="2"/>
+<text x="620" y="416" font-size="18" font-weight="700" text-anchor="middle">2.0</text>
+<text x="620" y="436" font-size="15" font-weight="600" text-anchor="middle">Course &amp; Content Mgmt</text>
+<ellipse cx="620" cy="700" rx="130.0" ry="60.0" fill="#e8f0fe" stroke="#1a56b0" stroke-width="2"/>
+<text x="620" y="686" font-size="18" font-weight="700" text-anchor="middle">3.0</text>
+<text x="620" y="706" font-size="15" font-weight="600" text-anchor="middle">Interactive Learning &amp;</text>
+<text x="620" y="724" font-size="15" font-weight="600" text-anchor="middle">Practical Sandbox</text>
+<ellipse cx="620" cy="980" rx="130.0" ry="60.0" fill="#e8f0fe" stroke="#1a56b0" stroke-width="2"/>
+<text x="620" y="966" font-size="18" font-weight="700" text-anchor="middle">4.0</text>
+<text x="620" y="986" font-size="15" font-weight="600" text-anchor="middle">Assessment &amp;</text>
+<text x="620" y="1004" font-size="15" font-weight="600" text-anchor="middle">Assignment Mgmt</text>
+<ellipse cx="620" cy="1250" rx="130.0" ry="60.0" fill="#e8f0fe" stroke="#1a56b0" stroke-width="2"/>
+<text x="620" y="1236" font-size="18" font-weight="700" text-anchor="middle">5.0</text>
+<text x="620" y="1256" font-size="15" font-weight="600" text-anchor="middle">Learning Analytics &amp;</text>
+<text x="620" y="1274" font-size="15" font-weight="600" text-anchor="middle">Recommendation</text>
+<rect x="55.0" y="138.0" width="230" height="64" fill="#fff4e0" stroke="#b36b00" stroke-width="2"/>
+<line x1="107.0" y1="138.0" x2="107.0" y2="202.0" stroke="#b36b00" stroke-width="2"/>
+<text x="81.0" y="177" font-size="20" font-weight="700" text-anchor="middle">D1</text>
+<text x="196.0" y="176" font-size="16" font-weight="600" text-anchor="middle">User Data</text>
+<rect x="55.0" y="398.0" width="230" height="64" fill="#fff4e0" stroke="#b36b00" stroke-width="2"/>
+<line x1="107.0" y1="398.0" x2="107.0" y2="462.0" stroke="#b36b00" stroke-width="2"/>
+<text x="81.0" y="437" font-size="20" font-weight="700" text-anchor="middle">D2</text>
+<text x="196.0" y="436" font-size="16" font-weight="600" text-anchor="middle">Course Content</text>
+<rect x="55.0" y="668.0" width="230" height="64" fill="#fff4e0" stroke="#b36b00" stroke-width="2"/>
+<line x1="107.0" y1="668.0" x2="107.0" y2="732.0" stroke="#b36b00" stroke-width="2"/>
+<text x="81.0" y="707" font-size="20" font-weight="700" text-anchor="middle">D3</text>
+<text x="196.0" y="706" font-size="16" font-weight="600" text-anchor="middle">Assessment Data</text>
+<rect x="55.0" y="948.0" width="230" height="64" fill="#fff4e0" stroke="#b36b00" stroke-width="2"/>
+<line x1="107.0" y1="948.0" x2="107.0" y2="1012.0" stroke="#b36b00" stroke-width="2"/>
+<text x="81.0" y="987" font-size="20" font-weight="700" text-anchor="middle">D4</text>
+<text x="196.0" y="986" font-size="16" font-weight="600" text-anchor="middle">Submission Data</text>
+<rect x="55.0" y="1218.0" width="230" height="64" fill="#fff4e0" stroke="#b36b00" stroke-width="2"/>
+<line x1="107.0" y1="1218.0" x2="107.0" y2="1282.0" stroke="#b36b00" stroke-width="2"/>
+<text x="81.0" y="1257" font-size="20" font-weight="700" text-anchor="middle">D5</text>
+<text x="196.0" y="1256" font-size="16" font-weight="600" text-anchor="middle">Analytics Data</text>
+<rect x="1045.0" y="135.0" width="170" height="70" fill="#e9f7ec" stroke="#1e7a3a" stroke-width="2"/>
+<text x="1130" y="175" font-size="16" font-weight="600" text-anchor="middle">Administrator</text>
+<rect x="1045.0" y="395.0" width="170" height="70" fill="#e9f7ec" stroke="#1e7a3a" stroke-width="2"/>
+<line x1="1053.0" y1="395.0" x2="1053.0" y2="465.0" stroke="#1e7a3a" stroke-width="2"/>
+<text x="1130" y="435" font-size="16" font-weight="600" text-anchor="middle">Faculty</text>
+<rect x="1045.0" y="555.0" width="170" height="70" fill="#e9f7ec" stroke="#1e7a3a" stroke-width="2"/>
+<text x="1130" y="586" font-size="16" font-weight="600" text-anchor="middle">AI Service</text>
+<text x="1130" y="604" font-size="16" font-weight="600" text-anchor="middle">(LLM)</text>
+<rect x="1045.0" y="765.0" width="170" height="70" fill="#e9f7ec" stroke="#1e7a3a" stroke-width="2"/>
+<text x="1130" y="796" font-size="16" font-weight="600" text-anchor="middle">Execution Service</text>
+<text x="1130" y="814" font-size="16" font-weight="600" text-anchor="middle">(Code / SQL)</text>
+<rect x="1045.0" y="1095.0" width="170" height="70" fill="#e9f7ec" stroke="#1e7a3a" stroke-width="2"/>
+<line x1="1053.0" y1="1095.0" x2="1053.0" y2="1165.0" stroke="#1e7a3a" stroke-width="2"/>
+<text x="1130" y="1135" font-size="16" font-weight="600" text-anchor="middle">Faculty</text>
+<rect x="1425.0" y="610.0" width="150" height="700" fill="#e9f7ec" stroke="#1e7a3a" stroke-width="2"/>
+<text x="1500" y="960" font-size="20" font-weight="700" text-anchor="middle" transform="rotate(-90 1500 960)">Student</text>
+<line x1="1044.3" y1="192.0" x2="741.4" y2="192.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="741.4" y1="148.0" x2="1044.3" y2="148.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="498.5" y1="192.0" x2="285.2" y2="192.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="285.2" y1="148.0" x2="498.5" y2="148.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="620.0" y1="230.3" x2="620.0" y2="369.7" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="1044.3" y1="452.0" x2="741.4" y2="452.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="741.4" y1="408.0" x2="1044.3" y2="408.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="494.0" y1="445.0" x2="285.2" y2="445.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="285.2" y1="415.0" x2="494.0" y2="415.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="120.8" y1="202.4" x2="520.0" y2="380.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="540.0" y1="480.0" x2="235.6" y2="667.6" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="1423.7" y1="640.0" x2="750.0" y2="665.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="750.0" y1="690.0" x2="1423.7" y2="672.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="728.1" y1="666.5" x2="1044.3" y2="598.3" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="1044.4" y1="618.7" x2="745.5" y2="683.2" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="746.4" y1="714.6" x2="1044.2" y2="773.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="1044.4" y1="793.4" x2="730.3" y2="731.8" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="285.4" y1="445.4" x2="510.0" y2="665.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="285.2" y1="700.0" x2="489.5" y2="700.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="527.0" y1="767.8" x2="273.7" y2="947.9" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="243.0" y1="940.2" x2="513.0" y2="748.2" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="1423.7" y1="930.1" x2="750.0" y2="975.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="750.0" y1="1005.0" x2="1423.7" y2="962.1" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="230.6" y1="732.4" x2="512.1" y2="945.8" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="498.5" y1="1002.0" x2="285.2" y2="1002.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="285.2" y1="958.0" x2="498.5" y2="958.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="711.5" y1="937.1" x2="1044.1" y2="819.7" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="1059.9" y1="835.3" x2="733.5" y2="950.5" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="1044.6" y1="1115.3" x2="719.2" y2="1019.6" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="739.1" y1="1004.6" x2="1046.1" y2="1094.9" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="620.0" y1="1040.5" x2="620.0" y2="1189.5" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="250.0" y1="1015.0" x2="515.1" y2="1214.3" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="498.5" y1="1272.0" x2="285.2" y2="1272.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="285.2" y1="1228.0" x2="498.5" y2="1228.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="750.0" y1="1262.0" x2="1423.7" y2="1262.0" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<line x1="736.3" y1="1222.6" x2="1044.3" y2="1150.2" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="750,722 850,722 850,1198 750,1198" fill="none" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<polyline points="750,1236 800,1236 800,742 750,742" fill="none" stroke="#333" stroke-width="1.6" marker-end="url(#a)"/>
+<text x="892.9" y="205.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Users, batches, enrolment,</text>
+<text x="892.9" y="219.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">faculty assignments</text>
+<text x="892.9" y="135.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">User / batch reports</text>
+<text x="391.9" y="205.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Save users, batches,</text>
+<text x="391.9" y="219.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">assignments</text>
+<text x="391.8" y="135.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Credentials, roles</text>
+<text x="695.0" y="300.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Verified role &amp; access</text>
+<text x="892.9" y="465.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Subjects, topics, lessons, resources,</text>
+<text x="892.9" y="479.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">activities, quiz &amp; test-case content</text>
+<text x="892.9" y="395.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Authoring status, analytics access</text>
+<text x="389.6" y="458.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Save content</text>
+<text x="389.6" y="402.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Existing content</text>
+<text x="258.4" y="276.2" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Faculty assignment</text>
+<text x="258.4" y="290.2" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">check</text>
+<text x="317.8" y="556.8" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Save activities, questions,</text>
+<text x="317.8" y="570.8" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">test cases, SQL specs</text>
+<text x="817.4" y="654.5" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Questions, code / SQL, draft edits</text>
+<text x="1255.2" y="690.5" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Lessons, AI guidance, run results</text>
+<text x="883.4" y="619.7" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">AI query + lesson context</text>
+<text x="897.7" y="663.6" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">AI response</text>
+<text x="897.8" y="731.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Code / SQL run request</text>
+<text x="884.9" y="775.4" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Output, errors</text>
+<text x="437.7" y="540.2" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Lessons, resources</text>
+<text x="387.3" y="685.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Practice tasks,</text>
+<text x="387.3" y="699.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">test cases, SQL specs</text>
+<text x="406.9" y="867.1" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Save practice draft /</text>
+<text x="406.9" y="881.1" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">practice run</text>
+<text x="370.5" y="833.6" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Restore draft</text>
+<text x="918.4" y="955.8" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Quiz answers, code / SQL submissions</text>
+<text x="1255.2" y="986.8" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Scores, feedback, results</text>
+<text x="475.1" y="847.7" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Questions, options,</text>
+<text x="475.1" y="861.7" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">test cases</text>
+<text x="391.9" y="1015.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Save submissions, answers,</text>
+<text x="391.9" y="1029.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">test-case results</text>
+<text x="391.8" y="945.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Attempt history</text>
+<text x="873.5" y="866.2" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Test-case run</text>
+<text x="901.0" y="905.2" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Per-test results</text>
+<text x="878.2" y="1079.9" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Manual grades, feedback</text>
+<text x="896.3" y="1037.3" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Submissions to review</text>
+<text x="695.0" y="1115.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Results, completion</text>
+<text x="452.6" y="1106.7" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Submission results</text>
+<text x="391.9" y="1285.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Save progress,</text>
+<text x="391.9" y="1299.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">recommendations</text>
+<text x="391.8" y="1215.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Progress, activity history</text>
+<text x="1154.2" y="1254.0" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Progress, recommended content, remedial suggestions</text>
+<text x="930.3" y="1196.4" font-size="12.5" text-anchor="middle" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">Class &amp; batch analytics reports</text>
+<text x="862" y="1000" font-size="12.5" text-anchor="middle" transform="rotate(-90 862 1000)">Learning activity events</text>
+<text x="812" y="1010" font-size="12.5" text-anchor="middle" transform="rotate(-90 812 1010)">Targeted recommendations</text>
+<line x1="40" y1="1316" x2="1560" y2="1316" stroke="#bbb"/>
+<text x="40" y="1340" font-size="13">D1 User Data: Roles, Users, Batches, FacultyAssignments</text>
+<text x="40" y="1357" font-size="13">D2 Course Content: Subjects, Topics, Lessons, LessonResources</text>
+<text x="40" y="1374" font-size="13">D3 Assessment Data: Activities, QuizQuestions, QuizOptions, TestCases, SqlTaskSpecs</text>
+<text x="40" y="1391" font-size="13">D4 Submission Data: Submissions, SubmissionAnswers, TestCaseResults, PracticeDrafts</text>
+<text x="40" y="1408" font-size="13">D5 Analytics Data: LearningActivity, StudentProgress, Recommendations</text>
+<text x="900" y="1340" font-size="13" font-weight="700">Notes</text>
+<text x="900" y="1357" font-size="13">Faculty appears twice (vertical bar) to keep lines uncrossed.</text>
+<text x="900" y="1374" font-size="13">Verified role and batch context from 1.0 applies to all processes.</text>
+<text x="900" y="1391" font-size="13">AI Service stores nothing; no AI transcript is persisted.</text>
+<text x="900" y="1408" font-size="13">Hidden test cases, multi-select and open-text are out of V1.</text>
+</svg>

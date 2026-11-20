@@ -1,0 +1,657 @@
+/**
+ * SQL sandbox regression tests. They run against the lab database named by SANDBOX_DB_NAME
+ * (see docs/technical/practice-execution.md, "Running the sandbox tests"), never the app DB.
+ * This file does not import helpers.js, so it never touches the app or test databases.
+ */
+import { describe, test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import sql from 'mssql';
+import { config } from '../src/config.js';
+import { sandboxProblems, isRequired } from './sandbox-prereqs.js';
+import { runSql, runSqlUnvalidatedForTests, closeSandboxPool, findForbiddenStatement, limits } from '../src/practice/sql.js';
+
+const PROTECTED_DBS = ['SynoraV1', 'SynoraV1_Test', 'SynoraV1_Sandbox'];
+// Permission denials only. SQL Server reports a denied dbo create as "does not exist or you do not
+// have permission" (Msg 2760); dbo always exists, so that text means denied here.
+const DENIED = /permission (was )?denied|not able to access|blocked access|do not have permission/i;
+const REQUIRED_ENV = ['SANDBOX_DB_NAME', 'SANDBOX_DB_USER', 'SANDBOX_DB_PASSWORD'];
+
+function skipReason() {
+  const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
+  if (missing.length) return `lab env missing: ${missing.join(', ')}`;
+  if (PROTECTED_DBS.includes(process.env.SANDBOX_DB_NAME)) {
+    return `SANDBOX_DB_NAME=${process.env.SANDBOX_DB_NAME} is protected; point it at the lab database`;
+  }
+  return false;
+}
+
+const directConfig = {
+  ...config.practice.sandboxDb,
+  options: { encrypt: true, trustServerCertificate: config.db.trustServerCertificate },
+};
+
+/** Runs a batch as the sandbox login on a fresh connection, outside the sandbox runner. */
+async function asSandbox(text) {
+  const pool = await new sql.ConnectionPool(directConfig).connect();
+  try {
+    return await pool.request().query(text);
+  } finally {
+    await pool.close();
+  }
+}
+
+/** Returns the error the sandbox login gets for a batch, or null if it succeeds. */
+async function deniedError(text) {
+  try {
+    await asSandbox(text);
+    return null;
+  } catch (err) {
+    return err;
+  }
+}
+
+async function objectExists(name) {
+  const { recordset } = await asSandbox(`SELECT OBJECT_ID(N'${name}') AS id`);
+  return recordset[0].id !== null;
+}
+
+/**
+ * Sysadmin access, used only to create and drop disposable peer/check databases. With
+ * SANDBOX_ADMIN_USER/SANDBOX_ADMIN_PASSWORD set (CI: the throwaway sa login) it goes through the
+ * mssql driver; otherwise it falls back to Windows-auth sqlcmd. Returns { status, stdout, stderr }.
+ * { q } runs one text, { file, vars } runs a sqlcmd-style script ($(VAR), GO batches, :on error exit).
+ * shortcut: the mssql path handles only those directives, upgrade if sandbox_setup.sql grows others.
+ */
+const adminServer = () => process.env.DB_SERVER ?? 'localhost';
+const useSqlLogin = Boolean(process.env.SANDBOX_ADMIN_USER);
+
+function sqlcmdAdmin({ q, file, vars = {}, db }) {
+  const args = ['-S', adminServer(), '-E', '-C', '-b', ...(db ? ['-d', db] : []), ...(q ? ['-h', '-1', '-W', '-Q', q] : [])];
+  if (file) args.push('-v', ...Object.entries(vars).map(([k, v]) => `${k}=${v}`), '-i', file);
+  const r = spawnSync('sqlcmd', args, { encoding: 'utf8' });
+  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+async function mssqlAdmin({ q, file, vars = {}, db }) {
+  const text = q ?? readFileSync(file, 'utf8').replace(/\$\((\w+)\)/g, (m, k) => vars[k] ?? m).replace(/^:on error exit.*$/gim, '');
+  const pool = new sql.ConnectionPool({
+    server: adminServer(), port: Number(process.env.DB_PORT ?? 1433), database: db,
+    user: process.env.SANDBOX_ADMIN_USER, password: process.env.SANDBOX_ADMIN_PASSWORD,
+    options: { trustServerCertificate: process.env.DB_TRUST_SERVER_CERT === 'true', encrypt: true },
+  });
+  let stdout = '';
+  try {
+    await pool.connect();
+    for (const batch of text.split(/^\s*GO\s*$/im).filter((b) => b.trim())) {
+      const { recordset } = await pool.request().batch(batch);
+      if (recordset?.length) stdout = String(Object.values(recordset[0])[0]);
+    }
+    return { status: 0, stdout, stderr: '' };
+  } catch (e) {
+    return { status: 1, stdout, stderr: e.message };
+  } finally {
+    await pool.close().catch(() => {});
+  }
+}
+
+const admin = async (opts) => (useSqlLogin ? mssqlAdmin(opts) : sqlcmdAdmin(opts));
+const adminAvailable = (await admin({ q: 'SELECT 1' })).status === 0;
+const dropDbSql = (db) => `IF DB_ID(N'${db}') IS NOT NULL BEGIN ALTER DATABASE [${db}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [${db}]; END`;
+
+/** Drops every user object in sbx and dbo so each test starts from an empty schema. */
+async function clearSandbox() {
+  await asSandbox(`
+    DECLARE @sql NVARCHAR(MAX) = N'';
+    SELECT @sql += N'DROP ' + CASE type WHEN 'U' THEN N'TABLE ' WHEN 'V' THEN N'VIEW ' WHEN 'P' THEN N'PROCEDURE ' END
+      + QUOTENAME(SCHEMA_NAME(schema_id)) + N'.' + QUOTENAME(name) + N';'
+    FROM sys.objects
+    WHERE is_ms_shipped = 0 AND type IN ('U', 'V', 'P') AND SCHEMA_NAME(schema_id) IN (N'sbx', N'dbo');
+    IF LEN(@sql) > 0 EXEC sp_executesql @sql;`);
+}
+
+describe('statement validator (no database needed)', () => {
+  test('refuses EXEC, sp_/xp_ names, transaction control and SET outside an UPDATE', () => {
+    assert.equal(findForbiddenStatement("EXEC('COM'+'MIT')"), 'EXEC');
+    assert.equal(findForbiddenStatement("master..xp_cmdshell 'dir'"), 'xp_cmdshell');
+    assert.equal(findForbiddenStatement('ROLLBACK; CREATE TABLE x (id INT)'), 'ROLLBACK');
+    assert.equal(findForbiddenStatement('BEGIN TRANSACTION'), 'BEGIN TRANSACTION');
+    assert.equal(findForbiddenStatement('SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('DROP USER bob'), 'DROP USER');
+  });
+
+  test('a second SET in the same statement is refused even without a semicolon', () => {
+    assert.equal(findForbiddenStatement('UPDATE t SET a = 1 SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('UPDATE t SET a = 1; SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('UPDATE t SET a = 1'), null);
+  });
+
+  test('SET after UPDATE STATISTICS, FOR UPDATE, AFTER UPDATE or IF UPDATE() is refused', () => {
+    assert.equal(findForbiddenStatement('UPDATE STATISTICS sbx.t\nSET LOCK_TIMEOUT 0'), 'SET');
+    assert.equal(findForbiddenStatement(
+      'DECLARE c CURSOR FOR SELECT a FROM sbx.t FOR UPDATE\nSET TRANSACTION ISOLATION LEVEL READ UNCOMMITTED'), 'SET');
+    assert.equal(findForbiddenStatement('DECLARE c CURSOR FOR SELECT a FROM sbx.t FOR UPDATE OF a SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('CREATE TRIGGER sbx.tr ON sbx.t AFTER UPDATE AS SET NOCOUNT ON; SELECT 1'), 'SET');
+    assert.equal(findForbiddenStatement('CREATE TRIGGER sbx.tr ON sbx.t AFTER INSERT, UPDATE AS SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('CREATE TRIGGER sbx.tr ON sbx.t AFTER UPDATE, DELETE AS SET NOCOUNT ON'), 'SET');
+    assert.equal(findForbiddenStatement('IF UPDATE(a) SET XACT_ABORT ON'), 'SET');
+  });
+
+  test('keywords glued to a number literal are still seen (0xSET, 1e0SET, .5SET)', () => {
+    const cases = {
+      'SELECT 0xSET NOCOUNT ON': 'SET', 'SELECT 1e0SET DATEFIRST 1': 'SET', 'UPDATE t SET a=0xSET LOCK_TIMEOUT 0': 'SET',
+      'SELECT 1.5e3SET DATEFIRST 1': 'SET', 'SELECT .5SET DATEFIRST 1': 'SET', 'SELECT 1.SET DATEFIRST 1': 'SET',
+      'SELECT 0xUSE master': 'USE', 'SELECT 0xKILL 5': 'KILL', 'SELECT 0xGRANT SELECT ON t TO u': 'GRANT',
+      'SELECT 0xSHUTDOWN': 'SHUTDOWN', 'SELECT 0xROLLBACK': 'ROLLBACK', 'SELECT 0xOPENROWSET(1)': 'OPENROWSET',
+      'SELECT 1eSET DATEFIRST 3': 'SET', 'SELECT 1.5eSET DATEFIRST 3': 'SET', 'SELECT .5eSET DATEFIRST 3': 'SET', 'SELECT 1e+SET DATEFIRST 3': 'SET',
+    };
+    for (const [text, word] of Object.entries(cases)) assert.equal(findForbiddenStatement(text), word, text);
+    for (const ok of ['SELECT col1, t2.a1b FROM sbx.t2 AS t2', 'SELECT 1 AS x', 'SELECT 0xDEADBEEF AS h, 1.5e3 AS f, .5 AS d', 'SELECT a1 FROM [t] WHERE b2 = 10', 'SELECT 12EXEC x']) {
+      assert.equal(findForbiddenStatement(ok), null, ok);
+    }
+  });
+
+  test('a line comment ends at a bare CR, U+2028 or U+0085 (server-verified)', () => {
+    for (const sep of ['\r', '\u2028', '\u0085', '\n']) {
+      assert.equal(findForbiddenStatement(`SELECT 1 --x${sep}SET DATEFIRST 5`), 'SET', JSON.stringify(sep));
+    }
+  });
+
+  test('GLOBAL (cursor scope that outlives the rollback) is refused', () => {
+    assert.equal(findForbiddenStatement('DECLARE c CURSOR GLOBAL FOR SELECT 1'), 'GLOBAL');
+    assert.equal(findForbiddenStatement('DECLARE c CURSOR LOCAL FOR SELECT 1'), null);
+  });
+
+  test('UPDATE in a non-DML position never opens the SET permit (allow-list)', () => {
+    for (const bad of [
+      'CREATE SECURITY POLICY p ADD BLOCK PREDICATE sbx.f(a) ON sbx.t BEFORE UPDATE SET CONTEXT_INFO 0x01',
+      'CREATE SECURITY POLICY p ADD BLOCK PREDICATE sbx.f(a) ON sbx.t AFTER UPDATE SET CONTEXT_INFO 0x01',
+      'UPDATE t SET a=1 SET DATEFIRST 1',
+      'UPDATE t SET a=1 SET DATEFIRST 1; SELECT 1',
+      'IF 1=1 UPDATE t SET a=1', // known false positive, documented
+      'SELECT 1 UPDATE t SET a=1', // not at a statement start
+    ]) assert.equal(findForbiddenStatement(bad), 'SET', bad);
+  });
+
+  test('UPDATE at a statement start stays allowed (start, ;, THEN/ELSE/BEGIN, CTE, IF EXISTS)', () => {
+    for (const ok of [
+      'UPDATE sbx.t SET a=1',
+      'WITH c AS (SELECT a FROM sbx.t) UPDATE c SET a=1',
+      'UPDATE t SET a=1; UPDATE t SET b=2',
+      'IF EXISTS (SELECT 1 FROM sbx.t) UPDATE sbx.t SET a=1 ELSE UPDATE sbx.t SET a=2',
+      'BEGIN UPDATE t SET a=1 END',
+      "UPDATE t SET updated = 1 WHERE note = 'update set x'",
+      'UPDATE t SET a = 1 OUTPUT inserted.a INTO sbx.log',
+      'CREATE TABLE sbx.c (a INT REFERENCES sbx.p(id) ON UPDATE SET NULL ON DELETE SET DEFAULT)',
+      '-- update\nUPDATE x SET a=1 FROM sbx.t x /* UPDATE SET */',
+    ]) assert.equal(findForbiddenStatement(ok), null, ok);
+  });
+
+  test('real UPDATE ... SET forms are still allowed', () => {
+    for (const ok of [
+      'UPDATE sbx.t SET a=1',
+      'UPDATE t SET a = 1 WHERE id = 2',
+      'UPDATE TOP (5) sbx.t SET a=1',
+      'UPDATE TOP (5) PERCENT t SET a=1',
+      'UPDATE x SET a=1 FROM sbx.t x JOIN sbx.u y ON x.id = y.id',
+      'UPDATE sbx.t AS x SET a=1',
+      'UPDATE sbx.t WITH (TABLOCK) SET a=1',
+      'UPDATE [dbo].[t] SET [set] = 1',
+      'UPDATE #tmp SET a=1',
+      'MERGE sbx.t AS d USING sbx.u AS s ON d.id = s.id WHEN MATCHED THEN UPDATE SET d.a = s.a;',
+    ]) assert.equal(findForbiddenStatement(ok), null, ok);
+  });
+
+  test('keywords inside comments and string literals are ignored', () => {
+    assert.equal(findForbiddenStatement('/* EXEC xp_cmdshell */ SELECT 1'), null);
+    assert.equal(findForbiddenStatement('SELECT 1 /* a /* nested */ EXEC */'), null);
+    assert.equal(findForbiddenStatement("SELECT 'it''s EXEC' AS s -- COMMIT"), null);
+  });
+
+  test('a column named committed is not a false positive', () => {
+    assert.equal(findForbiddenStatement('SELECT committed FROM t_committed'), null);
+  });
+
+  test('bracketed keyword identifiers are allowed; bracketed sp_/xp_ names are refused', () => {
+    assert.equal(findForbiddenStatement('SELECT [set], [user] FROM t'), null);
+    assert.equal(findForbiddenStatement("[xp_cmdshell] 'x'"), 'xp_cmdshell');
+  });
+
+  test('referential actions ON DELETE/UPDATE SET NULL and SET DEFAULT are allowed', () => {
+    assert.equal(findForbiddenStatement('CREATE TABLE c (a INT REFERENCES p(id) ON DELETE SET NULL)'), null);
+    assert.equal(findForbiddenStatement('CREATE TABLE c (a INT REFERENCES p(id) ON UPDATE SET DEFAULT)'), null);
+  });
+});
+
+const problems = sandboxProblems({ labReason: skipReason(), adminAvailable });
+if (problems.length && !isRequired()) {
+  console.warn(`
+!!! SANDBOX TESTS WILL BE SKIPPED (${problems.join('; ')}). Set REQUIRE_SANDBOX_TESTS=1 to make this a failure.
+`);
+}
+
+test('sandbox test prerequisites are present when REQUIRE_SANDBOX_TESTS=1', () => {
+  if (!isRequired()) return;
+  assert.deepEqual(problems, [], 'REQUIRE_SANDBOX_TESTS=1 but the sandbox tests cannot run');
+});
+
+test('REQUIRE_SANDBOX_TESTS turns a missing prerequisite into a reported problem', () => {
+  assert.equal(isRequired({ REQUIRE_SANDBOX_TESTS: '1' }), true);
+  assert.equal(isRequired({ REQUIRE_SANDBOX_TESTS: 'TRUE' }), true);
+  assert.equal(isRequired({ REQUIRE_SANDBOX_TESTS: '0' }), false);
+  assert.equal(isRequired({}), false);
+  assert.deepEqual(sandboxProblems({ labReason: 'lab env missing: X', adminAvailable: false }).length, 2);
+  assert.deepEqual(sandboxProblems({ labReason: false, adminAvailable: true }), []);
+});
+
+describe('SQL sandbox', { skip: skipReason() }, () => {
+  before(clearSandbox);
+  after(async () => {
+    await clearSandbox();
+    await closeSandboxPool();
+  });
+
+  describe('statement validation (defense in depth; permissions are the real control)', () => {
+    test('COMMIT in setupScript is rejected and the table does not persist', async () => {
+      const result = await runSql({
+        sql: 'SELECT 1 AS ok',
+        setupScript: 'CREATE TABLE persist_probe (id INT); COMMIT;',
+      });
+      assert.match(result.error ?? '', /COMMIT is not allowed/);
+      assert.equal(await objectExists('sbx.persist_probe'), false);
+    });
+
+    test("EXEC('COM'+'MIT') is rejected", async () => {
+      const result = await runSql({ sql: "EXEC('COM'+'MIT')" });
+      assert.match(result.error ?? '', /EXEC is not allowed/);
+    });
+
+    test('sp_executesql is rejected', async () => {
+      const result = await runSql({ sql: "sp_executesql N'SELECT 1 AS ok'" });
+      assert.match(result.error ?? '', /sp_executesql is not allowed/i);
+    });
+
+    test('ROLLBACK followed by CREATE TABLE is rejected and the table does not persist', async () => {
+      const result = await runSql({ sql: 'ROLLBACK; CREATE TABLE escape_probe (id INT)' });
+      assert.match(result.error ?? '', /ROLLBACK is not allowed/);
+      assert.equal(await objectExists('sbx.escape_probe'), false);
+    });
+
+    test('a column named committed is not a false positive', async () => {
+      const result = await runSql({
+        sql: 'SELECT committed FROM t_committed',
+        setupScript: 'CREATE TABLE t_committed (committed INT); INSERT INTO t_committed VALUES (7);',
+      });
+      assert.equal(result.error, null);
+      assert.deepEqual(result.rows, [{ committed: 7 }]);
+    });
+
+    test('SET options are rejected but UPDATE ... SET still works', async () => {
+      const nocount = await runSql({ sql: 'SET NOCOUNT ON' });
+      assert.match(nocount.error ?? '', /SET is not allowed/);
+      const datefirst = await runSql({ sql: 'SET DATEFIRST 7' });
+      assert.match(datefirst.error ?? '', /SET is not allowed/);
+      const update = await runSql({
+        sql: 'UPDATE u_probe SET v = 5; SELECT v FROM u_probe',
+        setupScript: 'CREATE TABLE u_probe (id INT, v INT); INSERT INTO u_probe VALUES (1, 0);',
+      });
+      assert.equal(update.error, null);
+      assert.deepEqual(update.rows, [{ v: 5 }]);
+    });
+  });
+
+  describe('permissions as the sandbox login', () => {
+    test('CREATE PROCEDURE is denied', async () => {
+      const err = await deniedError('CREATE PROCEDURE sbx.p_probe AS SELECT 1');
+      assert.ok(err, 'CREATE PROCEDURE should be denied');
+      assert.match(err.message, DENIED);
+    });
+
+    test('creating objects in dbo is denied (ALTER on dbo)', async () => {
+      const err = await deniedError('CREATE TABLE dbo.alter_probe (id INT)');
+      assert.ok(err, 'CREATE TABLE dbo.* should be denied');
+      assert.match(err.message, DENIED);
+    });
+
+    describe('against a disposable peer database', { skip: !adminAvailable && 'sysadmin access (sqlcmd -E or SANDBOX_ADMIN_USER) unavailable' }, () => {
+      const peer = `${process.env.SANDBOX_DB_NAME}_peer`;
+      before(async () => {
+        const made = await admin({ q: `${dropDbSql(peer)}; CREATE DATABASE [${peer}]` });
+        assert.equal(made.status, 0, 'peer database created');
+        assert.equal((await admin({ db: peer, q: 'CREATE TABLE dbo.secret (id int); INSERT dbo.secret VALUES (1)' })).status, 0);
+      });
+      after(async () => { await admin({ q: dropDbSql(peer) }); });
+
+      test('cross-database SELECT is denied (the peer exists, so this is a real permission denial)', async () => {
+        const err = await deniedError(`SELECT TOP 1 id FROM [${peer}].dbo.secret`);
+        assert.ok(err, 'SELECT from another database should be denied');
+        assert.match(err.message, DENIED);
+        assert.doesNotMatch(err.message, /Invalid object name|Cannot open database/i, 'not a missing-object error');
+      });
+
+      test('three-part names into the peer and msdb are denied', async () => {
+        for (const target of [`[${peer}].dbo.secret`, 'msdb.dbo.sysjobs']) {
+          const err = await deniedError(`SELECT TOP 1 * FROM ${target}`);
+          assert.ok(err, `${target} should be denied`);
+          assert.match(err.message, DENIED, target);
+        }
+      });
+    });
+
+    test('master.sys.databases shows only the sandbox, master and tempdb (VIEW ANY DATABASE is denied by setup)', async () => {
+      const { recordset } = await asSandbox('SELECT name FROM master.sys.databases');
+      const names = recordset.map((row) => row.name).sort();
+      assert.deepEqual(names, ['master', 'tempdb', process.env.SANDBOX_DB_NAME].sort());
+    });
+
+    test('master.sys.sql_logins is listable but never reveals password hashes', async () => {
+      // Recorded: the login can read login NAMES (sa, itself); password_hash is NULL without CONTROL SERVER.
+      const { recordset } = await asSandbox('SELECT name, password_hash FROM master.sys.sql_logins');
+      assert.ok(recordset.every((row) => row.password_hash === null));
+    });
+
+    test('xp_cmdshell is denied', async () => {
+      const err = await deniedError("EXEC master..xp_cmdshell 'echo probe'");
+      assert.ok(err, 'xp_cmdshell should be denied');
+      assert.match(err.message, DENIED);
+    });
+  });
+
+  describe('runner limits and recovery', () => {
+    test('5M-row recursive CTE returns at most maxRows with truncated=true and bounded memory', async () => {
+      const heapBefore = process.memoryUsage().heapUsed;
+      const result = await runSql({
+        sql: 'WITH n AS (SELECT 1 AS i UNION ALL SELECT i + 1 FROM n WHERE i < 5000000) SELECT i FROM n OPTION (MAXRECURSION 0)',
+      });
+      const heapGrowthMb = (process.memoryUsage().heapUsed - heapBefore) / 1048576;
+      assert.equal(result.error, null);
+      assert.equal(result.rows.length, config.practice.maxRows);
+      assert.equal(result.truncated, true);
+      assert.ok(heapGrowthMb < 100, `heap grew ${heapGrowthMb.toFixed(1)} MB`);
+    });
+
+    test("WAITFOR DELAY '00:00:20' aborts near sqlTimeoutMs and the pool recovers", async () => {
+      const started = Date.now();
+      const slow = await runSql({ sql: "WAITFOR DELAY '00:00:20'; SELECT 1 AS late" });
+      const elapsed = Date.now() - started;
+      assert.match(slow.error ?? '', /Timeout|ETIMEOUT|Request failed/i);
+      assert.ok(elapsed < config.practice.sqlTimeoutMs + 5000, `took ${elapsed}ms`);
+      const next = await runSql({ sql: 'SELECT 1 AS ok' });
+      assert.equal(next.error, null);
+      assert.deepEqual(next.rows, [{ ok: 1 }]);
+    });
+
+    test('three simultaneous requests creating table t do not interfere', async () => {
+      const setupScript = 'CREATE TABLE t (id INT); INSERT INTO t VALUES (1);';
+      const results = await Promise.all([1, 2, 3].map((n) =>
+        runSql({ sql: `SELECT ${n} AS n, COUNT(*) AS c FROM t`, setupScript })));
+      results.forEach((result, index) => {
+        assert.equal(result.error, null, `request ${index + 1}`);
+        assert.deepEqual(result.rows, [{ n: index + 1, c: 1 }]);
+      });
+    });
+
+    test('a normal SELECT works and its setup is rolled back without leak cleanup', async (t) => {
+      const warn = t.mock.method(console, 'warn', () => {});
+      const result = await runSql({
+        sql: 'SELECT id, name FROM rb_probe ORDER BY id',
+        setupScript: "CREATE TABLE rb_probe (id INT, name NVARCHAR(20)); INSERT INTO rb_probe VALUES (1, N'a'), (2, N'b');",
+      });
+      assert.equal(result.error, null);
+      assert.deepEqual(result.columns, ['id', 'name']);
+      assert.equal(result.rowCount, 2);
+      assert.equal(await objectExists('sbx.rb_probe'), false);
+      assert.equal(warn.mock.callCount(), 0);
+    });
+
+    test('leak detector removes an object planted outside the transaction and warns', async (t) => {
+      await asSandbox('CREATE TABLE sbx.planted (id INT)');
+      const warn = t.mock.method(console, 'warn', () => {});
+      const result = await runSql({ sql: 'SELECT 1 AS ok' });
+      assert.equal(result.error, null);
+      assert.equal(await objectExists('sbx.planted'), false);
+      assert.ok(warn.mock.calls.some((call) => String(call.arguments[0]).includes('planted')));
+    });
+
+    test('a 10-request burst gets at least one 429 (1 running + 8 queued by default)', async () => {
+      const results = await Promise.allSettled(Array.from({ length: 10 }, () =>
+        runSql({ sql: "WAITFOR DELAY '00:00:01'; SELECT 1 AS ok" })));
+      const refused = results.filter((r) => r.status === 'rejected');
+      assert.ok(refused.length >= 1, 'expected at least one request refused by the queue');
+      assert.ok(refused.every((r) => r.reason.status === 429), 'refused requests must be HTTP 429');
+    });
+  });
+
+  // Observed behaviour, not an assumption. A direct pool (max 1) bypasses the validator on purpose.
+  describe('bypass experiments (recorded in practice-execution.md)', () => {
+    const rows = (r) => r.rows;
+    test('##global and #local temp tables do not outlive the run', async () => {
+      const made = await runSql({ sql: 'SELECT 1 AS a INTO ##h5g; SELECT 1 AS b INTO #h5t; SELECT * FROM ##h5g' });
+      assert.equal(made.error, null);
+      const next = await runSql({ sql: "SELECT OBJECT_ID('tempdb..##h5g') AS g, OBJECT_ID('tempdb..#h5t') AS l" });
+      assert.deepEqual(rows(next), [{ g: null, l: null }]);
+    });
+
+    test('a batch-aborting error leaves no object and the next run starts in a clean single transaction', async () => {
+      const failed = await runSql({ sql: "CREATE TABLE sbx.ab (a int); SELECT CAST('x' AS int)" });
+      assert.match(failed.error, /Conversion failed/);
+      const next = await runSql({ sql: "SELECT @@TRANCOUNT AS tc, OBJECT_ID('sbx.ab') AS ab" });
+      // tc = 1 is the next run's own transaction; a leaked open transaction would show 2.
+      assert.deepEqual(rows(next), [{ tc: 1, ab: null }]);
+    });
+
+    test('thousands of result sets are drained without error and the pool stays usable', async () => {
+      const many = Array.from({ length: 2000 }, (_, i) => `SELECT ${i} AS n`).join(';');
+      assert.equal((await runSql({ sql: many })).error, null);
+      assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
+    });
+
+    test('CREATE TRIGGER cannot fire inside a run (must be the first statement) and nothing persists', async () => {
+      const mixed = await runSql({ sql: 'CREATE TABLE sbx.tt (a int); CREATE TRIGGER sbx.ttr ON sbx.tt AFTER INSERT AS SELECT 1' });
+      assert.match(mixed.error, /must be the first statement/);
+      const after = await runSql({ sql: "SELECT OBJECT_ID('sbx.tt') AS t, OBJECT_ID('sbx.ttr') AS tr" });
+      assert.deepEqual(rows(after), [{ t: null, tr: null }]);
+    });
+  });
+
+  describe('every run gets a clean, dedicated SQL session', () => {
+    const probe = `SELECT @@SPID AS spid, @@DATEFIRST AS d, @@LOCK_TIMEOUT AS lt, CONTEXT_INFO() AS ci,
+      (SELECT COUNT(*) FROM sys.dm_exec_cursors(@@SPID)) AS cur`;
+    const dirty = 'SET DATEFIRST 3; SET LOCK_TIMEOUT 77; SET CONTEXT_INFO 0x1234; DECLARE gc CURSOR GLOBAL FOR SELECT 1; OPEN gc;';
+    const sessions = async () => {
+      const r = await admin({ q: `SET NOCOUNT ON; SELECT COUNT(*) FROM sys.dm_exec_sessions WHERE login_name = N'${process.env.SANDBOX_DB_USER}'` });
+      return Number(r.stdout.trim());
+    };
+    // Non-stall paths must have closed the session by the time runSql resolves; allow ~300 ms for the server to notice.
+    const sessionsGoneQuickly = async () => {
+      for (let n = 0; n < 6 && (await sessions()) !== 0; n += 1) await new Promise((r) => setTimeout(r, 50));
+      return await sessions();
+    };
+    const sessionsGone = async () => {
+      for (let n = 0; n < 40 && (await sessions()) !== 0; n += 1) await new Promise((r) => setTimeout(r, 250));
+      return await sessions();
+    };
+
+    test('session state planted by student A (validator bypassed) is invisible to student B', { skip: !adminAvailable && 'sysadmin access unavailable' }, async () => {
+      const a = await runSqlUnvalidatedForTests({ sql: `${dirty} ${probe}` });
+      assert.equal(a.error, null);
+      assert.equal(a.rows[0].d, 3, 'planting worked');
+      for (const run of [() => runSqlUnvalidatedForTests({ sql: probe }), () => Promise.all([1, 2, 3].map(() => runSqlUnvalidatedForTests({ sql: probe })))]) {
+        const out = [].concat(await run());
+        for (const b of out) {
+          assert.equal(b.error, null);
+          const row = b.rows[0];
+          assert.equal(row.d, 7);
+          assert.equal(row.lt, -1);
+          assert.equal(row.ci, null);
+          assert.equal(row.cur, 0);
+        }
+      }
+      // Different SPID is not asserted: SQL Server recycles session ids after a close.
+      assert.equal(await sessionsGone(), 0);
+    });
+
+    test('no session survives a SQL error, a timeout, a failed rollback or a connect failure', { skip: !adminAvailable && 'sysadmin access unavailable' }, async (t) => {
+      t.mock.method(console, 'error', () => {});
+      assert.match((await runSql({ sql: "SELECT CAST('x' AS int)" })).error ?? '', /Conversion failed/);
+      assert.equal(await sessionsGoneQuickly(), 0, 'after SQL error');
+      const slow = await runSql({ sql: "WAITFOR DELAY '00:00:20'" });
+      assert.match(slow.error ?? '', /Request failed to complete in \d+ms|ETIMEOUT/i);
+      assert.equal(await sessionsGoneQuickly(), 0, 'after timeout');
+      const realBatch = sql.Request.prototype.batch;
+      const rb = t.mock.method(sql.Request.prototype, 'batch', async function batch(text) {
+        if (String(text).startsWith('IF @@TRANCOUNT')) throw new Error('injected rollback failure');
+        return realBatch.call(this, text);
+      });
+      assert.equal((await runSql({ sql: 'CREATE TABLE rbfail (id int); SELECT 1 AS ok' })).error, null);
+      rb.mock.restore();
+      assert.equal(await sessionsGoneQuickly(), 0, 'after failed rollback');
+      assert.equal(await objectExists('sbx.rbfail'), false);
+      const conn = t.mock.method(sql.ConnectionPool.prototype, 'connect', async () => { throw new Error('injected connect failure'); });
+      await assert.rejects(runSql({ sql: 'SELECT 1' }), /injected connect failure/);
+      conn.mock.restore();
+      assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
+      assert.equal(await sessionsGoneQuickly(), 0, 'after connect failure');
+    });
+
+    test('a pool error event is logged, never crashes the process, and the run skips rollback', async (t) => {
+      const errors = t.mock.method(console, 'error', () => {});
+      const realConnect = sql.ConnectionPool.prototype.connect;
+      t.mock.method(sql.ConnectionPool.prototype, 'connect', async function connect(...args) {
+        const pool = await realConnect.apply(this, args);
+        this.emit('error', new Error('injected pool error'));
+        return pool;
+      });
+      const realBatch = sql.Request.prototype.batch;
+      const sent = [];
+      t.mock.method(sql.Request.prototype, 'batch', async function batch(text) {
+        sent.push(String(text));
+        return realBatch.call(this, text);
+      });
+      assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
+      assert.ok(errors.mock.calls.some((c) => /injected pool error/.test(String(c.arguments[0]))));
+      assert.ok(!sent.some((s) => s.startsWith('IF @@TRANCOUNT')), 'no rollback on a broken connection');
+    });
+
+    test('a timed-out run sends no rollback or sweep on another connection', { skip: !adminAvailable && 'sysadmin access unavailable' }, async (t) => {
+      t.mock.method(console, 'error', () => {});
+      const realBatch = sql.Request.prototype.batch;
+      const realQuery = sql.Request.prototype.query;
+      const sent = [];
+      t.mock.method(sql.Request.prototype, 'batch', async function batch(text) { sent.push(String(text)); return realBatch.call(this, text); });
+      t.mock.method(sql.Request.prototype, 'query', async function query(text) { sent.push(String(text)); return realQuery.call(this, text); });
+      await runSql({ sql: "WAITFOR DELAY '00:00:20'" });
+      assert.deepEqual(sent.filter((s) => /TRANCOUNT|sys\.objects/.test(s)), []);
+    });
+
+    test('a close that stalls frees the slot after the hard bound and is counted; too many stalled closes give 503', async (t) => {
+      t.mock.method(console, 'error', () => {});
+      const saved = { ...limits };
+      Object.assign(limits, { closeHardMs: 150, maxStalledCloses: 0 });
+      const realClose = sql.ConnectionPool.prototype.close;
+      const pending = [];
+      let stall = true;
+      t.mock.method(sql.ConnectionPool.prototype, 'close', function close() {
+        if (!stall) return realClose.call(this);
+        return new Promise((resolve) => pending.push(() => realClose.call(this).then(resolve, resolve)));
+      });
+      try {
+        const started = Date.now();
+        assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
+        assert.ok(Date.now() - started < 5000, 'slot released after the hard bound, not after the stalled close');
+        await assert.rejects(runSql({ sql: 'SELECT 1' }), (e) => e.status === 503);
+        stall = false;
+        pending.splice(0).forEach((release) => release());
+        await new Promise((r) => setTimeout(r, 300));
+        assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null, 'recovers once the stalled close settles');
+      } finally {
+        Object.assign(limits, saved);
+      }
+    });
+
+    test('leak sweep failing or hanging does not fail or hold the run', async (t) => {
+      t.mock.method(console, 'error', () => {});
+      const saved = { ...limits };
+      limits.sweepDeadlineMs = 150;
+      const realQuery = sql.Request.prototype.query;
+      let mode = 'fail';
+      t.mock.method(sql.Request.prototype, 'query', async function query(text) {
+        if (!/sys\.objects|sys\.all_objects/i.test(String(text))) return realQuery.call(this, text);
+        if (mode === 'fail') throw new Error('injected sweep failure');
+        return new Promise(() => {});
+      });
+      try {
+        assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
+        mode = 'hang';
+        const started = Date.now();
+        assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null);
+        assert.ok(Date.now() - started < 5000);
+      } finally {
+        Object.assign(limits, saved);
+      }
+    });
+
+    test('a request queued longer than queueWaitMs gets 429', async () => {
+      const saved = { ...limits };
+      limits.queueWaitMs = 200;
+      try {
+        const first = runSql({ sql: "WAITFOR DELAY '00:00:01'; SELECT 1 AS ok" });
+        await assert.rejects(runSql({ sql: 'SELECT 1' }), (e) => e.status === 429);
+        assert.equal((await first).error, null);
+        assert.equal((await runSql({ sql: 'SELECT 1 AS ok' })).error, null, 'queue is clean afterwards');
+      } finally {
+        Object.assign(limits, saved);
+      }
+    });
+
+    test('SANDBOX_CONCURRENCY above 1 is refused at startup unless SANDBOX_ALLOW_PARALLEL=1', () => {
+      const load = (env) => spawnSync(process.execPath, ['--env-file=.env.test', '-e', "import('./src/config.js').then((m) => console.log('n=' + m.config.practice.sandboxConcurrency))"], {
+        env: { ...process.env, ...env }, encoding: 'utf8',
+      });
+      const refused = load({ SANDBOX_CONCURRENCY: '2', SANDBOX_ALLOW_PARALLEL: '' });
+      assert.notEqual(refused.status, 0);
+      assert.match(refused.stderr, /SANDBOX_CONCURRENCY > 1 is unsafe/);
+      const allowed = load({ SANDBOX_CONCURRENCY: '2', SANDBOX_ALLOW_PARALLEL: '1' });
+      assert.equal(allowed.status, 0, allowed.stderr);
+      assert.match(allowed.stdout, /n=2/);
+    });
+
+    test('20 concurrent runs respect the limit, leave no sessions, and overflow is still refused', { skip: !adminAvailable && 'sysadmin access unavailable' }, async () => {
+      const { sandboxConcurrency, sandboxQueueMax } = config.practice;
+      let peak = 0;
+      const sampler = setInterval(() => { sessions().then((n) => { peak = Math.max(peak, n); }); }, 200);
+      const results = await Promise.allSettled(Array.from({ length: 20 }, () => runSql({ sql: "WAITFOR DELAY '00:00:00.100'; SELECT 1 AS ok" })));
+      clearInterval(sampler);
+      const ok = results.filter((r) => r.status === 'fulfilled' && r.value.error === null).length;
+      const refused = results.filter((r) => r.status === 'rejected' && r.reason.status === 429).length;
+      assert.equal(ok + refused, 20);
+      assert.equal(ok, sandboxConcurrency + sandboxQueueMax);
+      assert.ok(peak <= sandboxConcurrency, `peak sessions ${peak}`);
+      assert.equal(await sessionsGone(), 0);
+    });
+  });
+});
+
+// Setup-script assertion: runs the setup script as sysadmin against a throwaway DB (skipped without admin access).
+describe('sandbox_setup.sql dbo-objects assertion', { skip: !process.env.SANDBOX_DB_NAME && 'lab env not set' }, () => {
+  const db = `${process.env.SANDBOX_DB_NAME}_setupchk`;
+  const login = `${db}_l`;
+  const script = fileURLToPath(new URL('../../database/sandbox_setup.sql', import.meta.url));
+  const setup = () => admin({ file: script, vars: { SANDBOX_DB: db, SANDBOX_LOGIN: login, SANDBOX_PASSWORD: `${randomBytes(12).toString('hex')}Aa1!` } });
+  const adminOk = adminAvailable;
+
+  after(async () => {
+    await admin({ q: `${dropDbSql(db)}; IF SUSER_ID(N'${login}') IS NOT NULL DROP LOGIN [${login}]` });
+  });
+
+  test('succeeds on an empty database, fails once a dbo object exists', { skip: !adminOk && 'sysadmin access (sqlcmd -E or SANDBOX_ADMIN_USER) unavailable' }, async () => {
+    assert.equal((await setup()).status, 0, 'empty database passes');
+    assert.equal((await admin({ db, q: 'CREATE TABLE dbo.owned (a int)' })).status, 0);
+    const second = await setup();
+    assert.notEqual(second.status, 0, 'a dbo object makes setup fail under -b');
+    assert.match(second.stdout + second.stderr, /user objects in schema dbo/);
+  });
+});

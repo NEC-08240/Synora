@@ -63,5 +63,38 @@ Synora/
 ├── frontend/
 ├── backend/
 ├── database/
-├── tests/
 └── .github/
+```
+
+## Running locally
+
+Needs Node.js 22 or newer (developed on 24), SQL Server and, for C/C++ runs only, Docker.
+
+1. **Database.** Run `database/schema.sql` (`sqlcmd -S localhost -E -C -b -v DB_NAME=SynoraV1 -i database/schema.sql`; the target database is required), then `database/sandbox_setup.sql` (run as `sqlcmd -S localhost -E -C -b -v SANDBOX_DB=.. SANDBOX_LOGIN=.. SANDBOX_PASSWORD=..`, see `backend/README.md`), as a SQL Server administrator. Schedule `database/sandbox_reset.sql` nightly.
+   Create the application login described in `backend/README.md`.
+2. **Backend.**
+   ```bash
+   cd backend
+   cp .env.example .env    # fill in DB_*, JWT_SECRET; SANDBOX_DB_* is needed for the SQL practice panel
+   npm install
+   npm run seed            # demo users, subjects, topics, lessons
+   npm run dev             # http://localhost:4000
+   ```
+3. **Frontend.**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev             # http://localhost:5173
+   ```
+4. Sign in with a demo account from `backend/README.md`.
+
+Optional services, both off by default:
+
+| Feature | Setting in `backend/.env` | Details |
+|---|---|---|
+| AI tutor | `GEMINI_API_KEY` | `docs/technical/ai-session-protocol.md` |
+| C / C++ execution | `EXECUTOR_URL` (Piston runner) | `docs/technical/practice-execution.md` |
+
+Checks: `npm test` in `backend/` and `frontend/`, and `npm run smoke` in `frontend/` with both servers running.
+
+Project status and demo script: `docs/archive/project-history/november-report.md`.

@@ -1,10 +1,17 @@
 # Dependencies
 node_modules/
 
-# Environment variables
+# Environment variables (every env file is ignored except the example)
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+
+# Local tooling secrets and SQL Server data/backup files
+.npmrc
+*.mdf
+*.ldf
+*.bak
+*.bacpac
 
 # Logs
 logs/
@@ -44,3 +51,7 @@ __pycache__/
 *.sqlite3
 *.key
 *.pem
+
+# Claude Code local state and worktrees
+.claude/
+smoke.out

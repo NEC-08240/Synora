@@ -1,0 +1,164 @@
+erDiagram
+    Roles {
+        INT RoleId PK
+        NVARCHAR(30) RoleName
+    }
+    Users {
+        INT UserId PK
+        INT RoleId FK
+        INT BatchId FK
+        NVARCHAR(100) Name
+        NVARCHAR(255) Email
+        NVARCHAR(20) Status
+    }
+    Batches {
+        INT BatchId PK
+        NVARCHAR(100) Name
+        NVARCHAR(20) AcademicYear
+        INT CreatedBy FK
+    }
+    FacultyAssignments {
+        INT AssignmentId PK
+        INT BatchId FK
+        INT SubjectId FK
+        INT FacultyId FK
+        INT AssignedBy FK
+    }
+    Subjects {
+        INT SubjectId PK
+        NVARCHAR(150) Title
+        NVARCHAR(20) Status
+    }
+    Topics {
+        INT TopicId PK
+        INT SubjectId FK
+        NVARCHAR(150) Title
+        INT OrderIndex
+        INT CreatedBy FK
+    }
+    Lessons {
+        INT LessonId PK
+        INT TopicId FK
+        NVARCHAR(150) Title
+        NVARCHAR(MAX) ContentBody
+    }
+    LessonResources {
+        INT ResourceId PK
+        INT LessonId FK
+        NVARCHAR(20) ResourceType
+        NVARCHAR(500) Url
+    }
+    Activities {
+        INT ActivityId PK
+        INT TopicId FK
+        NVARCHAR(150) Title
+        NVARCHAR(20) ActivityType
+        BIT IsGraded
+        DECIMAL(5,2) MaxScore
+        INT CreatedBy FK
+    }
+    QuizQuestions {
+        INT QuestionId PK
+        INT ActivityId FK
+        NVARCHAR(MAX) QuestionText
+        DECIMAL(5,2) Points
+    }
+    QuizOptions {
+        INT OptionId PK
+        INT QuestionId FK
+        NVARCHAR(MAX) OptionText
+        BIT IsCorrect
+    }
+    TestCases {
+        INT TestCaseId PK
+        INT ActivityId FK
+        NVARCHAR(MAX) InputData
+        NVARCHAR(MAX) ExpectedOutput
+    }
+    SqlTaskSpecs {
+        INT ActivityId PK, FK
+        NVARCHAR(MAX) SetupScript
+        NVARCHAR(MAX) ExpectedResult
+    }
+    PracticeDrafts {
+        INT DraftId PK
+        INT StudentId FK
+        INT ActivityId FK
+        NVARCHAR(MAX) Content
+    }
+    Submissions {
+        INT SubmissionId PK
+        INT StudentId FK
+        INT ActivityId FK
+        INT AttemptNo
+        NVARCHAR(20) Status
+        DECIMAL(5,2) Score
+        INT GradedBy FK
+    }
+    SubmissionAnswers {
+        INT SubmissionId PK, FK
+        INT QuestionId PK, FK
+        INT OptionId FK
+    }
+    TestCaseResults {
+        INT ResultId PK
+        INT SubmissionId FK
+        INT TestCaseId FK
+        BIT Passed
+    }
+    LearningActivity {
+        BIGINT EventId PK
+        INT StudentId FK
+        NVARCHAR(30) EventType
+        INT LessonId FK
+        INT ActivityId FK
+        DATETIME2 OccurredAt
+    }
+    StudentProgress {
+        INT ProgressId PK
+        INT StudentId FK
+        INT TopicId FK
+        DECIMAL(5,2) AggregateScorePct
+    }
+    Recommendations {
+        INT RecommendationId PK
+        INT StudentId FK
+        INT TopicId FK
+        INT ActivityId FK
+        NVARCHAR(50) RuleCode
+    }
+    Roles ||--o{ Users : "has role"
+    Batches |o--o{ Users : "belongs to"
+    Users ||--o{ Batches : "created by"
+    Batches ||--o{ FacultyAssignments : "taught in"
+    Subjects ||--o{ FacultyAssignments : "taught as"
+    Users ||--o{ FacultyAssignments : "faculty"
+    Users ||--o{ FacultyAssignments : "assigned by"
+    Subjects ||--o{ Topics : "contains"
+    Users ||--o{ Topics : "authored by"
+    Topics ||--o{ Lessons : "contains"
+    Lessons ||--o{ LessonResources : "owns"
+    Topics ||--o{ Activities : "contains"
+    Users ||--o{ Activities : "authored by"
+    Activities ||--o{ QuizQuestions : "owns"
+    QuizQuestions ||--o{ QuizOptions : "owns"
+    Activities ||--o{ TestCases : "owns"
+    Activities ||--o| SqlTaskSpecs : "owns"
+    Users ||--o{ PracticeDrafts : "saves"
+    Activities ||--o{ PracticeDrafts : "draft for"
+    Users ||--o{ Submissions : "submits"
+    Activities ||--o{ Submissions : "attempted in"
+    Users |o--o{ Submissions : "graded by"
+    Submissions ||--o{ SubmissionAnswers : "owns"
+    QuizQuestions ||--o{ SubmissionAnswers : "answered in"
+    QuizOptions ||--o{ SubmissionAnswers : "chosen in"
+    Submissions ||--o{ TestCaseResults : "owns"
+    TestCases ||--o{ TestCaseResults : "evaluated in"
+    Users ||--o{ LearningActivity : "generates"
+    Lessons |o--o{ LearningActivity : "context"
+    Activities |o--o{ LearningActivity : "context"
+    Users ||--o{ StudentProgress : "has"
+    Topics ||--o{ StudentProgress : "measured"
+    Users ||--o{ Recommendations : "advised"
+    Topics ||--o{ Recommendations : "weak topic"
+    Activities |o--o{ Recommendations : "suggested practice"
