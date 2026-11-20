@@ -81,7 +81,12 @@ export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = conf
     if (content.turnComplete) send(client, { type: 'turn_complete' });
   }
 
-  upstream.addEventListener('error', () => fail(client, 'upstream_error', 'The AI service is unreachable'));
+  // Queued behind the frame chain like 'close', so frames already received are delivered before the error.
+  upstream.addEventListener('error', () => {
+    chain = chain.then(() => {
+      if (client.readyState === client.OPEN) fail(client, 'upstream_error', 'The AI service is unreachable');
+    }).catch(logChainError);
+  });
   // Queued behind the frame chain so the tail of a reply is delivered before the client is closed.
   upstream.addEventListener('close', (event) => {
     chain = chain.then(() => {

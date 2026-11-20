@@ -235,10 +235,23 @@ test('an abrupt upstream termination is reported to the client as an error and c
   });
   try {
     const messages = await runTurn(relay);
-    // 1006 raises the socket 'error' event, which fails the session at once (not queued behind the frame chain), so unlike a clean close the tail may be dropped.
+    // 1006 raises the socket error event; it is queued behind the frame chain, so any received text is delivered first and is a prefix of the reply.
     assert.ok(messages.some((m) => m.type === 'error' && ['upstream_error', 'upstream_closed'].includes(m.code)));
     assert.ok(!messages.some((m) => m.type === 'turn_complete'));
     assert.ok(messages.filter((m) => m.type === 'text').every((m) => m.delta === 'A'), 'any delivered text is a prefix of the reply');
+  } finally {
+    await relay.stop();
+  }
+});
+
+test('an abrupt upstream termination delivers the frames already received before the error', T, async () => {
+  const relay = await startRelay((ws) => {
+    ws.send(bigFrame('A'), { binary: true }, () => ws.terminate()); // frame fully written, then no close handshake (1006)
+  });
+  try {
+    const messages = await runTurn(relay);
+    const kinds = messages.filter((m) => m.type !== 'ready').map((m) => m.type);
+    assert.deepEqual(kinds.slice(0, 2), ['text', 'error'], 'the received text must arrive before the error frame');
   } finally {
     await relay.stop();
   }
