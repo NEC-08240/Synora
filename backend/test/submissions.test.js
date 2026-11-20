@@ -126,12 +126,15 @@ test('score is clamped to [0, MaxScore]', async () => {
   assert.equal((await api('POST', `${base(fx.activityId)}/submissions`, { cookie: student, body: { answers: fullAnswers(fx) } })).status, 503);
 });
 
-test('concurrent submits get distinct consecutive AttemptNo (UPDLOCK/HOLDLOCK allocation)', async () => {
+test('concurrent submits get distinct consecutive AttemptNo (per student+activity applock, repeated rounds)', async () => {
   registerGrader('SQL', async () => ({ score: 1, results: [] }));
-  const { activityId } = await createActivityFixture({ type: 'SQL' });
-  const rs = await Promise.all([1, 2, 3, 4].map(() => api('POST', `${base(activityId)}/submissions`, { cookie: student, body: { sql: 'select 1' } })));
-  assert.deepEqual(rs.map((r) => r.status), [201, 201, 201, 201]);
-  assert.deepEqual(rs.map((r) => r.body.attemptNo).sort(), [1, 2, 3, 4]);
+  const CONCURRENCY = 8;
+  for (let round = 0; round < 30; round++) { // deadlocks are timing dependent, so one round can pass by luck
+    const { activityId } = await createActivityFixture({ type: 'SQL' });
+    const rs = await Promise.all(Array.from({ length: CONCURRENCY }, () => api('POST', `${base(activityId)}/submissions`, { cookie: student, body: { sql: 'select 1' } })));
+    assert.deepEqual(rs.map((r) => r.status), Array(CONCURRENCY).fill(201), `round ${round}`);
+    assert.deepEqual(rs.map((r) => r.body.attemptNo).sort((a, b) => a - b), Array.from({ length: CONCURRENCY }, (_, i) => i + 1));
+  }
 });
 
 test('coding submit: results stored, student sees only passed/total flags; bad body 400', async () => {

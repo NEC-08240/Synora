@@ -107,7 +107,23 @@ async function gradeOrFail(activity, payload) {
   return { ...out, score };
 }
 
+const DEADLOCK = 1205;
+const APPLOCK_TIMEOUT_MS = 10000;
+const MAX_DEADLOCK_RETRIES = 2;
+
+/** Retries only a deadlock victim (SQL error 1205); the applock below makes that a second line of defence. */
 async function writeAttempt(req, activity, content, graded, answers) {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await writeAttemptOnce(req, activity, content, graded, answers);
+    } catch (err) {
+      if (err?.number !== DEADLOCK || attempt >= MAX_DEADLOCK_RETRIES) throw err;
+      await new Promise((r) => setTimeout(r, 20 + Math.random() * 60));
+    }
+  }
+}
+
+async function writeAttemptOnce(req, activity, content, graded, answers) {
   const tx = new sql.Transaction(await getPool());
   await tx.begin();
   try {
@@ -117,6 +133,13 @@ async function writeAttempt(req, activity, content, graded, answers) {
       return r.query(text);
     };
     const params = { s: req.user.UserId, a: activity.ActivityId };
+    // Serialise allocation per (student, activity): the range lock alone let concurrent submits deadlock (1205) and surface as 409.
+    const lock = new sql.Request(tx);
+    lock.input('res', sql.NVarChar(255), `submit:${params.s}:${params.a}`);
+    lock.input('t', sql.Int, APPLOCK_TIMEOUT_MS);
+    lock.output('rc', sql.Int);
+    const lockRc = (await lock.query("EXEC @rc = sp_getapplock @Resource = @res, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = @t")).output.rc;
+    if (lockRc < 0) throw conflict('Another attempt is in progress, please retry');
     const max = (await run('SELECT MAX(AttemptNo) AS m FROM dbo.Submissions WITH (UPDLOCK, HOLDLOCK) WHERE StudentId = @s AND ActivityId = @a', params)).recordset[0].m;
     const status = graded ? 'Graded' : 'Submitted';
     const ins = await run(
@@ -140,7 +163,7 @@ async function writeAttempt(req, activity, content, graded, answers) {
     return submissionId;
   } catch (err) {
     await tx.rollback().catch(() => {});
-    if (isUniqueViolation(err) || err?.number === 1205) throw conflict('Another attempt was recorded at the same time, please retry'); // 1205 = deadlock victim
+    if (isUniqueViolation(err) || err?.number === DEADLOCK) throw conflict('Another attempt was recorded at the same time, please retry');
     throw err;
   }
 }
