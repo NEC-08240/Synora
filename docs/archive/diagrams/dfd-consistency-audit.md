@@ -1,14 +1,14 @@
 # Synopsis / DFD / Database Consistency Audit
 
-Audited against: `docs/dfd.png` (canonical, source `docs/dfd.svg`), `docs/database/database-design.md`, `docs/academic/synopsis/...Official Synopsis Draft V1.pdf`, `Synora_DFD.docx`, `docs/DFD/DFD.jpeg`.
+Audited against: `docs/dfd.png` (canonical, source `docs/dfd.svg`), `docs/database/database-design.md`, `docs/academic/synopsis/...Official Synopsis Draft V1.pdf`, `Synora_DFD.docx`, `docs/archive/diagrams/DFD.jpeg`.
 
 ## Canonical DFD choice
 
-`docs/dfd.png` is a new Level 1 diagram. It keeps the process structure of the whiteboard photo (`docs/DFD/DFD.jpeg`), because it is the only older artifact with a User & Access process, which the schema needs for Administrator batch, enrolment and faculty-assignment flows into D1. Its data stores are the D1-D5 names from `database-design.md` section 2 (the `Synora_DFD.docx` store names).
+`docs/dfd.png` is a new Level 1 diagram. It keeps the process structure of the whiteboard photo (`docs/archive/diagrams/DFD.jpeg`), because it is the only older artifact with a User & Access process, which the schema needs for Administrator batch, enrolment and faculty-assignment flows into D1. Its data stores are the D1-D5 names from `database-design.md` section 2 (the `Synora_DFD.docx` store names).
 
 | Older artifact | Problem | Status |
 |---|---|---|
-| `docs/DFD/DFD.jpeg` | 4 stores (D3 "Submissions & Grades" mixes assessment and submission data, D4 is analytics), no draft-save flow | Kept, historical |
+| `docs/archive/diagrams/DFD.jpeg` | 4 stores (D3 "Submissions & Grades" mixes assessment and submission data, D4 is analytics), no draft-save flow | Kept, historical |
 | `Synora_DFD.docx` | 5 stores right, but processes are the synopsis modules, no Administrator-to-D1 batch flow, no draft-save, inconsistent numbering across Level 1 and 2 | Kept, historical |
 | `Hand_Drawable_Level1_DFD.png` | Not present in the repository or working tree | Not found |
 
@@ -47,6 +47,6 @@ Audited against: `docs/dfd.png` (canonical, source `docs/dfd.svg`), `docs/databa
 1. Synopsis PDF (labelled Draft V1) names PostgreSQL in sections 3.3, 4.1, 6.3, 7.4, 8.1, 9.1. No editable source was found (PDF only). It needs re-export from its source document.
 2. PPTX names PostgreSQL on slides 1, 5, 6, 16. It is a binary Office file and was not edited.
 3. `CLAUDE_HANDOFF.md` (untracked) still describes the old 15-entity design and PostgreSQL. It is a historical handoff, not modified.
-4. `Synora_DFD.docx` and `docs/DFD/DFD.jpeg` are now superseded. Anyone submitting the DFD academically should use `docs/dfd.png`.
+4. `Synora_DFD.docx` and `docs/archive/diagrams/DFD.jpeg` are now superseded. Anyone submitting the DFD academically should use `docs/dfd.png`.
 5. Synopsis modules do not map one-to-one to DFD processes (table above). The synopsis section 5.6 module-integration wording should be checked against this when the synopsis is re-issued.
 6. Level 0 and Level 2 diagrams do not exist in canonical form. Only Level 1 is done.

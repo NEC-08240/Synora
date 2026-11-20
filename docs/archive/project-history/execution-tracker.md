@@ -39,7 +39,7 @@ Acceptance report: [november-report.md](november-report.md). Release evidence an
 | 4.4 C/C++ execution proxy (Piston-compatible executor, limits, timeouts) | Nov | IMPLEMENTED | backend/src/practice/{code,routes}.js, docs/technical/practice-execution.md | backend/test/practice.test.js (fake Piston runner) | BLOCKED for live verify: EXECUTOR_URL and a Piston container |
 | 4.5 SQL sandbox (separate DB + low-priv login, SetupScript, rollback-only) | Nov | VERIFIED | backend/src/practice/sql.js, database/sandbox_setup.sql | backend/test/practice.test.js (real SynoraV1_Sandbox DB); browser smoke renders the result table | result compare vs ExpectedResult deferred to Assessment (Dec) |
 | 4.6 SCR-03 practice panel (editor, run, output) | Nov | VERIFIED for SQL | frontend/src/components/PracticePanel.jsx | browser smoke: SQL run end to end; C shows the not-configured notice | C/C++ output path unverified until 4.4 is live |
-| R.1 Run/demo instructions + known limitations | Nov | IMPLEMENTED | README.md, docs/project/november-report.md, frontend/test/smoke.e2e.mjs | steps were followed on this machine on 11 Nov | — |
+| R.1 Run/demo instructions + known limitations | Nov | IMPLEMENTED | README.md, docs/archive/project-history/november-report.md, frontend/test/smoke.e2e.mjs | steps were followed on this machine on 11 Nov | — |
 
 ## Decisions log
 

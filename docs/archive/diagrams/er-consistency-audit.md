@@ -1,6 +1,6 @@
 # ER Consistency Audit (Database Design / DFD / ER Diagram)
 
-Scope: `docs/database/database-design.md` (source of truth), `docs/dfd.png` (`docs/dfd.svg`), `docs/er-diagram.png` (`docs/er-diagram.mmd`).
+Scope: `docs/database/database-design.md` (source of truth), `docs/dfd.png` (`docs/dfd.svg`), `docs/archive/diagrams/er-diagram.png` (`docs/er-diagram.mmd`).
 
 ## Method
 
@@ -34,7 +34,7 @@ Scope: `docs/database/database-design.md` (source of truth), `docs/dfd.png` (`do
 - Synopsis PDF names PostgreSQL (sections 3.3, 4.1, 6.3, 7.4, 8.1, 9.1) and is still marked Draft. It is binary; the editable source is not in the repository.
 - Synopsis PPTX names PostgreSQL on slides 1, 5, 6 and 16.
 - `CLAUDE_HANDOFF.md` (untracked) still lists the old 15-entity design and PostgreSQL.
-- `docs/dfd-consistency-audit.md` mentions PostgreSQL only as a historical reference.
+- `docs/archive/diagrams/dfd-consistency-audit.md` mentions PostgreSQL only as a historical reference.
 
 ## Readiness
 
