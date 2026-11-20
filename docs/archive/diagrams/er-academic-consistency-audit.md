@@ -1,6 +1,6 @@
 # Academic ER Diagram: Consistency Audit
 
-Scope: `docs/er-diagram-academic.{mmd,svg,png}` is a presentation variant of the locked 20-entity schema for the project guide. The master remains `docs/er-diagram.mmd` / `docs/er-diagram.png`. No entity, attribute key, cardinality, FK or data-store ownership was changed.
+Scope: `docs/er-diagram-academic.{mmd,svg,png}` is a presentation variant of the locked 20-entity schema for the project guide. The master remains `docs/er-diagram.mmd` / `docs/archive/diagrams/er-diagram.png`. No entity, attribute key, cardinality, FK or data-store ownership was changed.
 
 ## What differs from the master
 

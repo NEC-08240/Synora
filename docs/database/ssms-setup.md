@@ -45,4 +45,4 @@ SELECT COUNT(*) AS ForeignKeys FROM sys.foreign_keys;  -- 35
 1. Press **Ctrl+S** and name it `Synora_V1_Diagram`. The diagram is stored inside the database.
 2. For the report, right-click the canvas > **Copy Diagram to Clipboard** (or use a screenshot) and paste into the document.
 
-The SSMS diagram is the implementation-level view. The design-level views remain `docs/er-diagram.png` and `docs/er-diagram-academic.png`.
+The SSMS diagram is the implementation-level view. The design-level views remain `docs/archive/diagrams/er-diagram.png` and `docs/archive/diagrams/er-diagram-academic.png`.

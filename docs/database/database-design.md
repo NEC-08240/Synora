@@ -429,7 +429,7 @@ Multiple cascade paths check: each table is reachable by cascade through at most
 
 ## 9. Required Companion Changes
 
-- **DFD canonical export** (done): `docs/dfd.png` (source `docs/dfd.svg`) uses D1-D5 from section 2. Older artifacts (`docs/DFD/DFD.jpeg`, `Synora_DFD.docx`) are kept as historical and are superseded. See `docs/dfd-consistency-audit.md`.
+- **DFD canonical export** (done): `docs/dfd.png` (source `docs/dfd.svg`) uses D1-D5 from section 2. Older artifacts (`docs/archive/diagrams/DFD.jpeg`, `Synora_DFD.docx`) are kept as historical and are superseded. See `docs/archive/diagrams/dfd-consistency-audit.md`.
 - **Synopsis PDF** names PostgreSQL in §3.3, §4.1, §6.3, §7.4, §8.1, §9.1. The PDF is binary and cannot be edited in place.
 - **Synopsis PPTX** (`docs/academic/SYNORA Live Smart Edification PPT.pptx`) names PostgreSQL on slides 1, 5, 6, and 16.
 - **README.md** and the SCR-03 prototype SQL option label (done): now Microsoft SQL Server / T-SQL.
@@ -441,13 +441,13 @@ Multiple cascade paths check: each table is reachable by cascade through at most
 
 Created (owner-approved). Files:
 
-- `docs/er-diagram.png` is the rendered diagram, grouped by data store D1-D5.
-- `docs/er-diagram.svg` is the vector version for printing.
+- `docs/archive/diagrams/er-diagram.png` is the rendered diagram, grouped by data store D1-D5.
+- `docs/archive/diagrams/er-diagram.svg` is the vector version for printing.
 - `docs/er-diagram.mmd` is the editable source (Mermaid `erDiagram` text, the single source of entities, columns and relationships).
 - `docs/tools/gen_er.py` regenerates the SVG from the `.mmd`. `docs/tools/check_er.py` verifies the `.mmd` against sections 2 and 4 of this file.
-- `docs/er-consistency-audit.md` records the Database / DFD / ER audit.
-- `docs/er-diagram-academic.{mmd,svg,png}` is a simplified presentation variant for the guide (keys and main attributes only), built by `docs/tools/gen_er_academic.py` and checked by `docs/tools/check_er_academic.py`; audit in `docs/er-academic-consistency-audit.md`.
-- `docs/er-diagram-chen.{svg,png,json}` is the **Chen-notation ER diagram for the report and presentation** (rectangles = entities, ovals = attributes, diamonds = relationships, 1/N cardinalities), built by `docs/tools/gen_er_chen.py` and checked by `docs/tools/check_er_chen.py`; audit in `docs/er-chen-consistency-audit.md`. The earlier `er-diagram-academic.*` is a table-style variant and is kept.
+- `docs/archive/diagrams/er-consistency-audit.md` records the Database / DFD / ER audit.
+- `docs/er-diagram-academic.mmd` (source, kept) and `docs/archive/diagrams/er-diagram-academic.{svg,png}` (renders) is a simplified presentation variant for the guide (keys and main attributes only), built by `docs/tools/gen_er_academic.py` and checked by `docs/tools/check_er_academic.py`; audit in `docs/archive/diagrams/er-academic-consistency-audit.md`.
+- `docs/er-diagram-chen.{svg,png,json}` is the **Chen-notation ER diagram for the report and presentation** (rectangles = entities, ovals = attributes, diamonds = relationships, 1/N cardinalities), built by `docs/tools/gen_er_chen.py` and checked by `docs/tools/check_er_chen.py`; audit in `docs/archive/diagrams/er-chen-consistency-audit.md`. The earlier `er-diagram-academic.*` is a table-style variant and is kept.
 - `docs/database/ssms-diagram-layout.md` gives the manual table placement for the SSMS Database Diagram (implementation diagram).
 
 The ER diagram introduces no schema change. If this file changes, update the `.mmd` and re-run both tools.

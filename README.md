@@ -97,4 +97,4 @@ Optional services, both off by default:
 
 Checks: `npm test` in `backend/` and `frontend/`, and `npm run smoke` in `frontend/` with both servers running.
 
-Project status and demo script: `docs/project/november-report.md`.
+Project status and demo script: `docs/archive/project-history/november-report.md`.

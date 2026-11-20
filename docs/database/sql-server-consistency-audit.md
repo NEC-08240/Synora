@@ -66,7 +66,7 @@ None. No entity, column, relationship or cardinality was added, removed or chang
 |---|---|
 | `README.md`, `prototypes/scr-03-interactive-learning/index.html` | Already corrected earlier on this branch (SQL Server / T-SQL) |
 | `docs/database/database-design.md` section 9 | Describes the stale external documents; intentional |
-| `docs/dfd-consistency-audit.md`, `docs/er-consistency-audit.md` | Historical audit notes about the same external documents; intentional |
+| `docs/archive/diagrams/dfd-consistency-audit.md`, `docs/archive/diagrams/er-consistency-audit.md` | Historical audit notes about the same external documents; intentional |
 | `docs/academic/` synopsis PDF and PPTX | Binary, no editable source in the repo; not modified |
 | `CLAUDE_HANDOFF.md` (untracked) | Historical; its text marks PostgreSQL as superseded; not modified |
 | `.claude/worktrees/retire-agent-bridge/...` | Untracked agent worktree copy of the prototype; not part of the repo |
