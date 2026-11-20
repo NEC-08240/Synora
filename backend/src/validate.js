@@ -35,6 +35,7 @@ function check(value, rule) {
     case 'int':
       if (!Number.isInteger(value)) return 'must be an integer';
       if (rule.min !== undefined && value < rule.min) return `must be >= ${rule.min}`;
+      if (rule.max !== undefined && value > rule.max) return `must be <= ${rule.max}`;
       return null;
     case 'bool':
       return typeof value === 'boolean' ? null : 'must be a boolean';

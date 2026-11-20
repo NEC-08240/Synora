@@ -271,3 +271,6 @@ contentRouter.post('/lessons/:id/resources', requireRole('Faculty', 'Administrat
   const row = await queryOne(`SELECT * FROM dbo.LessonResources WHERE ResourceId = @id`, { id: inserted.ResourceId });
   res.status(201).json({ resource: resourceDto(row) });
 });
+
+// Shared with the assessment module so it applies the same scope rules (it adds its own Admin handling).
+export { isStudent, assertCanReadSubject, assertAssignedToSubject, assertCanAuthorSubject };
