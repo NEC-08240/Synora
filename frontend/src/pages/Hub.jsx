@@ -24,7 +24,7 @@ export default function Hub() {
     <Shell title="Learning Hub">
       <h1 className="text-3xl font-bold">Welcome back{firstName ? `, ${firstName}` : ''}!</h1>
       <p className="mb-8 text-muted">Pick a subject to continue learning.</p>
-      {error && <p role="alert" className="text-warning">{error}</p>}
+      {error && <p role="alert" className="text-error">{error}</p>}
       {!subjects && !error && <p className="text-muted">Loading subjects…</p>}
       {subjects && subjects.length === 0 && <p className="text-muted">No subjects are allocated to your batch yet.</p>}
       <div className="grid items-start gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -68,7 +68,7 @@ function SubjectCard({ subject }) {
       </button>
       {open && (
         <ul className="mt-4 space-y-3 border-t border-border pt-4">
-          {error && <li role="alert" className="text-sm text-warning">{error}</li>}
+          {error && <li role="alert" className="text-sm text-error">{error}</li>}
           {!topics && !error && <li className="text-sm text-muted">Loading…</li>}
           {topics?.map((t) => (
             <li key={t.topicId}>
@@ -79,7 +79,7 @@ function SubjectCard({ subject }) {
                     <Link to={`/learn/lessons/${l.lessonId}`} className="text-sm text-muted hover:text-primary">› {l.title}</Link>
                   </li>
                 ))}
-                {t.lessonsFailed && <li role="alert" className="text-xs text-warning">Could not load lessons for this topic.</li>}
+                {t.lessonsFailed && <li role="alert" className="text-xs text-error">Could not load lessons for this topic.</li>}
                 {!t.lessonsFailed && t.lessons.length === 0 && <li className="text-xs text-muted">No published lessons yet.</li>}
               </ul>
             </li>

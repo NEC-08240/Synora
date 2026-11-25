@@ -1,18 +1,28 @@
 @import "tailwindcss";
 
-/* docs/ui-design/design-tokens.md */
+/* docs/ui-design/design-tokens.md; grey theme per Synora-ops/design/light-redesign-plan.md */
 @theme {
-  --color-canvas: #0A1128;
-  --color-surface: #1C2541;
-  --color-border: #2A375A;
-  --color-primary: #00E5FF;
-  --color-success: #00E676;
-  --color-warning: #FFD600;
-  --color-text: #F8F9FA;
-  --color-muted: #8D99AE;
+  --color-canvas: #EEF0F2;
+  --color-surface: #FFFFFF;
+  --color-border: #D5D9DE;
+  --color-input-border: #8C959F;
+  --color-primary: #1D6678;
+  --color-primary-hover: #17535F;
+  --color-success: #1A7F37;
+  --color-warning: #9A6700;
+  --color-error: #CF222E;
+  --color-text: #1F2328;
+  --color-muted: #57606A;
+  --color-code-bg: #1E2227;
+  --color-code-text: #E6E8EB;
+  --color-code-muted: #9DA5AE;
+  --color-code-error: #FF7B72;
+  --color-code-success: #56D364;
+  --color-code-accent: #7CC4D6;
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
+:root { color-scheme: light; }
 html, body, #root { height: 100%; }
 body { @apply bg-canvas text-text font-sans antialiased; }

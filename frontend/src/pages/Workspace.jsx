@@ -30,7 +30,7 @@ function WorkspaceLesson({ lessonId }) {
   if (error) {
     return (
       <Shell title="Workspace">
-        <p role="alert" className="text-warning">{error}</p>
+        <p role="alert" className="text-error">{error}</p>
         <Link to="/learn" className="mt-4 inline-block text-primary">Back to the hub</Link>
       </Shell>
     );

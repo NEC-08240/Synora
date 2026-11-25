@@ -20,5 +20,5 @@ export default function Shell({ title, children, full = false }) {
 }
 
 export const card = 'rounded-lg border border-border bg-surface p-5';
-export const btn = 'rounded bg-primary px-4 py-2 text-sm font-semibold text-canvas hover:bg-primary/90 disabled:opacity-50';
-export const input = 'w-full rounded border border-border bg-canvas px-3 py-2 text-sm text-text outline-none focus:border-primary';
+export const btn = 'rounded bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50';
+export const input = 'w-full rounded border border-input-border bg-surface px-3 py-2 text-sm text-text outline-none focus:border-primary';

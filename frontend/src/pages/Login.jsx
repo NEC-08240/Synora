@@ -53,7 +53,7 @@ export default function Login() {
           <input className={input} type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
         {expired && !error && <p role="status" className="text-sm text-warning">{SESSION_EXPIRED_MESSAGE}</p>}
-        {error && <p role="alert" className="text-sm text-warning">{error}</p>}
+        {error && <p role="alert" className="text-sm text-error">{error}</p>}
         <button className={`${btn} w-full`} disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
       </form>
     </div>
