@@ -15,14 +15,14 @@ export default function Manage() {
   }, []);
   return (
     <Shell title="Manage">
-      <h1 className="mb-6 text-2xl font-bold">Subjects</h1>
-      {error && <p role="alert" className="text-error">{error}</p>}
+      <h1 className="mb-6 text-2xl font-semibold">Subjects</h1>
+      {error && <p role="alert" className="alert">{error}</p>}
       {!subjects && !error && <p className="text-muted">Loading subjects…</p>}
       {subjects?.length === 0 && <p className="text-muted">No subjects yet.</p>}
       <div className="grid gap-4 md:grid-cols-3">
         {subjects?.map((s) => (
           <div key={s.subjectId} className={card}>
-            <h3 className="font-bold">{s.title}</h3>
+            <h3 className="font-semibold">{s.title}</h3>
             <p className="text-sm text-muted">{s.status} · {s.topicCount} topics</p>
           </div>
         ))}

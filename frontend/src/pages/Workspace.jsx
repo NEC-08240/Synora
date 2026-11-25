@@ -30,7 +30,7 @@ function WorkspaceLesson({ lessonId }) {
   if (error) {
     return (
       <Shell title="Workspace">
-        <p role="alert" className="text-error">{error}</p>
+        <p role="alert" className="alert">{error}</p>
         <Link to="/learn" className="mt-4 inline-block text-primary">Back to the hub</Link>
       </Shell>
     );
@@ -48,7 +48,7 @@ function WorkspaceLesson({ lessonId }) {
                 role="tab"
                 aria-selected={tab === t}
                 onClick={() => setTab(t)}
-                className={`flex-1 py-3 text-sm ${tab === t ? 'border-b-2 border-primary text-primary' : 'text-muted hover:text-text'}`}
+                className={`flex-1 py-3 text-sm ${tab === t ? 'border-b-2 border-primary bg-[#E3EEF1] font-semibold text-primary' : 'text-muted hover:text-text'}`}
               >
                 {t}
               </button>
@@ -57,7 +57,7 @@ function WorkspaceLesson({ lessonId }) {
           <div role="tabpanel" className="min-h-0 flex-1 overflow-auto p-5">
             {tab === 'Theory' && (
               <>
-                <h1 className="mb-3 text-xl font-bold">{lesson.title}</h1>
+                <h1 className="mb-3 text-xl font-semibold">{lesson.title}</h1>
                 {/* Rendered as text, never HTML: content is faculty-authored but still untrusted. */}
                 <div className="whitespace-pre-wrap text-sm leading-relaxed">{lesson.contentBody}</div>
               </>

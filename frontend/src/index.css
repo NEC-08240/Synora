@@ -26,3 +26,11 @@
 :root { color-scheme: light; }
 html, body, #root { height: 100%; }
 body { @apply bg-canvas text-text font-sans antialiased; }
+
+h1, h2, h3 { font-weight: 600; }
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+
+/* Shared alert: white surface, 1px border, 4px left bar in the status colour. */
+.alert { background: var(--color-surface); color: var(--color-text); border: 1px solid var(--color-border); border-left: 4px solid var(--color-error); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+.alert-warning { border-left-color: var(--color-warning); }
+.alert-success { border-left-color: var(--color-success); }

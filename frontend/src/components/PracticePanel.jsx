@@ -85,7 +85,7 @@ export default function PracticePanel() {
         />
       )}
       <div className="h-2/5 overflow-auto border-t border-code-muted/30 bg-code-bg p-3 font-mono text-xs text-code-text" aria-live="polite">
-        {error && <p role="alert" className="text-code-error">{error}</p>}
+        {error && <p role="alert" className="alert">{error}</p>}
         {!error && !result && <p className="text-code-muted">Output appears here.</p>}
         {result && (isSql ? <SqlResult r={result} /> : <CodeResult r={result} />)}
       </div>

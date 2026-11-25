@@ -7,10 +7,10 @@ export default function Shell({ title, children, full = false }) {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-4 border-b border-border bg-surface px-5 py-3">
-        <Link to="/" className="text-lg font-bold tracking-wide text-primary">Synora</Link>
+        <Link to="/" className="text-lg font-semibold text-primary">Synora</Link>
         {title && <span className="text-sm text-muted">/ {title}</span>}
         <span className="ml-auto text-sm text-muted">{user?.name} · {user?.role}</span>
-        <button onClick={logout} className="rounded border border-border px-3 py-1 text-sm hover:border-primary hover:text-primary">
+        <button onClick={logout} className="rounded-md border border-border px-3 py-1 text-sm hover:border-primary hover:text-primary">
           Sign out
         </button>
       </header>
@@ -20,5 +20,5 @@ export default function Shell({ title, children, full = false }) {
 }
 
 export const card = 'rounded-lg border border-border bg-surface p-5';
-export const btn = 'rounded bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50';
-export const input = 'w-full rounded border border-input-border bg-surface px-3 py-2 text-sm text-text outline-none focus:border-primary';
+export const btn = 'rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50';
+export const input = 'w-full rounded-md border border-input-border bg-surface px-3 py-2 text-sm text-text focus-visible:border-primary';

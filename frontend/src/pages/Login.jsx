@@ -42,7 +42,7 @@ export default function Login() {
   return (
     <div className="flex h-full items-center justify-center p-6">
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-surface p-8">
-        <h1 className="text-2xl font-bold text-primary">Synora</h1>
+        <h1 className="text-2xl font-semibold text-primary">Synora</h1>
         <p className="text-sm text-muted">Sign in with your institute account.</p>
         <label className="block text-sm">
           <span className="text-muted">Email</span>
@@ -52,8 +52,8 @@ export default function Login() {
           <span className="text-muted">Password</span>
           <input className={input} type="password" required autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
         </label>
-        {expired && !error && <p role="status" className="text-sm text-warning">{SESSION_EXPIRED_MESSAGE}</p>}
-        {error && <p role="alert" className="text-sm text-error">{error}</p>}
+        {expired && !error && <p role="status" className="alert alert-warning">{SESSION_EXPIRED_MESSAGE}</p>}
+        {error && <p role="alert" className="alert">{error}</p>}
         <button className={`${btn} w-full`} disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
       </form>
     </div>
