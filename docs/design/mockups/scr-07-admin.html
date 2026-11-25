@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en" data-style="b">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin console - Synora</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="screens.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="wordmark" href="#">SYNORA</a>
+  <div class="tools">
+    <nav aria-label="Primary"><a href="#" aria-current="page">Manage</a><a href="#">Users</a></nav>
+    <span class="who">Meenakshi Sharma · Admin</span><span class="role">Admin</span>
+  </div>
+</header>
+<main id="main" class="page">
+<h1>Admin console</h1>
+<p class="lead">Manage users, batches and who teaches what.</p>
+<section aria-labelledby="h-sum"><h2 id="h-sum">Platform summary</h2><ul class="tiles"><li class="card"><p class="tile-n">184</p><p class="tile-l">Active students</p></li><li class="card"><p class="tile-n">12</p><p class="tile-l">Faculty members</p></li><li class="card"><p class="tile-n">3</p><p class="tile-l">Batches</p></li><li class="card"><p class="tile-n">1,342</p><p class="tile-l">Submissions this week</p></li></ul></section>
+<section aria-labelledby="h-usr"><h2 id="h-usr">Users</h2>
+<form class="filters card" aria-label="Create user" onsubmit="return false"><div class="field"><label for="u-n">Full name</label><input class="input" id="u-n" type="text" autocomplete="off"></div><div class="field"><label for="u-e">Email</label><input class="input" id="u-e" type="email" autocomplete="off"></div><div class="field"><label for="u-r">Role</label><select class="select" id="u-r"><option>Student</option><option>Faculty</option><option>Admin</option></select></div><button class="btn btn-primary" type="submit">Create user</button></form>
+<div style="margin-top:var(--s-4)"><div class="table-wrap" role="region" aria-label="Users table" tabindex="0"><table><thead><tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead><tbody><tr><th scope="row">Aarav Menon</th><td>aarav.menon@synora.example</td><td><select class="select" aria-label="Role for Aarav Menon"><option selected>Student</option><option>Faculty</option><option>Admin</option></select></td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm" type="button" aria-label="Deactivate Aarav Menon">Deactivate</button></td></tr><tr><th scope="row">Dr. Kavita Nair</th><td>kavita.nair@synora.example</td><td><select class="select" aria-label="Role for Dr. Kavita Nair"><option>Student</option><option selected>Faculty</option><option>Admin</option></select></td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm" type="button" aria-label="Deactivate Dr. Kavita Nair">Deactivate</button></td></tr><tr><th scope="row">Rohan Gupta</th><td>rohan.gupta@synora.example</td><td><select class="select" aria-label="Role for Rohan Gupta"><option selected>Student</option><option>Faculty</option><option>Admin</option></select></td><td><span class="badge">Inactive</span></td><td><button class="btn btn-secondary btn-sm" type="button" aria-label="Activate Rohan Gupta">Activate</button></td></tr><tr><th scope="row">Suresh Patel</th><td>suresh.patel@synora.example</td><td><select class="select" aria-label="Role for Suresh Patel"><option>Student</option><option>Faculty</option><option selected>Admin</option></select></td><td><span class="badge badge-success">Active</span></td><td><button class="btn btn-secondary btn-sm" type="button" aria-label="Deactivate Suresh Patel">Deactivate</button></td></tr></tbody></table></div></div></section>
+<div class="cols" style="margin-top:var(--s-8)">
+<section aria-labelledby="h-bat"><h2 id="h-bat">Batches</h2><div class="table-wrap" role="region" aria-label="Batches table" tabindex="0"><table><thead><tr><th scope="col">Batch</th><th scope="col">Year</th><th scope="col">Students</th></tr></thead><tbody><tr><th scope="row">CS-A 2026</th><td>2026</td><td>62</td></tr><tr><th scope="row">CS-B 2026</th><td>2026</td><td>58</td></tr><tr><th scope="row">CS-C 2025</th><td>2025</td><td>64</td></tr></tbody></table></div></section>
+<section aria-labelledby="h-as"><h2 id="h-as">Faculty assignments</h2><div class="table-wrap" role="region" aria-label="Faculty assignments table" tabindex="0"><table><thead><tr><th scope="col">Subject</th><th scope="col">Batch</th><th scope="col">Faculty</th></tr></thead><tbody><tr><th scope="row">C Programming</th><td>CS-A 2026</td><td><select class="select" aria-label="Faculty for C Programming, CS-A 2026"><option selected>Dr. Kavita Nair</option><option>Prof. Arjun Rao</option><option>Dr. Lakshmi Pillai</option></select></td></tr><tr><th scope="row">C++ Fundamentals</th><td>CS-B 2026</td><td><select class="select" aria-label="Faculty for C++ Fundamentals, CS-B 2026"><option>Dr. Kavita Nair</option><option selected>Prof. Arjun Rao</option><option>Dr. Lakshmi Pillai</option></select></td></tr><tr><th scope="row">DBMS and SQL</th><td>CS-A 2026</td><td><select class="select" aria-label="Faculty for DBMS and SQL, CS-A 2026"><option>Dr. Kavita Nair</option><option>Prof. Arjun Rao</option><option selected>Dr. Lakshmi Pillai</option></select></td></tr></tbody></table></div></section>
+</div>
+</main>
+</body>
+</html>

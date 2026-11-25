@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en" data-style="b">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Assessments - Synora</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="screens.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="wordmark" href="#">SYNORA</a>
+  <div class="tools"><a class="link" href="#">Back to the hub</a><span class="who">Aarav Menon · Student</span></div>
+</header>
+<main id="main" class="page">
+<h1>Assessments</h1>
+<p class="lead">Your quizzes and coding tasks for this term.</p>
+<section aria-labelledby="h-act"><h2 id="h-act">Activities</h2>
+<div class="table-wrap" role="region" aria-label="Activities table" tabindex="0"><table><thead><tr><th scope="col">Activity</th><th scope="col">Subject</th><th scope="col">Type</th><th scope="col">Status</th><th scope="col">Due</th><th scope="col">Action</th></tr></thead><tbody><tr><th scope="row">Pointers quiz</th><td>C Programming</td><td>Quiz</td><td><span class="badge badge-warning">In progress</span></td><td>28 Nov</td><td><a class="link" href="#" aria-label="Continue Pointers quiz">Continue</a></td></tr><tr><th scope="row">Reverse a string</th><td>C Programming</td><td>Coding</td><td><span class="badge badge-info">Attempt 2 of 3</span></td><td>30 Nov</td><td><a class="link" href="#" aria-label="Open Reverse a string">Open</a></td></tr><tr><th scope="row">Classes and objects quiz</th><td>C++ Fundamentals</td><td>Quiz</td><td><span class="badge badge-success">Completed</span></td><td>20 Nov</td><td><a class="link" href="#" aria-label="Review score Classes and objects quiz">Review score</a></td></tr><tr><th scope="row">Joins practice</th><td>DBMS and SQL</td><td>SQL</td><td><span class="badge">Not started</span></td><td>05 Dec</td><td><a class="link" href="#" aria-label="Start Joins practice">Start</a></td></tr></tbody></table></div></section>
+<section aria-labelledby="h-work"><h2 id="h-work">Attempt an activity</h2>
+<div class="tabs" role="tablist" aria-label="Activity type"><button class="tab" role="tab" type="button" id="t-quiz" aria-controls="p-quiz" aria-selected="true">Quiz</button><button class="tab" role="tab" type="button" id="t-code" aria-controls="p-code" aria-selected="false" tabindex="-1">Coding task</button></div>
+<div role="tabpanel" id="p-quiz" aria-labelledby="t-quiz" tabindex="0" class="card panel-gap" style="margin-top:var(--s-4)">
+<div class="qmeta"><h2 style="margin:0">Pointers quiz</h2><span>Question 3 of 10</span></div>
+<div class="progress" role="progressbar" aria-label="Quiz progress" aria-valuemin="0" aria-valuemax="10" aria-valuenow="3"><span style="width:30%"></span></div>
+<fieldset><legend>Which statement about a pointer in C is correct?</legend><div class="panel-gap"><label class="quiz-option"><input type="radio" name="q3" value="0" checked><span>Stores the address of another variable</span></label><label class="quiz-option"><input type="radio" name="q3" value="1"><span>Stores a copy of the value only</span></label><label class="quiz-option"><input type="radio" name="q3" value="2"><span>Always points to NULL</span></label><label class="quiz-option"><input type="radio" name="q3" value="3"><span>Is a keyword for loops</span></label></div></fieldset>
+<div class="alert alert-info"><div>Correct answers are not shown after you submit the quiz.</div></div>
+<div class="nav-row"><button class="btn btn-secondary" type="button">Previous</button><button class="btn btn-primary" type="button">Next</button></div>
+</div>
+<div role="tabpanel" id="p-code" aria-labelledby="t-code" tabindex="0" class="card panel-gap" hidden style="margin-top:var(--s-4)">
+<h2>Reverse a string</h2><p class="muted" style="margin:0">Write <span class="mono">void rev(char *s)</span> that reverses the string in place. Your code is checked against hidden test cases.</p>
+<div class="editor"><div class="editor-bar"><span>Solution in C</span></div><pre class="code" tabindex="0" aria-label="Solution in C"><span class="ln">1</span><span>#include &lt;string.h&gt;</span><span class="ln">2</span><span></span><span class="ln">3</span><span>void rev(char *s) {</span><span class="ln">4</span><span>    int n = strlen(s);</span><span class="ln">5</span><span>    for (int i = 0; i &lt; n / 2; i++) {</span><span class="ln">6</span><span>        char t = s[i]; s[i] = s[n-1-i]; s[n-1-i] = t;</span><span class="ln">7</span><span>    }</span><span class="ln">8</span><span>}</span></pre></div>
+<div class="row"><button class="btn btn-primary" type="button">Submit</button><span class="badge badge-info">Attempt 2 of 3</span></div>
+<div class="output" role="status"><div class="output-head">Result for attempt 1</div><div style="padding:var(--s-3)"><p class="score" style="margin:0">60 / 100</p><p style="margin:var(--s-1) 0 0">Passed 3 of 5 tests</p></div></div>
+<p class="muted" style="margin:0">Only the score and the number of tests passed are shown. Test cases and correct answers stay hidden.</p>
+</div>
+</section>
+</main>
+<script>
+document.querySelectorAll('[role="tablist"]').forEach(function (l) {
+  var tabs = [].slice.call(l.querySelectorAll('[role="tab"]'));
+  function sel(t) { tabs.forEach(function (x) { var on = x === t; x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1; document.getElementById(x.getAttribute('aria-controls')).hidden = !on; }); t.focus(); }
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { sel(t); });
+    t.addEventListener('keydown', function (e) { var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (d) { e.preventDefault(); sel(tabs[(i + d + tabs.length) % tabs.length]); } });
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" data-style="b">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pointer basics - Workspace - Synora</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="screens.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<div class="ws">
+<header class="topbar">
+  <div class="tools"><a class="wordmark" href="#">SYNORA</a><a class="btn btn-ghost" href="#">Back to the hub</a></div>
+  <div class="tools"><span class="who">Pointer basics · C Programming</span></div>
+</header>
+<main id="main" class="ws-grid">
+  <div class="mobile-tabs" role="group" aria-label="Workspace panes">
+    <button class="btn btn-secondary" type="button" data-pane="p1" aria-pressed="true">Lesson</button>
+    <button class="btn btn-secondary" type="button" data-pane="p2" aria-pressed="false">Practice</button>
+    <button class="btn btn-secondary" type="button" data-pane="p3" aria-pressed="false">Tutor</button>
+  </div>
+  <section class="card pane on" id="p1" aria-label="Lesson content">
+    <div class="tabs" role="tablist" aria-label="Lesson sections">
+      <button class="tab" role="tab" aria-selected="true" aria-controls="lp" id="tt1">Theory</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" id="tt2">Objectives</button>
+      <button class="tab" role="tab" aria-selected="false" tabindex="-1" id="tt3">Resources</button>
+    </div>
+    <div class="pane-body" role="tabpanel" id="lp" aria-labelledby="tt1" tabindex="0">
+      <h1 style="font-size:var(--text-xl,1.5rem);margin-bottom:var(--s-3)">Pointer basics</h1>
+      <p>A pointer is a variable that stores the memory address of another variable. Declare one with an asterisk, and take an address with the ampersand operator.</p>
+      <p>Dereferencing a pointer with * reads or writes the value stored at that address. Always initialise a pointer before you dereference it.</p>
+      <p>Try it: declare an int, point to it, and print the value through the pointer.</p>
+      <p class="muted">Resources for this lesson are listed under the Resources tab.</p>
+    </div>
+  </section>
+  <section class="card pane" id="p2" aria-label="Practice workspace">
+    <div class="bar">
+      <label class="muted" for="lang">Language</label>
+      <select class="select" id="lang"><option>C</option><option>C++</option><option>SQL</option></select>
+      <span class="muted">Draft saved</span>
+      <button class="btn btn-primary" type="button">Run</button>
+    </div>
+    <div class="editor">
+<pre class="code" aria-label="C editor" tabindex="0"><span class="ln" aria-hidden="true">1
+2
+3
+4
+5
+6
+7
+8</span><code><span class="k">#include</span> <span class="s">&lt;stdio.h&gt;</span>
+
+<span class="k">int</span> main(<span class="k">void</span>) {
+    <span class="k">int</span> n = <span class="n">42</span>;
+    <span class="k">int</span> *p = &amp;n;
+    printf(<span class="s">"%d\n"</span>, *p);
+    <span class="k">return</span> <span class="n">0</span>;
+}</code></pre>
+    </div>
+    <div style="padding:var(--s-3) var(--s-4)"><label class="muted" for="stdin" style="font-size:var(--text-sm)">Program input (stdin)</label>
+      <textarea class="input-box" id="stdin" rows="2"></textarea></div>
+    <div class="out" aria-live="polite"><p><span class="badge badge-success">Run finished</span></p><p style="margin-top:var(--s-2)">42</p></div>
+  </section>
+  <section class="card pane" id="p3" aria-label="Synora AI tutor">
+    <div class="tutor-head"><h2>Synora AI</h2><span class="tutor-status"><span class="dot dot-ready" aria-hidden="true"></span>Ready</span></div>
+    <div class="pane-body chat" aria-live="polite">
+      <div class="bubble bubble-user">What does the * do in int *p?</div>
+      <div class="bubble bubble-tutor is-streaming">It marks p as a pointer to an int, meaning p holds the address of an int rather than an int itself</div>
+    </div>
+    <div class="voice"><svg class="icon" aria-hidden="true" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v4"/></svg>Voice questions are planned, not available yet.</div>
+    <form class="chat-form">
+      <input class="input" aria-label="Message to the tutor" placeholder="Type your question">
+      <button class="btn btn-primary" type="submit">Send</button>
+    </form>
+  </section>
+</main>
+</div>
+<script>
+document.querySelectorAll('[data-pane]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    document.querySelectorAll('.pane').forEach(function (p) { p.classList.toggle('on', p.id === b.dataset.pane); });
+    document.querySelectorAll('[data-pane]').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
+  });
+});
+</script>
+</body>
+</html>

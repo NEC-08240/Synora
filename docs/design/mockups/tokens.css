@@ -1,0 +1,71 @@
+/* Synora design tokens. Single theme: cool light grey. Semantic names only.
+   Style B structure hooks stay ([data-style="b"]) so layout is unchanged. */
+
+:root {
+  color-scheme: light;
+
+  --bg: #EEF0F2;
+  --surface: #FFFFFF;
+  --surface-raised: #FFFFFF;
+  --surface-sunken: #E4E7EB;
+  --overlay: rgb(31 35 40 / 0.5);
+
+  --border: #D5D9DE;
+  --border-strong: #8C959F;
+
+  --text: #1F2328;
+  --text-muted: #57606A;
+  --text-faint: #57606A;
+
+  /* accent: primary buttons, links, focus only */
+  --primary: #1D6678;
+  --primary-hover: #17535F;
+  --primary-active: #11424C;
+  --on-primary: #FFFFFF;
+  --primary-soft: rgb(29 102 120 / 0.1);
+  --link: #1D6678;
+  --focus: #1D6678;
+
+  --success: #1A7F37;  --success-soft: rgb(26 127 55 / 0.04);
+  --warning: #9A6700;  --warning-soft: rgb(154 103 0 / 0.04);
+  --danger: #CF222E;   --danger-soft: rgb(207 34 46 / 0.03);
+  --info: #57606A;     --info-soft: rgb(87 96 106 / 0.1);
+  --danger-solid: #CF222E; --on-danger-solid: #FFFFFF;
+
+  /* dark surfaces: code editor, stdin, output only */
+  --code-bg: #1E2227;
+  --code-text: #E6E8EB;
+  --code-muted: #9DA5AE;
+  --code-border: #3A4048;
+  --code-keyword: #7FC8E0;
+  --code-string: #8EDBA8;
+  --code-comment: #9DA5AE;
+  --code-number: #E3B866;
+
+  --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading: var(--font-sans);
+  --heading-tracking: 0;
+  --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --text-xs: 0.75rem; --text-sm: 0.9375rem; --text-base: 1.0625rem;
+  --text-lg: 1.25rem; --text-xl: 1.5rem; --text-2xl: 2rem;
+  --leading: 1.65; --leading-tight: 1.25;
+  --weight-medium: 500; --weight-bold: 600;
+
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-6: 24px; --s-8: 32px; --s-12: 48px;
+
+  --radius: 6px; --radius-lg: 8px; --radius-pill: 6px;
+  --shadow: 0 1px 2px rgb(31 35 40 / 0.12);
+  --target: 48px;
+  --pad: 28px; --gap: 28px;
+  --card-border: 1px solid var(--border);
+  --card-shadow: none;
+  --radius-btn: var(--radius);
+  --sec-rule: 0 solid transparent;
+  --nav-w: 15rem;
+
+  --dur: 160ms; --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur: 0ms; }
+}

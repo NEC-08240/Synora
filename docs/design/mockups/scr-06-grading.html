@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" data-style="b">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grading and monitoring - Synora</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="screens.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="wordmark" href="#">SYNORA</a>
+  <div class="tools">
+    <nav aria-label="Primary"><a href="#" aria-current="page">Manage</a><a href="#">Grading</a></nav>
+    <span class="who">Dr. Kavita Nair · Faculty</span><span class="role">Faculty</span>
+  </div>
+</header>
+<main id="main" class="page">
+<h1>Grading and monitoring</h1>
+<p class="lead">Review submissions and track how each batch is doing.</p>
+<section aria-labelledby="h-sub"><h2 id="h-sub">Submissions</h2>
+<form class="filters card" aria-label="Submission filters" onsubmit="return false"><div class="field"><label for="f-b">Batch</label><select class="select" id="f-b"><option>All batches</option><option>CS-A 2026</option><option>CS-B 2026</option></select></div><div class="field"><label for="f-a">Activity</label><select class="select" id="f-a"><option>All activities</option><option>Pointers quiz</option><option>Reverse a string</option><option>Joins practice</option></select></div><div class="field"><label for="f-s">Status</label><select class="select" id="f-s"><option>All statuses</option><option>Needs review</option><option>Graded</option></select></div><button class="btn btn-primary" type="submit">Apply filters</button></form>
+<div style="margin-top:var(--s-4)"><div class="table-wrap" role="region" aria-label="Submissions table" tabindex="0"><table><thead><tr><th scope="col">Student</th><th scope="col">Batch</th><th scope="col">Activity</th><th scope="col">Submitted</th><th scope="col">Status</th><th scope="col">Passed</th><th scope="col">Action</th></tr></thead><tbody><tr><th scope="row">Rohan Gupta</th><td>CS-A 2026</td><td>Reverse a string</td><td>27 Nov, 10:42</td><td><span class="badge badge-warning">Needs review</span></td><td>3 / 5</td><td><a class="link" href="#detail" aria-label="Review Rohan Gupta, Reverse a string">Review</a></td></tr><tr><th scope="row">Ananya Iyer</th><td>CS-A 2026</td><td>Reverse a string</td><td>27 Nov, 09:15</td><td><span class="badge badge-success">Graded</span></td><td>5 / 5</td><td><a class="link" href="#detail" aria-label="Review Ananya Iyer, Reverse a string">Review</a></td></tr><tr><th scope="row">Meera Nair</th><td>CS-B 2026</td><td>Pointers quiz</td><td>26 Nov, 16:30</td><td><span class="badge badge-success">Graded</span></td><td>8 / 10</td><td><a class="link" href="#detail" aria-label="Review Meera Nair, Pointers quiz">Review</a></td></tr><tr><th scope="row">Karthik Reddy</th><td>CS-B 2026</td><td>Joins practice</td><td>26 Nov, 11:05</td><td><span class="badge badge-warning">Needs review</span></td><td>2 / 4</td><td><a class="link" href="#detail" aria-label="Review Karthik Reddy, Joins practice">Review</a></td></tr></tbody></table></div></div></section>
+<section id="detail" aria-labelledby="detail-h"><h2 id="detail-h">Submission detail: Rohan Gupta, Reverse a string</h2>
+<div class="cols">
+<div class="card panel-gap"><h3>Answer and results</h3>
+<dl class="facts"><dt>Attempt</dt><dd>2 of 3</dd><dt>Score</dt><dd>60 / 100</dd><dt>Tab switches</dt><dd>4 during the attempt</dd></dl>
+<div class="alert alert-warning"><div>The student left the tab 4 times. Check the answer for copied code.</div></div>
+<div class="editor"><div class="editor-bar"><span>Submitted answer in C</span></div><pre class="code" tabindex="0" aria-label="Submitted answer in C"><span class="ln">1</span><span>void rev(char *s) {</span><span class="ln">2</span><span>    int n = strlen(s);</span><span class="ln">3</span><span>    for (int i = 0; i &lt;= n / 2; i++) {</span><span class="ln">4</span><span>        char t = s[i]; s[i] = s[n-1-i]; s[n-1-i] = t;</span><span class="ln">5</span><span>    }</span><span class="ln">6</span><span>}</span></pre></div>
+<div class="table-wrap" role="region" aria-label="Per test case results" tabindex="0"><table><thead><tr><th scope="col">Test case</th><th scope="col">Result</th></tr></thead><tbody><tr><th scope="row">Test 1</th><td><span class="badge badge-success">Pass</span></td></tr><tr><th scope="row">Test 2</th><td><span class="badge badge-success">Pass</span></td></tr><tr><th scope="row">Test 3</th><td><span class="badge badge-success">Pass</span></td></tr><tr><th scope="row">Test 4</th><td><span class="badge badge-danger">Fail</span></td></tr><tr><th scope="row">Test 5</th><td><span class="badge badge-danger">Fail</span></td></tr></tbody></table></div></div>
+<form class="card panel-gap" aria-label="Grade and feedback" onsubmit="return false"><h3>Grade and feedback</h3>
+<div class="field wide"><label for="g-score">Final score (out of 100)</label><input class="input" id="g-score" type="number" min="0" max="100" value="60"></div>
+<div class="field wide"><label for="g-fb">Feedback to student</label><textarea class="textarea" id="g-fb" rows="5">Good use of strlen. Check your loop bound: the middle character is swapped with itself.</textarea></div>
+<div class="row"><button class="btn btn-primary" type="submit">Save grade</button></div></form>
+</div></section>
+<section aria-labelledby="h-an"><h2 id="h-an">Class analytics</h2>
+<div class="card"><h3>Average score by activity, CS-A 2026</h3>
+<ul class="bars" aria-label="Average score by activity"><li class="bar-row"><span>Pointers quiz</span><div class="bar-track" aria-hidden="true"><span style="width:72%"></span></div><span class="bar-val">72%</span></li><li class="bar-row"><span>Reverse a string</span><div class="bar-track" aria-hidden="true"><span style="width:64%"></span></div><span class="bar-val">64%</span></li><li class="bar-row"><span>Classes quiz</span><div class="bar-track" aria-hidden="true"><span style="width:81%"></span></div><span class="bar-val">81%</span></li><li class="bar-row"><span>Joins practice</span><div class="bar-track" aria-hidden="true"><span style="width:58%"></span></div><span class="bar-val">58%</span></li></ul>
+<div class="table-wrap" role="region" aria-label="Average score data table" tabindex="0"><table><caption class="sr-only">Average score by activity</caption><thead><tr><th scope="col">Activity</th><th scope="col">Average score</th><th scope="col">Submissions</th></tr></thead><tbody><tr><th scope="row">Pointers quiz</th><td>72%</td><td>41</td></tr><tr><th scope="row">Reverse a string</th><td>64%</td><td>38</td></tr><tr><th scope="row">Classes quiz</th><td>81%</td><td>40</td></tr><tr><th scope="row">Joins practice</th><td>58%</td><td>36</td></tr></tbody></table></div></div></section>
+</main>
+</body>
+</html>

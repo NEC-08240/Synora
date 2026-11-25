@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en" data-style="b">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning Hub - Synora</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="screens.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="wordmark" href="#">SYNORA</a>
+  <div class="tools">
+    <span class="who">Aarav Menon · Student</span>
+  </div>
+</header>
+<main id="main" class="hub">
+  <h1>Welcome back, Aarav!</h1>
+  <p class="lead">Pick a subject to continue learning.</p>
+  <p id="msg-loading" class="state-msg muted" hidden>Loading subjects…</p>
+  <p id="msg-error" class="state-msg" role="alert" hidden style="color:var(--text);border-left:4px solid var(--warning);padding-left:var(--s-3)">Could not load your subjects. Please try again.</p>
+  <p id="msg-empty" class="state-msg muted" hidden>No subjects are allocated to your batch yet.</p>
+  <ul class="subjects" id="subjects">
+    <li class="card">
+      <button class="subj-btn" type="button" aria-expanded="true" data-toggle="t-c" data-name="C Programming">
+        <span class="subj-badge" aria-hidden="true">C</span>
+        <h2>C Programming</h2>
+        <p>Core syntax, pointers and memory, from first program to file handling.</p>
+        <p class="count">4 topics <span class="chev" aria-hidden="true">▲</span></p>
+      </button>
+      <ul class="topics" id="t-c">
+        <li><h3>Pointers and memory</h3><ul>
+          <li><a href="#">› Pointer basics</a></li><li><a href="#">› Pointer arithmetic</a></li><li><a href="#">› Dynamic allocation with malloc</a></li></ul></li>
+        <li><h3>Arrays and strings</h3><ul><li><a href="#">› Declaring arrays</a></li></ul></li>
+        <li><h3>File handling</h3><p class="note warn" role="alert">Could not load lessons for this topic.</p></li>
+        <li><h3>Structures</h3><p class="note">No published lessons yet.</p></li>
+      </ul>
+    </li>
+    <li class="card">
+      <button class="subj-btn" type="button" aria-expanded="false" data-toggle="t-cpp" data-name="C++ Fundamentals">
+        <span class="subj-badge" aria-hidden="true">C++</span>
+        <h2>C++ Fundamentals</h2>
+        <p>Classes, inheritance and the standard template library.</p>
+        <p class="count">5 topics <span class="chev" aria-hidden="true">▼</span></p>
+      </button>
+      <ul class="topics" id="t-cpp" hidden><li><h3>Classes and objects</h3><ul><li><a href="#">› Constructors and destructors</a></li></ul></li></ul>
+    </li>
+    <li class="card">
+      <button class="subj-btn" type="button" aria-expanded="false" data-toggle="t-sql" data-name="DBMS and SQL">
+        <span class="subj-badge" aria-hidden="true">SQL</span>
+        <h2>DBMS and SQL</h2>
+        <p>Relational design, normalization and writing queries.</p>
+        <p class="count">5 topics <span class="chev" aria-hidden="true">▼</span></p>
+      </button>
+      <ul class="topics" id="t-sql" hidden><li><h3>Querying</h3><ul><li><a href="#">› SELECT and WHERE</a></li></ul></li></ul>
+    </li>
+  </ul>
+  <div id="skels" class="subjects" hidden aria-hidden="true">
+    <div class="card skel skeleton"></div><div class="card skel skeleton"></div><div class="card skel skeleton"></div>
+  </div>
+</main>
+<script>
+(function () {
+  var s = new URLSearchParams(location.search).get('state');
+  if (!s) return;
+  var show = function (id) { document.getElementById(id).hidden = false; };
+  document.getElementById('subjects').hidden = true;
+  if (s === 'loading') { show('msg-loading'); show('skels'); }
+  if (s === 'empty') show('msg-empty');
+  if (s === 'error') show('msg-error');
+})();
+</script>
+</body>
+</html>
