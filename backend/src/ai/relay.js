@@ -3,7 +3,7 @@
  *
  * Browser -> relay:  { type: 'user_text', text }        (text only in V1)
  * Relay -> browser:  { type: 'ready' }
- *                    { type: 'text', delta }            streamed model text
+ *                    { type: 'text', delta }            streamed model text (Gemini output transcription)
  *                    { type: 'turn_complete' }
  *                    { type: 'error', code, message }   then the socket closes
  *
@@ -53,7 +53,9 @@ export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = conf
     upstream.send(JSON.stringify({
       setup: {
         model: `models/${config.ai.model}`,
-        generationConfig: { responseModalities: ['TEXT'] },
+        // Current Live models reject TEXT (close 1007); AUDIO + transcription is the supported way to get text.
+        generationConfig: { responseModalities: ['AUDIO'] },
+        outputAudioTranscription: {},
         systemInstruction: { parts: [{ text: session.systemInstruction }] },
       },
     }));
@@ -75,9 +77,9 @@ export function bridge(client, session, { upstreamUrl = GEMINI_WS, apiKey = conf
     if (msg.setupComplete) return send(client, { type: 'ready' });
     const content = msg.serverContent;
     if (!content) return;
-    for (const part of content.modelTurn?.parts ?? []) {
-      if (part.text) send(client, { type: 'text', delta: part.text });
-    }
+    // Audio inlineData parts in modelTurn are deliberately dropped; the transcript is the text.
+    const transcript = content.outputTranscription?.text;
+    if (transcript) send(client, { type: 'text', delta: transcript });
     if (content.turnComplete) send(client, { type: 'turn_complete' });
   }
 

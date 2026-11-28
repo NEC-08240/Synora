@@ -106,7 +106,7 @@ export const config = Object.freeze({
   ai: Object.freeze({
     // Optional: without a key the AI tutor reports itself unavailable instead of failing silently.
     apiKey: process.env.GEMINI_API_KEY ?? '',
-    model: process.env.GEMINI_MODEL ?? 'gemini-2.0-flash-live-001',
+    model: process.env.GEMINI_MODEL ?? 'gemini-3.1-flash-live-preview',
     sessionTtlSeconds: 5 * 60,
   }),
   practice: Object.freeze({

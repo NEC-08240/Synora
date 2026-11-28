@@ -59,16 +59,16 @@ Idle sockets are closed after 10 minutes. Closing the browser socket closes the 
 
 ## 4. Upstream mapping
 
-- Setup frame: `{ setup: { model: "models/<GEMINI_MODEL>", generationConfig: { responseModalities: ["TEXT"] }, systemInstruction } }`.
+- Setup frame: `{ setup: { model: "models/<GEMINI_MODEL>", generationConfig: { responseModalities: ["AUDIO"] }, outputAudioTranscription: {}, systemInstruction } }`.
 - User turn: `{ clientContent: { turns: [{ role: "user", parts: [{ text }] }], turnComplete: true } }`.
-- `serverContent.modelTurn.parts[].text` → `text` frames; `serverContent.turnComplete` → `turn_complete`.
+- `serverContent.outputTranscription.text` → `text` frames (audio parts are dropped); `serverContent.turnComplete` → `turn_complete`.
 
 ## Configuration
 
 | Variable | Default | Notes |
 |---|---|---|
 | `GEMINI_API_KEY` | empty | From Google AI Studio. Empty = tutor reports unavailable. |
-| `GEMINI_MODEL` | `gemini-2.0-flash-live-001` | Any Live-capable model id. |
+| `GEMINI_MODEL` | `gemini-3.1-flash-live-preview` | Any Live-capable model id. |
 
 ## Frontend fallback behaviour
 
