@@ -221,7 +221,14 @@ test('audio parts are dropped and only the output transcription reaches the clie
     ws.send(frame({ outputTranscription: { text: 'Hi' }, turnComplete: true }).toString());
   });
   try {
-    const messages = await runTurn(relay);
+    const wsPath = await mint();
+    const messages = await connect(relay.url() + wsPath, student, (ws) => {
+      ws.addEventListener('message', (e) => {
+        const { type } = JSON.parse(e.data);
+        if (type === 'ready') ws.send(JSON.stringify({ type: 'user_text', text: 'hi' }));
+        if (type === 'turn_complete') ws.close(); // the relay keeps the socket open after a turn, so close it to end connect()
+      });
+    });
     assert.deepEqual(messages.filter((m) => m.type !== 'ready' && m.type !== 'error'), [{ type: 'text', delta: 'Hi' }, { type: 'turn_complete' }]);
   } finally {
     await relay.stop();
