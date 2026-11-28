@@ -95,6 +95,8 @@ Optional services, both off by default:
 | AI tutor | `GEMINI_API_KEY` | `docs/technical/ai-session-protocol.md` |
 | C / C++ execution | `EXECUTOR_URL` (Piston runner) | `docs/technical/practice-execution.md` |
 
+The frontend needs no `.env`. Backend tests need a scratch `.env.test` (setup in `backend/README.md`). Contributing: `CONTRIBUTING.md`.
+
 Checks: `npm test` in `backend/` and `frontend/`, and `npm run smoke` in `frontend/` with both servers running.
 
 Project status and demo script: `docs/archive/project-history/november-report.md`.

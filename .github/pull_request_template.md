@@ -25,6 +25,10 @@
 - [ ] Frontend
 - [ ] Repository / Configuration
 
+## Screenshots
+
+<!-- Required for UI changes (before / after). -->
+
 ## Testing / Verification
 
 <!-- Describe how the changes were checked. -->
@@ -36,3 +40,5 @@
 - [ ] No passwords, API keys, or other secrets are included.
 - [ ] Documentation has been updated if required.
 - [ ] Changes have been tested or reviewed where applicable.
+- [ ] `npm run lint`, `npm test` and `npm run build` pass (frontend); `npm test` passes (backend, if touched).
+- [ ] No logic, API or test changes in a design-only PR.
