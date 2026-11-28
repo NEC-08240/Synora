@@ -86,8 +86,8 @@ test('relay streams text from a Gemini-shaped upstream and validates client fram
         return ws.send(JSON.stringify({ setupComplete: {} }));
       }
       const text = msg.clientContent.turns[0].parts[0].text;
-      ws.send(JSON.stringify({ serverContent: { modelTurn: { parts: [{ text: `Echo: ${text.slice(0, 3)}` }] } } }));
-      ws.send(JSON.stringify({ serverContent: { modelTurn: { parts: [{ text: text.slice(3) }] }, turnComplete: true } }));
+      ws.send(JSON.stringify({ serverContent: { outputTranscription: { text: `Echo: ${text.slice(0, 3)}` } } }));
+      ws.send(JSON.stringify({ serverContent: { outputTranscription: { text: text.slice(3) }, turnComplete: true } }));
     });
   });
   const upstreamUrl = `ws://127.0.0.1:${fake.address().port}`;
@@ -108,7 +108,8 @@ test('relay streams text from a Gemini-shaped upstream and validates client fram
 
   assert.equal(seen.url, '/', 'key is not in the upstream URL');
   assert.equal(seen.apiKeyHeader, 'test-key', 'key is sent to upstream in a header, never to the client');
-  assert.equal(seen.setup.generationConfig.responseModalities[0], 'TEXT');
+  assert.equal(seen.setup.generationConfig.responseModalities[0], 'AUDIO');
+  assert.deepEqual(seen.setup.outputAudioTranscription, {});
   assert.match(seen.setup.systemInstruction.parts[0].text, /Arjun Menon/);
   // The client's bad frame races the upstream 'ready'; check the streamed sequence without it.
   assert.deepEqual(messages.filter((m) => m.type !== 'error'), [
@@ -179,7 +180,7 @@ function openPath(relayUrl, wsPath) {
 }
 const openLive = async (relayUrl) => openPath(relayUrl, await mint());
 const closed = (ws) => new Promise((r) => (ws.readyState === ws.CLOSED ? r() : ws.once('close', r)));
-const bigFrame = (text) => Buffer.from(JSON.stringify({ serverContent: { modelTurn: { parts: [{ text }] }, pad: 'x'.repeat(5 * 1024 * 1024) } }));
+const bigFrame = (text) => Buffer.from(JSON.stringify({ serverContent: { outputTranscription: { text }, pad: 'x'.repeat(5 * 1024 * 1024) } }));
 const frame = (content) => Buffer.from(JSON.stringify({ serverContent: content }));
 
 /** Opens a session, sends one user turn on ready, collects frames until the relay closes the socket. */
@@ -196,7 +197,7 @@ test('upstream frames are relayed in order even when an earlier Blob decodes slo
   const relay = await startRelay((ws) => {
     // A is a Blob (async decode); B and turnComplete are text frames, which the old per-event handler processed immediately and so overtook A.
     ws.send(bigFrame('A'), { binary: true });
-    ws.send(frame({ modelTurn: { parts: [{ text: 'B' }] } }).toString());
+    ws.send(frame({ outputTranscription: { text: 'B' } }).toString());
     ws.send(frame({ turnComplete: true }).toString());
   });
   try {
@@ -214,10 +215,30 @@ test('upstream frames are relayed in order even when an earlier Blob decodes slo
   }
 });
 
+test('audio parts are dropped and only the output transcription reaches the client', T, async () => {
+  const relay = await startRelay((ws) => {
+    ws.send(frame({ modelTurn: { parts: [{ inlineData: { mimeType: 'audio/pcm', data: 'AAAA' } }] } }).toString());
+    ws.send(frame({ outputTranscription: { text: 'Hi' }, turnComplete: true }).toString());
+  });
+  try {
+    const wsPath = await mint();
+    const messages = await connect(relay.url() + wsPath, student, (ws) => {
+      ws.addEventListener('message', (e) => {
+        const { type } = JSON.parse(e.data);
+        if (type === 'ready') ws.send(JSON.stringify({ type: 'user_text', text: 'hi' }));
+        if (type === 'turn_complete') ws.close(); // the relay keeps the socket open after a turn, so close it to end connect()
+      });
+    });
+    assert.deepEqual(messages.filter((m) => m.type !== 'ready' && m.type !== 'error'), [{ type: 'text', delta: 'Hi' }, { type: 'turn_complete' }]);
+  } finally {
+    await relay.stop();
+  }
+});
+
 test('an upstream close right after the last frames does not drop the tail of the reply', T, async () => {
   const relay = await startRelay((ws) => {
     ws.send(bigFrame('A'), { binary: true });
-    ws.send(frame({ modelTurn: { parts: [{ text: 'B' }] }, turnComplete: true }), { binary: true });
+    ws.send(frame({ outputTranscription: { text: 'B' }, turnComplete: true }), { binary: true });
     ws.close(); // upstream goes away right after the frames; the close event must not outrun the pending decodes (terminate() would discard the unsent 5 MB frame on Linux)
   });
   try {
@@ -230,7 +251,7 @@ test('an upstream close right after the last frames does not drop the tail of th
 
 test('an abrupt upstream termination is reported to the client as an error and closes it', T, async () => {
   const relay = await startRelay((ws) => {
-    ws.send(frame({ modelTurn: { parts: [{ text: 'A' }] } }).toString());
+    ws.send(frame({ outputTranscription: { text: 'A' } }).toString());
     ws.terminate(); // no close handshake: the relay sees code 1006
   });
   try {
