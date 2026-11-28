@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en" data-style="b">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Authoring studio - Synora</title>
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="screens.css">
+<script src="theme.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="wordmark" href="#">SYNORA</a>
+  <div class="tools">
+    <nav aria-label="Primary"><a href="#" aria-current="page">Manage</a><a href="#">Grading</a></nav>
+    <span class="who">Dr. Kavita Nair · Faculty</span><span class="role">Faculty</span>
+  </div>
+</header>
+<main id="main" class="page">
+<h1>Authoring studio</h1>
+<p class="lead">C Programming &gt; Pointers and memory &gt; Pointer basics</p>
+<div class="split">
+<nav aria-label="Course structure" class="card"><h2>Course structure</h2><ul class="tree">
+<li><span class="lvl">C Programming</span><ul>
+ <li><span class="lvl">Pointers and memory</span><ul><li><a href="#" aria-current="page">Pointer basics</a></li><li><a href="#">Pointer arithmetic</a></li><li><a href="#">Dynamic allocation</a></li></ul></li>
+ <li><span class="lvl">Arrays and strings</span><ul><li><a href="#">Declaring arrays</a></li></ul></li></ul></li>
+<li><span class="lvl">C++ Fundamentals</span><ul><li><span class="lvl">Classes and objects</span><ul><li><a href="#">Constructors</a></li></ul></li></ul></li>
+<li><span class="lvl">DBMS and SQL</span><ul><li><span class="lvl">Querying</span><ul><li><a href="#">SELECT and WHERE</a></li></ul></li></ul></li>
+</ul></nav>
+<section aria-label="Editor">
+<div class="actions"><span class="badge">Draft</span><div class="row"><button class="btn btn-primary" type="button">Publish</button><button class="btn btn-secondary" type="button">Archive</button></div></div>
+<div class="tabs" role="tablist" aria-label="Authoring sections"><button class="tab" role="tab" type="button" id="t-les" aria-controls="p-les" aria-selected="true">Lesson</button><button class="tab" role="tab" type="button" id="t-qz" aria-controls="p-qz" aria-selected="false" tabindex="-1">Quiz</button><button class="tab" role="tab" type="button" id="t-cd" aria-controls="p-cd" aria-selected="false" tabindex="-1">Coding task</button><button class="tab" role="tab" type="button" id="t-sq" aria-controls="p-sq" aria-selected="false" tabindex="-1">SQL task</button></div>
+<div role="tabpanel" id="p-les" aria-labelledby="t-les" tabindex="0" class="card panel-gap" style="margin-top:var(--s-4)">
+<h2>Lesson editor</h2><div class="field wide"><label for="l-title">Lesson title</label><input class="input" id="l-title" type="text" value="Pointer basics"></div>
+<div class="field wide"><label for="l-sum">Summary</label><textarea class="textarea" id="l-sum" rows="2">What a pointer is and how to dereference it.</textarea></div>
+<div class="field wide"><label for="l-body">Lesson content</label><textarea class="textarea" id="l-body" rows="6">A pointer is a variable that stores the memory address of another variable.</textarea><span class="hint">Plain text. Students see this in the Lesson pane.</span></div>
+<div class="row"><button class="btn btn-primary" type="button">Save draft</button></div>
+</div>
+<div role="tabpanel" id="p-qz" aria-labelledby="t-qz" tabindex="0" class="card panel-gap" hidden style="margin-top:var(--s-4)">
+<h2>Quiz builder</h2><fieldset><legend>Question 1</legend><div class="field wide"><label for="q1">Question 1 text</label><input class="input" id="q1" type="text" value="What does the &amp; operator return?"></div><p class="hint" style="margin:var(--s-3) 0 0">Select the radio button beside the one correct option.</p><div class="opt-row"><input type="radio" name="c1" aria-label="Mark option A of question 1 as correct" checked><div><label class="sr-only" for="q1o0">Question 1 option A</label><input class="input" id="q1o0" type="text" value="The address of a variable"></div></div><div class="opt-row"><input type="radio" name="c1" aria-label="Mark option B of question 1 as correct"><div><label class="sr-only" for="q1o1">Question 1 option B</label><input class="input" id="q1o1" type="text" value="The value of a variable"></div></div><div class="opt-row"><input type="radio" name="c1" aria-label="Mark option C of question 1 as correct"><div><label class="sr-only" for="q1o2">Question 1 option C</label><input class="input" id="q1o2" type="text" value="The size of a type"></div></div></fieldset><fieldset><legend>Question 2</legend><div class="field wide"><label for="q2">Question 2 text</label><input class="input" id="q2" type="text" value="Which symbol dereferences a pointer?"></div><p class="hint" style="margin:var(--s-3) 0 0">Select the radio button beside the one correct option.</p><div class="opt-row"><input type="radio" name="c2" aria-label="Mark option A of question 2 as correct" checked><div><label class="sr-only" for="q2o0">Question 2 option A</label><input class="input" id="q2o0" type="text" value="*"></div></div><div class="opt-row"><input type="radio" name="c2" aria-label="Mark option B of question 2 as correct"><div><label class="sr-only" for="q2o1">Question 2 option B</label><input class="input" id="q2o1" type="text" value="&amp;"></div></div><div class="opt-row"><input type="radio" name="c2" aria-label="Mark option C of question 2 as correct"><div><label class="sr-only" for="q2o2">Question 2 option C</label><input class="input" id="q2o2" type="text" value="#"></div></div></fieldset><div class="row"><button class="btn btn-secondary" type="button">Add question</button><button class="btn btn-primary" type="button">Save quiz</button></div>
+</div>
+<div role="tabpanel" id="p-cd" aria-labelledby="t-cd" tabindex="0" class="card panel-gap" hidden style="margin-top:var(--s-4)">
+<h2>Coding task builder</h2><div class="field wide"><label for="c-title">Task title</label><input class="input" id="c-title" type="text" value="Reverse a string"></div>
+<div class="field wide"><label for="c-lang">Language</label><select class="select" id="c-lang"><option>C</option><option>C++</option></select></div>
+<div class="field wide"><label for="c-desc">Problem statement</label><textarea class="textarea" id="c-desc">Write void rev(char *s) that reverses the string in place.</textarea></div>
+<div class="actions" style="margin:0"><h3 style="margin:0">Test cases</h3><span class="badge badge-warning">Hidden from students</span></div>
+<div class="table-wrap" role="region" aria-label="Test cases table" tabindex="0"><table><thead><tr><th scope="col">No.</th><th scope="col">Input</th><th scope="col">Expected output</th><th scope="col">Marks</th></tr></thead><tbody><tr><th scope="row">1</th><td><input class="input" id="ti0" type="text" value="abc" aria-label="Test 1 input"></td><td><input class="input" id="to0" type="text" value="cba" aria-label="Test 1 expected output"></td><td>20</td></tr><tr><th scope="row">2</th><td><input class="input" id="ti1" type="text" value="racecar" aria-label="Test 2 input"></td><td><input class="input" id="to1" type="text" value="racecar" aria-label="Test 2 expected output"></td><td>20</td></tr><tr><th scope="row">3</th><td><input class="input" id="ti2" type="text" value="(empty)" aria-label="Test 3 input"></td><td><input class="input" id="to2" type="text" value="(empty)" aria-label="Test 3 expected output"></td><td>20</td></tr><tr><th scope="row">4</th><td><input class="input" id="ti3" type="text" value="Synora" aria-label="Test 4 input"></td><td><input class="input" id="to3" type="text" value="aronyS" aria-label="Test 4 expected output"></td><td>40</td></tr></tbody></table></div>
+<div class="row"><button class="btn btn-secondary" type="button">Add test case</button><button class="btn btn-primary" type="button">Save task</button></div>
+</div>
+<div role="tabpanel" id="p-sq" aria-labelledby="t-sq" tabindex="0" class="card panel-gap" hidden style="margin-top:var(--s-4)">
+<h2>SQL task builder</h2><div class="field wide"><label for="s-title">Task title</label><input class="input" id="s-title" type="text" value="Students with marks above 75"></div>
+<div class="field wide"><label for="s-setup">Setup script</label><textarea class="textarea mono" id="s-setup" rows="5">CREATE TABLE students (id INT, name TEXT, marks INT);
+INSERT INTO students VALUES (1,'Ananya Iyer',82),(2,'Rohan Gupta',68),(3,'Meera Nair',91);</textarea><span class="hint">Runs once before every student attempt.</span></div>
+<div class="field wide"><label for="s-q">Reference query</label><textarea class="textarea mono" id="s-q" rows="2">SELECT name, marks FROM students WHERE marks &gt; 75 ORDER BY marks DESC;</textarea></div>
+<h3>Expected result</h3>
+<div class="table-wrap" role="region" aria-label="Expected result table" tabindex="0"><table><thead><tr><th scope="col">name</th><th scope="col">marks</th></tr></thead><tbody><tr><td>Meera Nair</td><td>91</td></tr><tr><td>Ananya Iyer</td><td>82</td></tr></tbody></table></div>
+<label class="check"><input type="checkbox" checked><span>Row order must match</span></label>
+<div class="row"><button class="btn btn-primary" type="button">Save task</button></div>
+</div>
+
+</section></div>
+</main>
+<script>
+document.querySelectorAll('[role="tablist"]').forEach(function (l) {
+  var tabs = [].slice.call(l.querySelectorAll('[role="tab"]'));
+  function sel(t) { tabs.forEach(function (x) { var on = x === t; x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1; document.getElementById(x.getAttribute('aria-controls')).hidden = !on; }); t.focus(); }
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { sel(t); });
+    t.addEventListener('keydown', function (e) { var d = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0; if (d) { e.preventDefault(); sel(tabs[(i + d + tabs.length) % tabs.length]); } });
+  });
+});
+</script>
+</body>
+</html>

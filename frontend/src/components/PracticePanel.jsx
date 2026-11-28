@@ -55,7 +55,7 @@ export default function PracticePanel() {
           id="practice-language"
           value={language}
           onChange={(e) => { setLanguage(e.target.value); setResult(null); setError(''); }}
-          className="rounded border border-border bg-canvas px-2 py-1 text-sm"
+          className="rounded border border-input-border bg-surface px-2 py-1 text-sm"
         >
           {Object.keys(LABELS).map((k) => <option key={k} value={k}>{LABELS[k]}</option>)}
         </select>
@@ -73,7 +73,7 @@ export default function PracticePanel() {
         spellCheck={false}
         value={sources[language]}
         onChange={(e) => setSources({ ...sources, [language]: e.target.value })}
-        className="min-h-0 flex-1 resize-none bg-canvas p-3 font-mono text-sm outline-none"
+        className="min-h-0 flex-1 resize-none bg-code-bg p-3 font-mono text-sm text-code-text outline-none"
       />
       {!isSql && (
         <input
@@ -81,12 +81,12 @@ export default function PracticePanel() {
           placeholder="Program input (stdin)"
           value={stdin}
           onChange={(e) => setStdin(e.target.value)}
-          className="border-t border-border bg-canvas px-3 py-2 font-mono text-xs outline-none"
+          className="border-t border-code-muted/30 bg-code-bg px-3 py-2 font-mono text-xs text-code-text outline-none"
         />
       )}
-      <div className="h-2/5 overflow-auto border-t border-border bg-surface p-3 font-mono text-xs" aria-live="polite">
-        {error && <p role="alert" className="text-warning">{error}</p>}
-        {!error && !result && <p className="text-muted">Output appears here.</p>}
+      <div className="h-2/5 overflow-auto border-t border-code-muted/30 bg-code-bg p-3 font-mono text-xs text-code-text" aria-live="polite">
+        {error && <p role="alert" className="alert">{error}</p>}
+        {!error && !result && <p className="text-code-muted">Output appears here.</p>}
         {result && (isSql ? <SqlResult r={result} /> : <CodeResult r={result} />)}
       </div>
     </section>
@@ -96,23 +96,23 @@ export default function PracticePanel() {
 function CodeResult({ r }) {
   return (
     <>
-      {r.compileError && <p className="mb-1 text-warning">Compilation failed</p>}
-      {r.timedOut && <p className="mb-1 text-warning">Time limit exceeded</p>}
+      {r.compileError && <p className="mb-1 text-code-error">Compilation failed</p>}
+      {r.timedOut && <p className="mb-1 text-code-error">Time limit exceeded</p>}
       {r.stdout && <pre className="whitespace-pre-wrap">{r.stdout}</pre>}
-      {r.stderr && <pre className="whitespace-pre-wrap text-warning">{r.stderr}</pre>}
-      <p className="mt-2 text-muted">exit {r.exitCode ?? '–'} · {r.durationMs} ms</p>
+      {r.stderr && <pre className="whitespace-pre-wrap text-code-error">{r.stderr}</pre>}
+      <p className="mt-2 text-code-muted">exit {r.exitCode ?? '–'} · {r.durationMs} ms</p>
     </>
   );
 }
 
 function SqlResult({ r }) {
-  if (r.error) return <pre className="whitespace-pre-wrap text-warning">{r.error}</pre>;
-  if (r.columns.length === 0) return <p className="text-success">Statement executed. {r.rowCount} row(s) affected.</p>;
+  if (r.error) return <pre className="whitespace-pre-wrap text-code-error">{r.error}</pre>;
+  if (r.columns.length === 0) return <p className="text-code-success">Statement executed. {r.rowCount} row(s) affected.</p>;
   return (
     <>
       <table className="border-collapse">
         <thead>
-          <tr>{r.columns.map((c) => <th key={c} className="border border-border px-2 py-1 text-left text-primary">{c}</th>)}</tr>
+          <tr>{r.columns.map((c) => <th key={c} className="border border-code-muted/40 px-2 py-1 text-left text-code-accent">{c}</th>)}</tr>
         </thead>
         <tbody>
           {r.rows.map((row, i) => (

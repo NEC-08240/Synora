@@ -142,7 +142,7 @@ export default function TutorPanel({ lessonId }) {
             {m.text}
           </p>
         ))}
-        {notice && <p role="alert" className="text-xs text-warning">{notice}</p>}
+        {notice && <p role="alert" className="alert">{notice}</p>}
       </div>
       {offline ? (
         <button onClick={connect} className={`${btn} m-3`}>{offlineLabel}</button>
