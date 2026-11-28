@@ -9,8 +9,8 @@ export default function Shell({ title, children, full = false }) {
       <header className="flex items-center gap-4 border-b border-border bg-surface px-5 py-3">
         <Link to="/" className="text-lg font-semibold text-primary">Synora</Link>
         {title && <span className="text-sm text-muted">/ {title}</span>}
-        <span className="ml-auto text-sm text-muted">{user?.name} · {user?.role}</span>
-        <button onClick={logout} className="rounded-md border border-border px-3 py-1 text-sm hover:border-primary hover:text-primary">
+        <span className="ml-auto min-w-0 truncate text-sm text-muted">{user?.name} · {user?.role}</span>
+        <button onClick={logout} className="shrink-0 whitespace-nowrap rounded-md border border-border px-3 py-1 text-sm hover:border-primary hover:text-primary">
           Sign out
         </button>
       </header>

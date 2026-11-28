@@ -22,7 +22,7 @@ export default function Manage() {
       <div className="grid gap-4 md:grid-cols-3">
         {subjects?.map((s) => (
           <div key={s.subjectId} className={card}>
-            <h3 className="font-semibold">{s.title}</h3>
+            <h2 className="font-semibold">{s.title}</h2>
             <p className="text-sm text-muted">{s.status} · {s.topicCount} topics</p>
           </div>
         ))}

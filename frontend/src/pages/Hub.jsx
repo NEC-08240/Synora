@@ -70,11 +70,11 @@ function SubjectCard({ subject }) {
 
   return (
     <div className={card}>
-      <button onClick={toggle} className="w-full text-left" aria-expanded={open} aria-label={`${subject.title}, ${open ? 'collapse' : 'expand'} topics`}>
+      <button onClick={toggle} className="w-full text-left" aria-expanded={open}>
         <span aria-hidden="true" className="mb-3 flex h-10 w-10 items-center justify-center rounded-md bg-[#E3EEF1] text-sm font-bold text-primary">{badgeFor(subject)}</span>
-        <h3 className="text-lg font-semibold">{subject.title}</h3>
+        <h2 className="text-lg font-semibold">{subject.title}</h2>
         <p className="text-sm text-muted">{subject.description}</p>
-        <p className="mt-2 text-xs text-primary">{subject.topicCount} topics {open ? '▲' : '▼'}</p>
+        <p className="mt-2 text-xs text-primary">{subject.topicCount} topics <span aria-hidden="true">{open ? "▲" : "▼"}</span></p>
       </button>
       {open && (
         <ul className="mt-4 space-y-3 border-t border-border pt-4">
